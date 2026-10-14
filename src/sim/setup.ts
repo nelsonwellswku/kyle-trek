@@ -1,14 +1,18 @@
+import { rollShipAgility } from './agility.js';
 import { createGrid } from './grid.js';
 import { placeShips } from './spawn.js';
 import type { BoardConfig, GameSetup, Rng, RngFactory } from './types.js';
 import { validateSetup } from './validation.js';
 
 /**
- * Compose one full game setup (pure): grid → spawn → stamp occupants →
- * validate (FR-001–FR-008). The RNG is injected (production: ex.Random
- * adapter; tests: deterministic stub) and `seed` is recorded so the setup
- * is reproducible — identical (configVersion, seed) inputs MUST yield
- * identical ship positions. Invalid results throw instead of returning.
+ * Compose one full game setup (pure): grid → spawn → agility → stamp
+ * occupants → validate (FR-001–FR-008 plus agility rules 6–9). The RNG is
+ * injected (production: ex.Random adapter; tests: deterministic stub) and
+ * `seed` is recorded so the setup is reproducible — identical
+ * (configVersion, seed) inputs MUST yield identical ship positions AND
+ * agility values. RNG draw order is pinned (research.md R-02): spawn
+ * ship-1, spawn ship-2, agility ship-1, agility ship-2 — so 001
+ * seed→position mappings are preserved. Invalid results throw.
  */
 export function setupGame(
   config: BoardConfig,
@@ -16,7 +20,15 @@ export function setupGame(
   rng: Rng,
 ): GameSetup {
   const grid = createGrid(config);
-  const ships = placeShips(config, rng);
+  const placements = placeShips(config, rng);
+  const [first, second] = placements.map((p) => {
+    const { agility, agilityModifier } = rollShipAgility(config, p.id, rng);
+    return { ...p, agility, agilityModifier };
+  });
+  if (first === undefined || second === undefined) {
+    throw new Error('setup: expected exactly 2 ship placements');
+  }
+  const ships: GameSetup['ships'] = [first, second];
 
   const ownerByCell = new Map(
     ships.map((s) => [`${s.position.row}:${s.position.col}`, s.id] as const),

@@ -51,6 +51,16 @@ export interface Grid {
 export interface Spaceship {
   readonly id: ShipId;
   readonly position: { readonly row: number; readonly col: number };
+  /** Agility stat, integer within the config roll range (8–20 shipped). */
+  readonly agility: number;
+  /** Movement range derived from the config stat→modifier table. */
+  readonly agilityModifier: number;
+}
+
+/** Spawn placement before agility is rolled (see setup.ts draw order). */
+export interface ShipPlacement {
+  readonly id: ShipId;
+  readonly position: { readonly row: number; readonly col: number };
 }
 
 /**
@@ -71,13 +81,48 @@ export interface ShipVisual {
   readonly color: string;
 }
 
+/** One stat→modifier band of the agility table (tuning data). */
+export interface AgilityBand {
+  readonly min: number;
+  readonly max: number;
+  readonly modifier: number;
+}
+
+/** Agility tuning: roll bounds plus the stat→modifier table. */
+export interface AgilityConfig {
+  readonly rollRange: IntRange;
+  readonly table: readonly AgilityBand[];
+}
+
 /** Validated board tuning loaded from `src/config/board.json`. */
 export interface BoardConfig {
   readonly version: string;
   readonly grid: { readonly rows: number; readonly cols: number };
   readonly spawnZones: readonly SpawnZone[];
   readonly ships: readonly ShipVisual[];
+  readonly agility: AgilityConfig;
 }
+
+/** Which ship moves and on which numbered turn (exactly one active). */
+export interface TurnState {
+  readonly activeShipId: ShipId;
+  readonly turnNumber: number;
+  /** Frozen legal destinations for this turn (see movement.ts). */
+  readonly legalSet: readonly { readonly row: number; readonly col: number }[];
+}
+
+/** Outcome of dispatching a destination click to the turn reducer. */
+export type MoveResult =
+  | {
+      readonly accepted: true;
+      readonly next: TurnState;
+      readonly move: {
+        readonly shipId: ShipId;
+        readonly from: { readonly row: number; readonly col: number };
+        readonly to: { readonly row: number; readonly col: number };
+      };
+    }
+  | { readonly accepted: false; readonly reason: string };
 
 /**
  * The complete initial game configuration: inputs plus outcome.

@@ -18,7 +18,7 @@
 
 **Purpose**: Baseline verification of the existing 001 foundation this feature extends
 
-- [ ] T001 Verify 001 baseline in repo root: `npm install`, `npm test` green, `npm run build` succeeds before any 002 changes
+- [X] T001 Verify 001 baseline in repo root: `npm install`, `npm test` green, `npm run build` succeeds before any 002 changes
 
 ---
 
@@ -28,10 +28,10 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T002 [P] Add `agility` section to `src/config/board.json` with rollRange `{min: 8, max: 20}` and the 7 stat→modifier bands (`8–9 → -1`, `10–11 → 0`, `12–13 → 1`, `14–15 → 2`, `16–17 → 3`, `18–19 → 4`, `20 → 5`) per `contracts/agility-config-schema.md`
-- [ ] T003 [P] Extend `src/sim/types.ts` with `AgilityBand`, agility config, `TurnState` (`activeShipId`, `turnNumber`, `legalSet`), and move accept/reject result types per `data-model.md` Entities 2–4
-- [ ] T004 Wire agility rolls into setup in `src/sim/setup.ts` with pinned RNG draw order (spawn ship-1 → spawn ship-2 → agility ship-1 → agility ship-2); `GameSetup` carries per-ship agility fixed for the game; identical `(configVersion, seed)` reproduces identical positions AND agility values per `research.md` R-02
-- [ ] T005 Extend `src/sim/validation.ts` with data-model rules 6–9: agility integer within 8–20, stat in exactly one band with matching modifier, table ordered/non-overlapping/gapless over the roll range, post-move distinct in-bounds cells — explicit typed errors, never silent correction
+- [X] T002 [P] Add `agility` section to `src/config/board.json` with rollRange `{min: 8, max: 20}` and the 7 stat→modifier bands (`8–9 → -1`, `10–11 → 0`, `12–13 → 1`, `14–15 → 2`, `16–17 → 3`, `18–19 → 4`, `20 → 5`) per `contracts/agility-config-schema.md`
+- [X] T003 [P] Extend `src/sim/types.ts` with `AgilityBand`, agility config, `TurnState` (`activeShipId`, `turnNumber`, `legalSet`), and move accept/reject result types per `data-model.md` Entities 2–4
+- [X] T004 Wire agility rolls into setup in `src/sim/setup.ts` with pinned RNG draw order (spawn ship-1 → spawn ship-2 → agility ship-1 → agility ship-2); `GameSetup` carries per-ship agility fixed for the game; identical `(configVersion, seed)` reproduces identical positions AND agility values per `research.md` R-02
+- [X] T005 Extend `src/sim/validation.ts` with data-model rules 6–9: agility integer within 8–20, stat in exactly one band with matching modifier, table ordered/non-overlapping/gapless over the roll range, post-move distinct in-bounds cells — explicit typed errors, never silent correction
 
 **Checkpoint**: Foundation ready — `board.json` carries agility data, setup produces seeded agility, validator enforces it; user story implementation can now begin
 
@@ -47,16 +47,16 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T006 [P] [US1] Write `tests/unit/agility.test.ts`: every table band plus boundaries (8/9 → -1, 10/11 → 0, 12/13 → 1, 14/15 → 2, 16/17 → 3, 18/19 → 4, 20 → 5), rolls confined to 8–20, same seed → same agility values, draw order ship-1 then ship-2, invalid classes (out-of-range stat, stat in no band, overlapping/gappy table) — verify FAIL
-- [ ] T007 [P] [US1] Write `tests/unit/movement.test.ts`: modifier-1 center cross, edge/corner truncation with no off-board cells, opponent-occupied cell excluded, straight-corridor blocked vs. L-route go-around, modifier 0/-1 → origin only, identical state → identical set (FR-012) — verify FAIL
-- [ ] T008 [P] [US1] Write `tests/unit/turn.test.ts`: first turn is always ship-1, strict alternation over N accepted moves, stay-in-place passes the turn, illegal destination and wrong-ship moves rejected with zero state change — verify FAIL
+- [X] T006 [P] [US1] Write `tests/unit/agility.test.ts`: every table band plus boundaries (8/9 → -1, 10/11 → 0, 12/13 → 1, 14/15 → 2, 16/17 → 3, 18/19 → 4, 20 → 5), rolls confined to 8–20, same seed → same agility values, draw order ship-1 then ship-2, invalid classes (out-of-range stat, stat in no band, overlapping/gappy table) — verify FAIL
+- [X] T007 [P] [US1] Write `tests/unit/movement.test.ts`: modifier-1 center cross, edge/corner truncation with no off-board cells, opponent-occupied cell excluded, straight-corridor blocked vs. L-route go-around, modifier 0/-1 → origin only, identical state → identical set (FR-012) — verify FAIL
+- [X] T008 [P] [US1] Write `tests/unit/turn.test.ts`: first turn is always ship-1, strict alternation over N accepted moves, stay-in-place passes the turn, illegal destination and wrong-ship moves rejected with zero state change — verify FAIL
 
 ### Implementation for User Story 1
 
-- [ ] T009 [P] [US1] Implement `src/sim/agility.ts` (pure, zero Excalibur imports): per-ship roll via injected `Rng` plus modifier lookup read from `board.json` table data with explicit errors for unmapped stats per `research.md` R-01
-- [ ] T010 [P] [US1] Implement `src/sim/movement.ts` (pure, zero Excalibur imports): `legalDestinations` returning `{origin}` plus all in-bounds cells with Manhattan distance `1..modifier`, minus the occupied cell, minus cells with no orthogonal path of length ≤ modifier avoiding it, per `research.md` R-03
-- [ ] T011 [US1] Implement `src/sim/turn.ts` (pure, zero Excalibur imports): immutable `TurnState` starting at ship-1/turn 1 plus `resolveMove` accept/reject reducer flipping `activeShipId` and incrementing `turnNumber` on every accept including stay-in-place, per `research.md` R-04 (depends on T009, T010)
-- [ ] T012 [US1] Run `npm test` fully green: new agility/movement/turn suites pass and 001 suites still pass with unchanged seed→position mappings (draw-order preservation)
+- [X] T009 [P] [US1] Implement `src/sim/agility.ts` (pure, zero Excalibur imports): per-ship roll via injected `Rng` plus modifier lookup read from `board.json` table data with explicit errors for unmapped stats per `research.md` R-01
+- [X] T010 [P] [US1] Implement `src/sim/movement.ts` (pure, zero Excalibur imports): `legalDestinations` returning `{origin}` plus all in-bounds cells with Manhattan distance `1..modifier`, minus the occupied cell, minus cells with no orthogonal path of length ≤ modifier avoiding it, per `research.md` R-03
+- [X] T011 [US1] Implement `src/sim/turn.ts` (pure, zero Excalibur imports): immutable `TurnState` starting at ship-1/turn 1 plus `resolveMove` accept/reject reducer flipping `activeShipId` and incrementing `turnNumber` on every accept including stay-in-place, per `research.md` R-04 (depends on T009, T010)
+- [X] T012 [US1] Run `npm test` fully green: new agility/movement/turn suites pass and 001 suites still pass with unchanged seed→position mappings (draw-order preservation)
 
 **Checkpoint**: At this point, User Story 1 is fully functional and testable headlessly — the complete movement ruleset works without any rendering
 
@@ -70,7 +70,7 @@
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Render highlight markers in `src/scenes/battle-scene.ts` directly from the turn's `legalSet`: every member marked and nothing outside it, rebuilt at each turn start and cleared/replaced on turn change, origin (stay) marker visually distinct from relocation markers, shape/outline in addition to color, per `contracts/movement-scene-contract.md` guarantees 3–4 (depends on Phase 3 legalSet)
+- [X] T013 [US2] Render highlight markers in `src/scenes/battle-scene.ts` directly from the turn's `legalSet`: every member marked and nothing outside it, rebuilt at each turn start and cleared/replaced on turn change, origin (stay) marker visually distinct from relocation markers, shape/outline in addition to color, per `contracts/movement-scene-contract.md` guarantees 3–4 (depends on Phase 3 legalSet)
 - [ ] T014 [US2] Manually verify `quickstart.md` checks 2 + 6 in the browser via `npm run dev` (depends on T013)
 
 **Checkpoint**: At this point, User Stories 1 AND 2 work — rules resolve headlessly and the board truthfully previews every legal destination
@@ -85,8 +85,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T015 [US3] Implement tile click → `resolveMove` dispatch in `src/scenes/battle-scene.ts`: left-click on a highlighted square moves the ship (origin click holds position) and ends the turn; clicks on non-highlighted squares or the non-active ship change nothing, per `contracts/movement-scene-contract.md` guarantee 5 (depends on Phase 3 reducer, Phase 4 markers)
-- [ ] T016 [US3] Implement turn ownership plus stat/modifier display in `src/scenes/battle-scene.ts`: active player/ship always visible with no ownerless intermediate state, each ship's agility stat and derived modifier shown so range is explainable, per contract guarantees 1–2
+- [X] T015 [US3] Implement tile click → `resolveMove` dispatch in `src/scenes/battle-scene.ts`: left-click on a highlighted square moves the ship (origin click holds position) and ends the turn; clicks on non-highlighted squares or the non-active ship change nothing, per `contracts/movement-scene-contract.md` guarantee 5 (depends on Phase 3 reducer, Phase 4 markers)
+- [X] T016 [US3] Implement turn ownership plus stat/modifier display in `src/scenes/battle-scene.ts`: active player/ship always visible with no ownerless intermediate state, each ship's agility stat and derived modifier shown so range is explainable, per contract guarantees 1–2
 - [ ] T017 [US3] Manually verify `quickstart.md` checks 1, 3, 4, 5 in the browser via `npm run dev` (depends on T015, T016)
 
 **Checkpoint**: All user stories are now functional — the full move → highlight → click → handoff loop plays end to end
@@ -97,9 +97,9 @@
 
 **Purpose**: Full validation, bundle check, and constitution compliance review
 
-- [ ] T018 Run complete `specs/002-agility-based-movement/quickstart.md` validation including check 7: temporarily corrupt the `agility` table in `src/config/board.json` (e.g. delete the `20` band) → reload shows an explicit error naming the failed rule, then revert
-- [ ] T019 [P] Verify production bundle: `npm run build` with no errors then `npm run preview` serves the same working movement game with no console errors
-- [ ] T020 Final `npm test` regression green plus constitution review of the change set (determinism from seed, no silent state changes, sim free of Excalibur imports, tuning confined to `board.json`)
+- [X] T018 Run complete `specs/002-agility-based-movement/quickstart.md` validation including check 7: temporarily corrupt the `agility` table in `src/config/board.json` (e.g. delete the `20` band) → reload shows an explicit error naming the failed rule, then revert
+- [X] T019 [P] Verify production bundle: `npm run build` with no errors then `npm run preview` serves the same working movement game with no console errors
+- [X] T020 Final `npm test` regression green plus constitution review of the change set (determinism from seed, no silent state changes, sim free of Excalibur imports, tuning confined to `board.json`)
 
 ---
 

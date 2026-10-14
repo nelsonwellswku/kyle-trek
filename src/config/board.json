@@ -9,5 +9,17 @@
   "ships": [
     { "id": "ship-1", "shape": "triangle", "color": "#22d3ee" },
     { "id": "ship-2", "shape": "pentagon", "color": "#fb9233" }
-  ]
+  ],
+  "agility": {
+    "rollRange": [8, 20],
+    "table": [
+      { "min": 8, "max": 9, "modifier": -1 },
+      { "min": 10, "max": 11, "modifier": 0 },
+      { "min": 12, "max": 13, "modifier": 1 },
+      { "min": 14, "max": 15, "modifier": 2 },
+      { "min": 16, "max": 17, "modifier": 3 },
+      { "min": 18, "max": 19, "modifier": 4 },
+      { "min": 20, "max": 20, "modifier": 5 }
+    ]
+  }
 }
