@@ -1,0 +1,13 @@
+{
+  "$schema": "board-config-v1",
+  "version": "1.0.0",
+  "grid": { "rows": 10, "cols": 10 },
+  "spawnZones": [
+    { "name": "top", "shipId": "ship-1", "rows": [1, 2], "cols": [1, 10] },
+    { "name": "bottom", "shipId": "ship-2", "rows": [9, 10], "cols": [1, 10] }
+  ],
+  "ships": [
+    { "id": "ship-1", "shape": "triangle", "color": "#22d3ee" },
+    { "id": "ship-2", "shape": "pentagon", "color": "#fb9233" }
+  ]
+}
