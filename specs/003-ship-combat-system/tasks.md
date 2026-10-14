@@ -18,9 +18,9 @@
 
 **Purpose**: Baseline verification before combat work begins
 
-- [ ] T001 Verify baseline builds and tests pass via `npm test` and `npm run build` in repository root
-- [ ] T002 [P] Review combat design inputs in `specs/003-ship-combat-system/spec.md`, `specs/003-ship-combat-system/plan.md`, `specs/003-ship-combat-system/research.md`
-- [ ] T003 [P] Review combat data contracts in `specs/003-ship-combat-system/contracts/combat-config-schema.md` and `specs/003-ship-combat-system/contracts/combat-scene-contract.md`
+- [X] T001 Verify baseline builds and tests pass via `npm test` and `npm run build` in repository root
+- [X] T002 [P] Review combat design inputs in `specs/003-ship-combat-system/spec.md`, `specs/003-ship-combat-system/plan.md`, `specs/003-ship-combat-system/research.md`
+- [X] T003 [P] Review combat data contracts in `specs/003-ship-combat-system/contracts/combat-config-schema.md` and `specs/003-ship-combat-system/contracts/combat-scene-contract.md`
 
 ---
 
@@ -30,9 +30,9 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Add `combat` section to `src/config/board.json` (strength.rollRange `[8, 20]`, constitution.rollRange `[8, 20]`, shared statTable `8–9 → -1; 10–11 → 0; 12–13 → 1; 14–15 → 2; 16–17 → 3; 18–19 → 4; 20 → 5`, armorClass `12`, hitPoints `{die: 20, perModifierBonus: 2, minStart: 1}`, attack `{die: 20}`, damage `{die: 8, minDamage: 1}`, torpedo `{blinkHz, speedTilesPerSec, nearMissOffsetTiles}`) keeping existing `agility` section untouched
-- [ ] T005 Extend combat config types in `src/sim/types.ts` (CombatConfig, StatBand, CombatTuning, TorpedoTuning, extended Spaceship with `strength: number (integer 8–20)`, `strengthModifier: number (integer -1…5)`, `constitution: number (integer 8–20)`, `constitutionModifier: number (integer -1…5)`, `hitPoints: number (integer 0…maxHitPoints)`, `maxHitPoints: number (integer >= 1)`, `armorClass: number (integer, always 12)`, extended TurnState with `moveUsed: boolean`, `attackUsed: boolean`, `over: { winner: ShipId } | null`)
-- [ ] T006 Implement combat config parsing and validation in `src/sim/board-config.ts` per `specs/003-ship-combat-system/contracts/combat-config-schema.md` rules 1–6 (integer ranges with `min ≤ max`; statTable sorted ascending, non-overlapping, gapless over 8–20; default table reproduces spec mapping exactly; positive-integer AC/dice/minima; torpedo visuals present and positive; any violation throws explicit typed error naming the failed rule, game never starts on fallbacks)
+- [X] T004 Add `combat` section to `src/config/board.json` (strength.rollRange `[8, 20]`, constitution.rollRange `[8, 20]`, shared statTable `8–9 → -1; 10–11 → 0; 12–13 → 1; 14–15 → 2; 16–17 → 3; 18–19 → 4; 20 → 5`, armorClass `12`, hitPoints `{die: 20, perModifierBonus: 2, minStart: 1}`, attack `{die: 20}`, damage `{die: 8, minDamage: 1}`, torpedo `{blinkHz, speedTilesPerSec, nearMissOffsetTiles}`) keeping existing `agility` section untouched
+- [X] T005 Extend combat config types in `src/sim/types.ts` (CombatConfig, StatBand, CombatTuning, TorpedoTuning, extended Spaceship with `strength: number (integer 8–20)`, `strengthModifier: number (integer -1…5)`, `constitution: number (integer 8–20)`, `constitutionModifier: number (integer -1…5)`, `hitPoints: number (integer 0…maxHitPoints)`, `maxHitPoints: number (integer >= 1)`, `armorClass: number (integer, always 12)`, extended TurnState with `moveUsed: boolean`, `attackUsed: boolean`, `over: { winner: ShipId } | null`)
+- [X] T006 Implement combat config parsing and validation in `src/sim/board-config.ts` per `specs/003-ship-combat-system/contracts/combat-config-schema.md` rules 1–6 (integer ranges with `min ≤ max`; statTable sorted ascending, non-overlapping, gapless over 8–20; default table reproduces spec mapping exactly; positive-integer AC/dice/minima; torpedo visuals present and positive; any violation throws explicit typed error naming the failed rule, game never starts on fallbacks)
 
 **Checkpoint**: Foundation ready — `npm test` still green, combat tuning loads from data, user story work can begin
 
@@ -48,17 +48,17 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T007 [P] [US1] Write fail-first stat-mapping tests in `tests/unit/combat.test.ts` (every band incl. boundaries `8/9 → -1`, `10/11 → 0`, `12/13 → 1`, `14/15 → 2`, `16/17 → 3`, `18/19 → 4`, `20 → 5`; zero/multiple-band match throws; rolls stay within `8–20` inclusive)
-- [ ] T008 [P] [US1] Write fail-first HP/AC tests in `tests/unit/combat.test.ts` (HP formula `d20 roll integer 1–20 inclusive + (constitution modifier × 2)` with worked example `base roll 10 + modifier +2 → 14`; HP floored at minimum `1` on negative constitution; `armorClass` exactly `12`)
-- [ ] T009 [P] [US1] Write fail-first setup determinism tests in `tests/unit/combat.test.ts` (same `(configVersion, seed)` yields identical strength, constitution, and HP; draw order pinned: spawn ship-1, spawn ship-2, agility ship-1, agility ship-2, strength ship-1, strength ship-2, constitution ship-1, constitution ship-2, HP-base ship-1, HP-base ship-2; existing 001/002 seed→position/agility expectations preserved)
-- [ ] T010 [P] [US1] Write fail-first combat validation tests in `tests/unit/validation.test.ts` (data-model rules 10–15: `strength` integer within `combat.strength.rollRange (8–20)`; `constitution` integer within `combat.constitution.rollRange (8–20)`; modifiers equal exactly-one band; `maxHitPoints ≥ 1` equals `baseRoll + constitutionModifier × 2` floored at 1 with base roll integer 1–20; `armorClass === 12` and `0 ≤ hitPoints ≤ maxHitPoints`; malformed combat config rejected with named errors)
+- [X] T007 [P] [US1] Write fail-first stat-mapping tests in `tests/unit/combat.test.ts` (every band incl. boundaries `8/9 → -1`, `10/11 → 0`, `12/13 → 1`, `14/15 → 2`, `16/17 → 3`, `18/19 → 4`, `20 → 5`; zero/multiple-band match throws; rolls stay within `8–20` inclusive)
+- [X] T008 [P] [US1] Write fail-first HP/AC tests in `tests/unit/combat.test.ts` (HP formula `d20 roll integer 1–20 inclusive + (constitution modifier × 2)` with worked example `base roll 10 + modifier +2 → 14`; HP floored at minimum `1` on negative constitution; `armorClass` exactly `12`)
+- [X] T009 [P] [US1] Write fail-first setup determinism tests in `tests/unit/combat.test.ts` (same `(configVersion, seed)` yields identical strength, constitution, and HP; draw order pinned: spawn ship-1, spawn ship-2, agility ship-1, agility ship-2, strength ship-1, strength ship-2, constitution ship-1, constitution ship-2, HP-base ship-1, HP-base ship-2; existing 001/002 seed→position/agility expectations preserved)
+- [X] T010 [P] [US1] Write fail-first combat validation tests in `tests/unit/validation.test.ts` (data-model rules 10–15: `strength` integer within `combat.strength.rollRange (8–20)`; `constitution` integer within `combat.constitution.rollRange (8–20)`; modifiers equal exactly-one band; `maxHitPoints ≥ 1` equals `baseRoll + constitutionModifier × 2` floored at 1 with base roll integer 1–20; `armorClass === 12` and `0 ≤ hitPoints ≤ maxHitPoints`; malformed combat config rejected with named errors)
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Implement pure combat stat module in `src/sim/combat.ts` (modifierForStat shared-table lookup throwing on zero/multiple matches; rollShipCombatStats per-ship strength/constitution via injected Rng; computeHitPoints `d20 (1–20) + modifier × 2` floored at `minStart 1`; no hard-coded numbers, all bounds from config)
-- [ ] T012 [US1] Wire combat rolls into setup in `src/sim/setup.ts` in pinned RNG order (strength ship-1/ship-2, constitution ship-1/ship-2, HP-base ship-1/ship-2 appended after existing spawn+agility draws; stamp `armorClass 12`; fixed for the battle)
-- [ ] T013 [US1] Extend setup validation rules 10–15 in `src/sim/validation.ts` (strength/constitution ranges, modifier-band agreement, HP formula + floor, AC 12, HP bounds, combat config well-formedness; explicit typed errors, never silently corrected)
-- [ ] T014 [US1] Display combat stat block in `src/scenes/battle-scene.ts` (per-ship text `STR x (±m) · CON y (±m) · HP cur/max · AC 12` before/during turns per contract guarantee 1; text, never color-only)
+- [X] T011 [US1] Implement pure combat stat module in `src/sim/combat.ts` (modifierForStat shared-table lookup throwing on zero/multiple matches; rollShipCombatStats per-ship strength/constitution via injected Rng; computeHitPoints `d20 (1–20) + modifier × 2` floored at `minStart 1`; no hard-coded numbers, all bounds from config)
+- [X] T012 [US1] Wire combat rolls into setup in `src/sim/setup.ts` in pinned RNG order (strength ship-1/ship-2, constitution ship-1/ship-2, HP-base ship-1/ship-2 appended after existing spawn+agility draws; stamp `armorClass 12`; fixed for the battle)
+- [X] T013 [US1] Extend setup validation rules 10–15 in `src/sim/validation.ts` (strength/constitution ranges, modifier-band agreement, HP formula + floor, AC 12, HP bounds, combat config well-formedness; explicit typed errors, never silently corrected)
+- [X] T014 [US1] Display combat stat block in `src/scenes/battle-scene.ts` (per-ship text `STR x (±m) · CON y (±m) · HP cur/max · AC 12` before/during turns per contract guarantee 1; text, never color-only)
 
 **Checkpoint**: US1 independently testable — `npm test` green; new battle shows correct stat blocks; same seed replays identical stats/HP
 
@@ -74,15 +74,15 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T015 [P] [US2] Write fail-first two-action turn tests in `tests/unit/turn.test.ts` (attack-before-move leaves move available; move-before-attack leaves attack available; second `resolveMove` rejected; second `dispatchAttack`/enemy-ship selection launches nothing and consumes no rolls; `skipMove`/`skipAttack`/`endTurnEarly` consume flags with no state change and no rolls; both-used or early-end flips `activeShipId` and increments `turnNumber` with fresh `legalSet`; empty-square/own-ship selection is a no-op consuming nothing; rapid double-selection launches exactly one torpedo)
-- [ ] T016 [P] [US2] Write fail-first click-routing tests in `tests/unit/turn.test.ts` (enemy-ship cell with `attackUsed=false` and `over=null` dispatches attack at unlimited range; legalSet cell with `moveUsed=false` dispatches move; all other clicks ignored; every click when `over` is set ignored)
+- [X] T015 [P] [US2] Write fail-first two-action turn tests in `tests/unit/turn.test.ts` (attack-before-move leaves move available; move-before-attack leaves attack available; second `resolveMove` rejected; second `dispatchAttack`/enemy-ship selection launches nothing and consumes no rolls; `skipMove`/`skipAttack`/`endTurnEarly` consume flags with no state change and no rolls; both-used or early-end flips `activeShipId` and increments `turnNumber` with fresh `legalSet`; empty-square/own-ship selection is a no-op consuming nothing; rapid double-selection launches exactly one torpedo)
+- [X] T016 [P] [US2] Write fail-first click-routing tests in `tests/unit/turn.test.ts` (enemy-ship cell with `attackUsed=false` and `over=null` dispatches attack at unlimited range; legalSet cell with `moveUsed=false` dispatches move; all other clicks ignored; every click when `over` is set ignored)
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Extend turn reducer in `src/sim/turn.ts` to two-action turns (add `moveUsed: boolean` starting false, `attackUsed: boolean` starting false, `over: { winner: ShipId } | null` starting null; `resolveMove` marks `moveUsed` instead of ending turn; add `skipMove`, `skipAttack`/`endTurnEarly`; advance turn only on both-used or early-end; `over` terminal rejects everything; pure and immutable)
-- [ ] T018 [US2] Route scene clicks per research R-05 in `src/scenes/battle-scene.ts` (enemy-ship cell → `dispatchAttack` regardless of grid distance; legalSet cell → `resolveMove`; else ignore with no roll consumed; post-`over` clicks ignored)
-- [ ] T019 [US2] Add Skip Movement + End Turn / Skip Attack controls in `src/scenes/battle-scene.ts` (clickable and keyboard-accessible on-screen controls, active only while their action is unused, per contract guarantee 8; activating consumes the flag with no state change and no rolls)
-- [ ] T020 [US2] Show remaining-action indicators in `src/scenes/battle-scene.ts` (persistent turn line `Turn n — Player X (ship-i) to act · Move: available/used · Attack: available/used` updated immediately after every dispatch, per contract guarantee 2)
+- [X] T017 [US2] Extend turn reducer in `src/sim/turn.ts` to two-action turns (add `moveUsed: boolean` starting false, `attackUsed: boolean` starting false, `over: { winner: ShipId } | null` starting null; `resolveMove` marks `moveUsed` instead of ending turn; add `skipMove`, `skipAttack`/`endTurnEarly`; advance turn only on both-used or early-end; `over` terminal rejects everything; pure and immutable)
+- [X] T018 [US2] Route scene clicks per research R-05 in `src/scenes/battle-scene.ts` (enemy-ship cell → `dispatchAttack` regardless of grid distance; legalSet cell → `resolveMove`; else ignore with no roll consumed; post-`over` clicks ignored)
+- [X] T019 [US2] Add Skip Movement + End Turn / Skip Attack controls in `src/scenes/battle-scene.ts` (clickable and keyboard-accessible on-screen controls, active only while their action is unused, per contract guarantee 8; activating consumes the flag with no state change and no rolls)
+- [X] T020 [US2] Show remaining-action indicators in `src/scenes/battle-scene.ts` (persistent turn line `Turn n — Player X (ship-i) to act · Move: available/used · Attack: available/used` updated immediately after every dispatch, per contract guarantee 2)
 
 **Checkpoint**: US1 + US2 independently functional — flexible turns work in either order with skips; `npm test` green
 
@@ -98,16 +98,16 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T021 [P] [US3] Write fail-first attack-roll tests in `tests/unit/combat.test.ts` (exactly one d20 `integer 1–20` per attack; `total = attackRoll + strengthModifier`; `total ≥ defenderAC (12)` hits else misses; worked cases `10 + 2 = 12 → hit` and `9 + 1 = 10 → miss`; negative modifier `strength 8–9 → -1` reduces totals accordingly)
-- [ ] T022 [P] [US3] Write fail-first damage/HP tests in `tests/unit/combat.test.ts` (miss → both HP unchanged and NO damage roll consumed; hit → exactly one d8 `integer 1–8`, `damage = damageRoll + strengthModifier` floored at minimum `1`; defender `hitPoints −= damage` clamped ≥ `0`; worked case `damage roll 5 + modifier +2 vs 10 HP → 3 HP`; negative strength modifier still deals ≥ 1)
-- [ ] T023 [P] [US3] Write fail-first win-terminality tests in `tests/unit/turn.test.ts` (lethal hit `4 HP vs 6 damage → 0 HP` sets `over = { winner: attacker }` immediately with no successor turn; further moves/attacks/skips/turns rejected after `over`; data-model rule 16: HP never negative nor above max, `over` set iff some ship at 0 with winner = attacker)
-- [ ] T024 [P] [US3] Write fail-first seeded-battle replay tests in `tests/unit/combat.test.ts` (in-battle order: one d20 per attack, then one d8 only on hit; same seed + action sequence reproduces identical rolls, HP totals, and winner per FR-019/SC-007)
+- [X] T021 [P] [US3] Write fail-first attack-roll tests in `tests/unit/combat.test.ts` (exactly one d20 `integer 1–20` per attack; `total = attackRoll + strengthModifier`; `total ≥ defenderAC (12)` hits else misses; worked cases `10 + 2 = 12 → hit` and `9 + 1 = 10 → miss`; negative modifier `strength 8–9 → -1` reduces totals accordingly)
+- [X] T022 [P] [US3] Write fail-first damage/HP tests in `tests/unit/combat.test.ts` (miss → both HP unchanged and NO damage roll consumed; hit → exactly one d8 `integer 1–8`, `damage = damageRoll + strengthModifier` floored at minimum `1`; defender `hitPoints −= damage` clamped ≥ `0`; worked case `damage roll 5 + modifier +2 vs 10 HP → 3 HP`; negative strength modifier still deals ≥ 1)
+- [X] T023 [P] [US3] Write fail-first win-terminality tests in `tests/unit/turn.test.ts` (lethal hit `4 HP vs 6 damage → 0 HP` sets `over = { winner: attacker }` immediately with no successor turn; further moves/attacks/skips/turns rejected after `over`; data-model rule 16: HP never negative nor above max, `over` set iff some ship at 0 with winner = attacker)
+- [X] T024 [P] [US3] Write fail-first seeded-battle replay tests in `tests/unit/combat.test.ts` (in-battle order: one d20 per attack, then one d8 only on hit; same seed + action sequence reproduces identical rolls, HP totals, and winner per FR-019/SC-007)
 
 ### Implementation for User Story 3
 
-- [ ] T025 [US3] Implement pure attack resolution in `src/sim/combat.ts` (resolveAttack returning `{ attackRoll, total, hit, damageRoll?, damage? }` with exactly-one-d20 / exactly-one-d8-on-hit semantics and `minDamage 1` floor; HP application `currentHP − damage` clamped ≥ 0 kept in caller)
-- [ ] T026 [US3] Implement `dispatchAttack` with HP + win detection in `src/sim/turn.ts` (consume rolls via combat module, apply HP clamp, set `over` on kill immediately, mark `attackUsed`, advance turn only if not over and both actions used)
-- [ ] T027 [US3] Disclose attack outcomes as text in `src/scenes/battle-scene.ts` (immediate outcome line `attack roll R + mod = total vs AC 12 → HIT/MISS` plus on hit `damage roll D + mod = dmg → defender HP a → b`, per contract guarantee 7; win line `Player X wins` disabling further input per guarantee 9)
+- [X] T025 [US3] Implement pure attack resolution in `src/sim/combat.ts` (resolveAttack returning `{ attackRoll, total, hit, damageRoll?, damage? }` with exactly-one-d20 / exactly-one-d8-on-hit semantics and `minDamage 1` floor; HP application `currentHP − damage` clamped ≥ 0 kept in caller)
+- [X] T026 [US3] Implement `dispatchAttack` with HP + win detection in `src/sim/turn.ts` (consume rolls via combat module, apply HP clamp, set `over` on kill immediately, mark `attackUsed`, advance turn only if not over and both actions used)
+- [X] T027 [US3] Disclose attack outcomes as text in `src/scenes/battle-scene.ts` (immediate outcome line `attack roll R + mod = total vs AC 12 → HIT/MISS` plus on hit `damage roll D + mod = dmg → defender HP a → b`, per contract guarantee 7; win line `Player X wins` disabling further input per guarantee 9)
 
 **Checkpoint**: US1–US3 independently functional — full combat loop with correct math and immediate victory
 

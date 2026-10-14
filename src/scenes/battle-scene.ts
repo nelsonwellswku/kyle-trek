@@ -4,6 +4,7 @@ import {
   Color,
   Engine,
   Font,
+  Keys,
   Label,
   Polygon,
   Rectangle,
@@ -11,11 +12,20 @@ import {
   TileMap,
   Vector,
 } from 'excalibur';
-import { initialTurn, resolveMove } from '../sim/turn.js';
+import {
+  dispatchAttack,
+  endTurnEarly,
+  initialTurn,
+  resolveMove,
+  skipMove,
+} from '../sim/turn.js';
 import type {
+  AttackOutcome,
   BoardConfig,
   GameSetup,
+  Rng,
   ShipId,
+  Spaceship,
   TurnState,
 } from '../sim/types.js';
 
@@ -23,6 +33,22 @@ import type {
 const VIEW_WIDTH = 800;
 const VIEW_HEIGHT = 600;
 const BOARD_MARGIN = 60;
+/** Extra headroom above the grid for the multi-line status text. */
+const BOARD_TOP_MARGIN = 112;
+/** Status text styling: small monospace, anchored top-center. */
+const STATUS_FONT_SIZE = 14;
+const STATUS_TOP = 8;
+
+/** Bottom-strip action buttons (skip controls, FR-020). */
+const BUTTON_WIDTH = 180;
+const BUTTON_HEIGHT = 30;
+const BUTTON_Y = 572;
+const SKIP_BUTTON_X = 300;
+const END_BUTTON_X = 500;
+const BUTTON_FILL = '#1e293b';
+const BUTTON_FILL_DISABLED = '#0f172a';
+const BUTTON_BORDER = '#facc15';
+const BUTTON_TEXT_SIZE = 13;
 
 /** Board cell styling (tuning-independent; ship visuals come from config). */
 const CELL_FILL = '#0b1020';
@@ -34,11 +60,13 @@ const HIGHLIGHT = '#facc15';
 
 /**
  * Presentation-only battle board: maps a validated GameSetup onto an
- * Excalibur TileMap plus two ship Actors, with US2 highlight markers for the
- * active turn's legal destinations, US3 left-click move dispatch, and a turn
- * status display. Reads sim state, advances it only through the pure turn
- * reducer, never rolls RNG. Guarantees per contracts/scene-contract.md (001)
- * and contracts/movement-scene-contract.md (guarantees 1-5).
+ * Excalibur TileMap plus two ship Actors, with highlight markers for the
+ * active turn's legal destinations, left-click move/attack dispatch, skip
+ * controls, and a turn status display. Reads sim state, advances it only
+ * through the pure turn reducer, never rolls RNG except via the injected
+ * seedable source for attacks. Guarantees per contracts/scene-contract.md
+ * (001), contracts/movement-scene-contract.md (guarantees 1-5), and
+ * contracts/combat-scene-contract.md (guarantees 1-3, 7-10).
  */
 export class BattleScene extends Scene {
   private tile = 0;
@@ -46,16 +74,23 @@ export class BattleScene extends Scene {
   private originY = 0;
   /** Current known ship positions (setup at first; updated on accepted moves). */
   private readonly positions = new Map<ShipId, { row: number; col: number }>();
+  /** Current known hit points (setup at first; updated on accepted attacks). */
+  private readonly hitPoints = new Map<ShipId, number>();
   /** Active highlight marker actors, cleared on every turn change. */
   private markers: Actor[] = [];
   /** Frozen active turn; advanced only by accepted reducer results. */
   private turn: TurnState | null = null;
   private readonly shipActors = new Map<ShipId, Actor>();
   private status: Label | null = null;
+  private skipButton: ButtonControl | null = null;
+  private endButton: ButtonControl | null = null;
+  /** Formatted last-attack outcome for the status display (T027). */
+  private lastOutcome: string | null = null;
 
   constructor(
     private readonly setup: GameSetup,
     private readonly config: BoardConfig,
+    private readonly rng: Rng,
   ) {
     super();
   }
@@ -67,13 +102,17 @@ export class BattleScene extends Scene {
       Math.floor(
         Math.min(
           (VIEW_WIDTH - BOARD_MARGIN * 2) / cols,
-          (VIEW_HEIGHT - BOARD_MARGIN * 2) / rows,
+          (VIEW_HEIGHT - BOARD_TOP_MARGIN - BOARD_MARGIN) / rows,
         ),
       ),
     );
     this.tile = tile;
     this.originX = Math.floor((VIEW_WIDTH - tile * cols) / 2);
-    this.originY = Math.floor((VIEW_HEIGHT - tile * rows) / 2);
+    this.originY =
+      BOARD_TOP_MARGIN +
+      Math.floor(
+        (VIEW_HEIGHT - BOARD_TOP_MARGIN - BOARD_MARGIN - tile * rows) / 2,
+      );
     const originX = this.originX;
     const originY = this.originY;
 
@@ -102,13 +141,18 @@ export class BattleScene extends Scene {
 
     for (const ship of this.setup.ships) {
       this.positions.set(ship.id, { ...ship.position });
+      this.hitPoints.set(ship.id, ship.hitPoints);
     }
 
     this.status = new Label({
       x: VIEW_WIDTH / 2,
-      y: 30,
-      anchor: Vector.Half,
-      font: new Font({ size: 16, family: 'monospace', color: Color.White }),
+      y: STATUS_TOP,
+      anchor: new Vector(0.5, 0),
+      font: new Font({
+        size: STATUS_FONT_SIZE,
+        family: 'monospace',
+        color: Color.White,
+      }),
     });
     this.status.z = 3;
     this.add(this.status);
@@ -118,9 +162,13 @@ export class BattleScene extends Scene {
       initialTurn({
         rows: this.setup.grid.rows,
         cols: this.setup.grid.cols,
-        ships: this.setup.ships,
+        ships: this.simShips(),
       }),
     );
+
+    this.skipButton = this.makeButton(SKIP_BUTTON_X, 'Skip Move (M)');
+    this.endButton = this.makeButton(END_BUTTON_X, 'End Turn (E)');
+    this.refreshButtons();
 
     for (const ship of this.setup.ships) {
       const visual = this.config.ships.find((s) => s.id === ship.id);
@@ -145,17 +193,34 @@ export class BattleScene extends Scene {
     engine.input.pointers.on('down', (pointer) => {
       this.onLeftClick(pointer.screenPos);
     });
+    engine.input.keyboard.on('press', (event) => {
+      if (event.key === Keys.M) {
+        this.doSkipMove();
+      } else if (event.key === Keys.E || event.key === Keys.Enter) {
+        this.doEndTurn();
+      }
+    });
   }
 
   /**
-   * Single-action left-click dispatch (US3, contract guarantee 5): map the
-   * click to a board cell and feed it to the turn reducer. Accepted moves
-   * (including stay-in-place) relocate the ship actor and rotate the turn;
-   * anything else — off-board, non-highlighted, or opponent-occupied cells —
-   * is ignored with no state change (FR-009).
+   * Two-action left-click dispatch (FR-006/FR-009, contract guarantees 3+8):
+   * bottom-strip buttons first, then the board cell — the enemy ship launches
+   * one torpedo while the attack is unused, a highlighted square moves while
+   * the move is unused, and anything else (off-board, empty or own-ship
+   * squares, used actions, finished game) is ignored with no state change
+   * and no roll consumed.
    */
   private onLeftClick(screenPos: Vector): void {
-    if (this.turn === null) return;
+    if (this.turn === null || this.turn.over !== null) return;
+    const button = this.buttonAt(screenPos);
+    if (button === 'skip') {
+      this.doSkipMove();
+      return;
+    }
+    if (button === 'end') {
+      this.doEndTurn();
+      return;
+    }
     const col = Math.floor((screenPos.x - this.originX) / this.tile) + 1;
     const row = Math.floor((screenPos.y - this.originY) / this.tile) + 1;
     if (
@@ -166,18 +231,33 @@ export class BattleScene extends Scene {
     ) {
       return;
     }
-    const result = resolveMove(
-      this.turn,
-      {
-        rows: this.setup.grid.rows,
-        cols: this.setup.grid.cols,
-        ships: this.setup.ships.map((s) => ({
-          ...s,
-          position: { ...this.positionOf(s.id) },
-        })),
-      },
-      { row, col },
-    );
+    const board = {
+      rows: this.setup.grid.rows,
+      cols: this.setup.grid.cols,
+      ships: this.simShips(),
+    };
+    const foeId: ShipId =
+      this.turn.activeShipId === 'ship-1' ? 'ship-2' : 'ship-1';
+    const foePos = this.positionOf(foeId);
+    if (row === foePos.row && col === foePos.col) {
+      if (this.turn.attackUsed) return;
+      const result = dispatchAttack(
+        this.turn,
+        board,
+        this.config,
+        foeId,
+        this.rng,
+      );
+      if (!result.accepted) return;
+      for (const ship of result.ships) {
+        this.hitPoints.set(ship.id, ship.hitPoints);
+      }
+      this.lastOutcome = this.formatOutcome(result.outcome);
+      this.advanceTo(result.next);
+      return;
+    }
+    if (this.turn.moveUsed) return;
+    const result = resolveMove(this.turn, board, { row, col });
     if (!result.accepted) return;
     this.positions.set(result.move.shipId, { ...result.move.to });
     const actor = this.shipActors.get(result.move.shipId);
@@ -190,29 +270,189 @@ export class BattleScene extends Scene {
     this.advanceTo(result.next);
   }
 
-  /** Rotate to a new turn: refresh markers and the status display together,
+  /** Skip Movement control (FR-007/FR-020): consumes the move, no rolls. */
+  private doSkipMove(): void {
+    if (this.turn === null || this.turn.over !== null) return;
+    if (this.turn.moveUsed) return;
+    this.advanceTo(
+      skipMove(this.turn, {
+        rows: this.setup.grid.rows,
+        cols: this.setup.grid.cols,
+        ships: this.simShips(),
+      }),
+    );
+  }
+
+  /** End Turn / Skip Attack control (FR-020): passes control, no rolls. */
+  private doEndTurn(): void {
+    if (this.turn === null || this.turn.over !== null) return;
+    this.advanceTo(
+      endTurnEarly(this.turn, {
+        rows: this.setup.grid.rows,
+        cols: this.setup.grid.cols,
+        ships: this.simShips(),
+      }),
+    );
+  }
+
+  /** Rotate to a new turn: refresh markers, buttons, and status together,
    * so the board never shows a new turn with stale highlights or text. */
   private advanceTo(turn: TurnState): void {
     this.turn = turn;
     this.renderLegalSet(turn);
     this.renderStatus(turn);
+    this.refreshButtons();
   }
 
-  /** Turn ownership + explainable range (US3, contract guarantees 1-2):
-   * active player/ship on line one, every ship's agility stat and derived
-   * modifier on line two. */
+  /** Turn ownership + remaining actions + explainable stats + last outcome
+   * (FR-008/FR-017/FR-018, contract guarantees 1-2, 7, 9): first line names the active player/ship
+   * and which actions remain (or declares the winner once the game is over),
+   * then agility, then one combat line per ship with LIVE hit points (kept
+   * short so each fits the 800px canvas — never join both ships on one
+   * line), then the last-attack outcome line. */
   private renderStatus(turn: TurnState): void {
     if (this.status === null) return;
     const activePlayer = turn.activeShipId === 'ship-1' ? 'Player 1' : 'Player 2';
+    const head =
+      turn.over !== null
+        ? `Turn ${turn.turnNumber} — ${turn.over.winner === 'ship-1' ? 'Player 1' : 'Player 2'} (${turn.over.winner}) wins!`
+        : `Turn ${turn.turnNumber} — ${activePlayer} (${turn.activeShipId}) · Move: ${turn.moveUsed ? 'used' : 'available'} · Attack: ${turn.attackUsed ? 'used' : 'available'}`;
     const stats = this.setup.ships
       .map((s) => {
         const sign = s.agilityModifier >= 0 ? '+' : '';
         return `${s.id}: agility ${s.agility} (${sign}${s.agilityModifier})`;
       })
       .join(' · ');
+    const combatLines = this.setup.ships.map((s) => {
+      const strSign = s.strengthModifier >= 0 ? '+' : '';
+      const conSign = s.constitutionModifier >= 0 ? '+' : '';
+      return (
+        `${s.id}: STR ${s.strength} (${strSign}${s.strengthModifier}) · ` +
+        `CON ${s.constitution} (${conSign}${s.constitutionModifier}) · ` +
+        `HP ${this.hpOf(s.id)}/${s.maxHitPoints} · AC ${s.armorClass}`
+      );
+    });
     this.status.text =
-      `Turn ${turn.turnNumber} — ${activePlayer} (${turn.activeShipId}) to move\n` +
-      stats;
+      head +
+      `\n` +
+      stats +
+      `\n` +
+      combatLines.join('\n') +
+      `\n` +
+      (this.lastOutcome ?? 'Last attack: none yet');
+  }
+
+  /**
+   * Immediate outcome disclosure (FR-018, contract guarantee 7): attack roll
+   * value and total, hit/miss verdict, and on a hit the damage roll value
+   * plus the defender's remaining hit points — as text, kept short enough
+   * for the 800px canvas.
+   */
+  private formatOutcome(outcome: AttackOutcome): string {
+    const attacker = this.setup.ships.find((s) => s.id === outcome.attackerId);
+    const defender = this.setup.ships.find((s) => s.id === outcome.defenderId);
+    if (attacker === undefined || defender === undefined) {
+      throw new Error('battle-scene: outcome references an unknown ship');
+    }
+    const sign = attacker.strengthModifier >= 0 ? '+' : '';
+    const head =
+      `Last attack: roll ${outcome.attackRoll} (${sign}${attacker.strengthModifier}) = ` +
+      `${outcome.total} vs AC ${defender.armorClass} → ${outcome.hit ? 'HIT' : 'MISS'}`;
+    if (
+      !outcome.hit ||
+      outcome.damageRoll === undefined ||
+      outcome.damage === undefined
+    ) {
+      return head;
+    }
+    return (
+      head +
+      ` · dmg ${outcome.damageRoll} (${sign}${attacker.strengthModifier}) = ` +
+      `${outcome.damage} · ${outcome.defenderId} HP ${outcome.defenderHPBefore} → ${outcome.defenderHPAfter}`
+    );
+  }
+
+  /** Live ship snapshots for reducer dispatches (positions + HP). */
+  private simShips(): Spaceship[] {
+    return this.setup.ships.map((s) => ({
+      ...s,
+      position: { ...this.positionOf(s.id) },
+      hitPoints: this.hpOf(s.id),
+    }));
+  }
+
+  private hpOf(id: ShipId): number {
+    const hp = this.hitPoints.get(id);
+    if (hp === undefined) {
+      throw new Error(`battle-scene: no known hit points for ${id}`);
+    }
+    return hp;
+  }
+
+  /**
+   * Bottom-strip skip controls (FR-020, contract guarantee 8): in-canvas
+   * buttons plus keyboard shortcuts (M skips movement, E/Enter ends the
+   * turn). Enabled state follows the active turn; a used action reads as
+   * text ("Move used"), never by color alone.
+   */
+  private makeButton(centerX: number, label: string): ButtonControl {
+    const fill = new Rectangle({
+      width: BUTTON_WIDTH,
+      height: BUTTON_HEIGHT,
+      color: Color.fromHex(BUTTON_FILL),
+      strokeColor: Color.fromHex(BUTTON_BORDER),
+      lineWidth: 2,
+    });
+    const actor = new Actor({
+      x: centerX,
+      y: BUTTON_Y,
+      anchor: Vector.Half,
+    });
+    actor.graphics.add(fill);
+    const text = new Label({
+      anchor: Vector.Half,
+      font: new Font({
+        size: BUTTON_TEXT_SIZE,
+        family: 'monospace',
+        color: Color.White,
+      }),
+      text: label,
+    });
+    text.z = 4;
+    actor.addChild(text);
+    actor.z = 3;
+    this.add(actor);
+    return { centerX, fill, text, baseLabel: label };
+  }
+
+  private buttonAt(screenPos: Vector): 'skip' | 'end' | null {
+    if (Math.abs(screenPos.y - BUTTON_Y) > BUTTON_HEIGHT / 2) return null;
+    if (Math.abs(screenPos.x - SKIP_BUTTON_X) <= BUTTON_WIDTH / 2) {
+      return 'skip';
+    }
+    if (Math.abs(screenPos.x - END_BUTTON_X) <= BUTTON_WIDTH / 2) {
+      return 'end';
+    }
+    return null;
+  }
+
+  /** Sync both buttons with the active turn (called on every advance). */
+  private refreshButtons(): void {
+    const turn = this.turn;
+    this.setButton(this.skipButton, turn !== null && turn.over === null && !turn.moveUsed, 'Move used');
+    this.setButton(this.endButton, turn !== null && turn.over === null, 'Turn done');
+  }
+
+  private setButton(
+    button: ButtonControl | null,
+    enabled: boolean,
+    usedLabel: string,
+  ): void {
+    if (button === null) return;
+    button.fill.color = Color.fromHex(
+      enabled ? BUTTON_FILL : BUTTON_FILL_DISABLED,
+    );
+    button.text.text = enabled ? button.baseLabel : usedLabel;
   }
 
   private positionOf(id: ShipId): { row: number; col: number } {
@@ -253,6 +493,14 @@ export class BattleScene extends Scene {
       this.markers.push(marker);
     }
   }
+}
+
+/** In-canvas skip control: hit-tested by center x, drawn by fill + label. */
+interface ButtonControl {
+  readonly centerX: number;
+  readonly fill: Rectangle;
+  readonly text: Label;
+  readonly baseLabel: string;
 }
 
 /**
