@@ -2,7 +2,7 @@ import { Engine, Random } from 'excalibur';
 import boardJson from './config/board.json';
 import { BattleScene } from './scenes/battle-scene.js';
 import { loadBoardConfig } from './sim/board-config.js';
-import { setupNewGame } from './sim/setup.js';
+import { setupGame } from './sim/setup.js';
 import type { RngFactory } from './sim/types.js';
 
 /** Surface setup failures explicitly (scene-contract guarantee 5). */
@@ -36,9 +36,13 @@ try {
       };
     },
   };
-  const game = setupNewGame(config, exRandomFactory);
+  const { rng, seed: effectiveSeed } = exRandomFactory.create();
+  const game = setupGame(config, effectiveSeed, rng);
   console.info(`[kyle-trek] game seed: ${game.seed} (re-run with this seed to replay this setup)`);
-  setup = { config, game };
+  // The battle stream continues on the SAME rng instance past setup, so one
+  // seed reproduces the whole battle (FR-019): the scene draws attack/damage
+  // rolls from where setup left off.
+  setup = { config, game, rng };
 } catch (error) {
   showFatal(error);
   throw error;
@@ -48,7 +52,7 @@ const game = new Engine({
   width: 800,
   height: 600,
 });
-game.addScene('battle', new BattleScene(setup.game, setup.config));
+game.addScene('battle', new BattleScene(setup.game, setup.config, setup.rng));
 
 await game.start();
 await game.goToScene('battle');

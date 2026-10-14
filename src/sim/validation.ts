@@ -25,6 +25,14 @@ export class SetupValidationError extends Error {
  *    requirement
  * 9. post-move invariant: ships occupy distinct in-bounds cells (rule 4,
  *    re-checked after every accepted move — never silently corrected)
+ * 10. each ship's strength is an integer within the combat roll range
+ * 11. each ship's constitution is an integer within the combat roll range
+ * 12. each ship's strength/constitution falls in exactly one shared-table
+ *    band with a matching modifier
+ * 13. each ship's maxHitPoints is at least minStart and — unless floored —
+ *    implies a d20 base roll consistent with its constitution modifier
+ * 14. each ship's armorClass equals the configured value and current
+ *    hitPoints lies within 0…maxHitPoints
  */
 export function validateSetup(setup: GameSetup, config: BoardConfig): void {
   const { grid, ships } = setup;
@@ -123,6 +131,100 @@ export function validateSetup(setup: GameSetup, config: BoardConfig): void {
       throw new SetupValidationError(
         'agility',
         `${ship.id} agility ${ship.agility} maps to no single table band with modifier ${String(ship.agilityModifier)} (agility unmapped)`,
+      );
+    }
+  }
+
+  // Rules 10–12: combat stats are integers in range with matching modifiers.
+  const [strMin, strMax] = config.combat.strength.rollRange;
+  const [conMin, conMax] = config.combat.constitution.rollRange;
+  for (const ship of ships) {
+    if (
+      !Number.isInteger(ship.strength) ||
+      ship.strength < strMin ||
+      ship.strength > strMax
+    ) {
+      throw new SetupValidationError(
+        'strength',
+        `${ship.id} strength ${String(ship.strength)} is outside the roll range ${strMin}-${strMax} (strength out of range)`,
+      );
+    }
+    if (
+      !Number.isInteger(ship.constitution) ||
+      ship.constitution < conMin ||
+      ship.constitution > conMax
+    ) {
+      throw new SetupValidationError(
+        'constitution',
+        `${ship.id} constitution ${String(ship.constitution)} is outside the roll range ${conMin}-${conMax} (constitution out of range)`,
+      );
+    }
+    const strBands = config.combat.statTable.filter(
+      (b) => ship.strength >= b.min && ship.strength <= b.max,
+    );
+    if (
+      strBands.length !== 1 ||
+      strBands[0]!.modifier !== ship.strengthModifier
+    ) {
+      throw new SetupValidationError(
+        'strength',
+        `${ship.id} strength ${ship.strength} maps to no single table band with modifier ${String(ship.strengthModifier)} (strength unmapped)`,
+      );
+    }
+    const conBands = config.combat.statTable.filter(
+      (b) => ship.constitution >= b.min && ship.constitution <= b.max,
+    );
+    if (
+      conBands.length !== 1 ||
+      conBands[0]!.modifier !== ship.constitutionModifier
+    ) {
+      throw new SetupValidationError(
+        'constitution',
+        `${ship.id} constitution ${ship.constitution} maps to no single table band with modifier ${String(ship.constitutionModifier)} (constitution unmapped)`,
+      );
+    }
+  }
+
+  // Rules 13–14: hit points consistent and bounded; armor class exact.
+  // The HP base roll is not stored, so rule 13 is checked as: maxHitPoints is
+  // at least minStart, and — unless floored at minStart — implies a base roll
+  // within 1..die via maxHitPoints − constitutionModifier × perModifierBonus.
+  const { die, perModifierBonus, minStart } = config.combat.hitPoints;
+  for (const ship of ships) {
+    if (!Number.isInteger(ship.maxHitPoints) || ship.maxHitPoints < minStart) {
+      throw new SetupValidationError(
+        'hitPoints',
+        `${ship.id} max hit points ${String(ship.maxHitPoints)} is below the minimum ${minStart} (hit points below minimum)`,
+      );
+    }
+    if (ship.maxHitPoints > minStart) {
+      const impliedBase =
+        ship.maxHitPoints - ship.constitutionModifier * perModifierBonus;
+      if (
+        !Number.isInteger(impliedBase) ||
+        impliedBase < 1 ||
+        impliedBase > die
+      ) {
+        throw new SetupValidationError(
+          'hitPoints',
+          `${ship.id} max hit points ${ship.maxHitPoints} implies base roll ${String(impliedBase)}, outside d${die} 1–${die} (hit points inconsistent with constitution modifier ${ship.constitutionModifier})`,
+        );
+      }
+    }
+    if (
+      !Number.isInteger(ship.hitPoints) ||
+      ship.hitPoints < 0 ||
+      ship.hitPoints > ship.maxHitPoints
+    ) {
+      throw new SetupValidationError(
+        'hitPoints',
+        `${ship.id} hit points ${String(ship.hitPoints)} is outside 0…${ship.maxHitPoints} (hit points out of bounds)`,
+      );
+    }
+    if (ship.armorClass !== config.combat.armorClass) {
+      throw new SetupValidationError(
+        'armorClass',
+        `${ship.id} armor class ${String(ship.armorClass)} does not equal the configured ${config.combat.armorClass} (armor class mismatch)`,
       );
     }
   }

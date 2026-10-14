@@ -71,3 +71,79 @@ describe('setup validation (FR-008)', () => {
     expect(() => validateSetup(broken, shipped())).toThrow(/occupan/);
   });
 });
+
+describe('combat setup validation (data-model rules 10–14)', () => {
+  it('accepts combat stats on a valid setup', () => {
+    const setup = validSetup();
+    expect(() => validateSetup(setup, shipped())).not.toThrow();
+    for (const ship of setup.ships) {
+      expect(ship.strength).toBeGreaterThanOrEqual(8);
+      expect(ship.strength).toBeLessThanOrEqual(20);
+      expect(ship.armorClass).toBe(12);
+      expect(ship.hitPoints).toBe(ship.maxHitPoints);
+    }
+  });
+
+  it('rejects strength outside 8–20, naming strength', () => {
+    const setup = validSetup();
+    const broken = {
+      ...setup,
+      ships: [
+        { ...setup.ships[0]!, strength: 7, strengthModifier: -1 },
+        setup.ships[1]!,
+      ] as typeof setup.ships,
+    };
+    expect(() => validateSetup(broken, shipped())).toThrow(/strength/);
+  });
+
+  it('rejects constitution outside 8–20, naming constitution', () => {
+    const setup = validSetup();
+    const broken = {
+      ...setup,
+      ships: [
+        setup.ships[0]!,
+        { ...setup.ships[1]!, constitution: 21, constitutionModifier: 5 },
+      ] as typeof setup.ships,
+    };
+    expect(() => validateSetup(broken, shipped())).toThrow(/constitution/);
+  });
+
+  it('rejects a modifier mismatching its table band, naming the stat', () => {
+    const setup = validSetup();
+    const broken = {
+      ...setup,
+      ships: [
+        { ...setup.ships[0]!, strength: 14, strengthModifier: 0 },
+        setup.ships[1]!,
+      ] as typeof setup.ships,
+    };
+    expect(() => validateSetup(broken, shipped())).toThrow(/strength/);
+  });
+
+  it('rejects current hit points above max, naming hit points', () => {
+    const setup = validSetup();
+    const broken = {
+      ...setup,
+      ships: [
+        {
+          ...setup.ships[0]!,
+          hitPoints: setup.ships[0]!.maxHitPoints + 1,
+        },
+        setup.ships[1]!,
+      ] as typeof setup.ships,
+    };
+    expect(() => validateSetup(broken, shipped())).toThrow(/hit-?points/i);
+  });
+
+  it('rejects a non-12 armor class, naming armor class', () => {
+    const setup = validSetup();
+    const broken = {
+      ...setup,
+      ships: [
+        { ...setup.ships[0]!, armorClass: 10 },
+        setup.ships[1]!,
+      ] as typeof setup.ships,
+    };
+    expect(() => validateSetup(broken, shipped())).toThrow(/armor/i);
+  });
+});

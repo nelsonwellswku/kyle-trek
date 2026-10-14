@@ -21,5 +21,27 @@
       { "min": 18, "max": 19, "modifier": 4 },
       { "min": 20, "max": 20, "modifier": 5 }
     ]
+  },
+  "combat": {
+    "strength": { "rollRange": [8, 20] },
+    "constitution": { "rollRange": [8, 20] },
+    "statTable": [
+      { "min": 8, "max": 9, "modifier": -1 },
+      { "min": 10, "max": 11, "modifier": 0 },
+      { "min": 12, "max": 13, "modifier": 1 },
+      { "min": 14, "max": 15, "modifier": 2 },
+      { "min": 16, "max": 17, "modifier": 3 },
+      { "min": 18, "max": 19, "modifier": 4 },
+      { "min": 20, "max": 20, "modifier": 5 }
+    ],
+    "armorClass": 12,
+    "hitPoints": { "die": 20, "perModifierBonus": 2, "minStart": 1 },
+    "attack": { "die": 20 },
+    "damage": { "die": 8, "minDamage": 1 },
+    "torpedo": {
+      "blinkHz": 6,
+      "speedTilesPerSec": 8,
+      "nearMissOffsetTiles": 0.75
+    }
   }
 }

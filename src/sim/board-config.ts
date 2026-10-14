@@ -1,10 +1,17 @@
 import type {
   AgilityBand,
   AgilityConfig,
+  AttackTuning,
   BoardConfig,
+  CombatConfig,
+  DamageTuning,
+  HitPointsTuning,
+  IntRange,
   ShipId,
   ShipVisual,
   SpawnZone,
+  StatBand,
+  TorpedoTuning,
 } from './types.js';
 
 /**
@@ -14,6 +21,8 @@ import type {
  * setups fail fast instead of running on bad tuning.
  *
  * Schema: specs/001-grid-ship-spawn/contracts/board-config-schema.md
+ *   plus specs/002-agility-based-movement/contracts/agility-config-schema.md
+ *   plus specs/003-ship-combat-system/contracts/combat-config-schema.md
  */
 export function loadBoardConfig(raw: unknown): BoardConfig {
   const root = requireObject(raw, 'config');
@@ -46,7 +55,9 @@ export function loadBoardConfig(raw: unknown): BoardConfig {
 
   const agility = parseAgility(root['agility'], 'agility');
 
-  return { version, grid: { rows, cols }, spawnZones, ships, agility };
+  const combat = parseCombat(root['combat'], 'combat');
+
+  return { version, grid: { rows, cols }, spawnZones, ships, agility, combat };
 }
 
 function parseZone(raw: unknown, path: string): SpawnZone {
@@ -145,6 +156,142 @@ function parseShip(raw: unknown, path: string): ShipVisual {
   const shape = requireString(obj['shape'], `${path}.shape`);
   const color = requireString(obj['color'], `${path}.color`);
   return { id, shape, color };
+}
+
+/** Parse the combat tuning section (schema: combat-config-schema.md rules 1–6). */
+function parseCombat(raw: unknown, path: string): CombatConfig {
+  const obj = requireObject(raw, path);
+
+  const strengthRaw = requireObject(obj['strength'], `${path}.strength`);
+  const strengthRollRange = requireStatRollRange(
+    strengthRaw['rollRange'],
+    `${path}.strength.rollRange`,
+  );
+  const constitutionRaw = requireObject(
+    obj['constitution'],
+    `${path}.constitution`,
+  );
+  const constitutionRollRange = requireStatRollRange(
+    constitutionRaw['rollRange'],
+    `${path}.constitution.rollRange`,
+  );
+
+  const tableRaw = requireArray(obj['statTable'], `${path}.statTable`);
+  if (tableRaw.length === 0) {
+    throw new Error(
+      `board config: "${path}.statTable" must list at least one band`,
+    );
+  }
+  const statTable: StatBand[] = tableRaw.map((b, i) =>
+    parseStatBand(b, `${path}.statTable[${i}]`),
+  );
+  assertStatTableCoversRanges(
+    statTable,
+    [strengthRollRange, constitutionRollRange],
+    path,
+  );
+
+  const armorClass = requirePositiveInt(obj['armorClass'], `${path}.armorClass`);
+
+  const hpRaw = requireObject(obj['hitPoints'], `${path}.hitPoints`);
+  const hitPoints: HitPointsTuning = {
+    die: requirePositiveInt(hpRaw['die'], `${path}.hitPoints.die`),
+    perModifierBonus: requireInteger(
+      hpRaw['perModifierBonus'],
+      `${path}.hitPoints.perModifierBonus`,
+    ),
+    minStart: requirePositiveInt(
+      hpRaw['minStart'],
+      `${path}.hitPoints.minStart`,
+    ),
+  };
+
+  const attackRaw = requireObject(obj['attack'], `${path}.attack`);
+  const attack: AttackTuning = {
+    die: requirePositiveInt(attackRaw['die'], `${path}.attack.die`),
+  };
+
+  const damageRaw = requireObject(obj['damage'], `${path}.damage`);
+  const damage: DamageTuning = {
+    die: requirePositiveInt(damageRaw['die'], `${path}.damage.die`),
+    minDamage: requirePositiveInt(
+      damageRaw['minDamage'],
+      `${path}.damage.minDamage`,
+    ),
+  };
+
+  const torpedoRaw = requireObject(obj['torpedo'], `${path}.torpedo`);
+  const torpedo: TorpedoTuning = {
+    blinkHz: requirePositiveNumber(
+      torpedoRaw['blinkHz'],
+      `${path}.torpedo.blinkHz`,
+    ),
+    speedTilesPerSec: requirePositiveNumber(
+      torpedoRaw['speedTilesPerSec'],
+      `${path}.torpedo.speedTilesPerSec`,
+    ),
+    nearMissOffsetTiles: requirePositiveNumber(
+      torpedoRaw['nearMissOffsetTiles'],
+      `${path}.torpedo.nearMissOffsetTiles`,
+    ),
+  };
+
+  return {
+    strength: { rollRange: strengthRollRange },
+    constitution: { rollRange: constitutionRollRange },
+    statTable,
+    armorClass,
+    hitPoints,
+    attack,
+    damage,
+    torpedo,
+  };
+}
+
+function parseStatBand(raw: unknown, path: string): StatBand {
+  const obj = requireObject(raw, path);
+  const min = requireInteger(obj['min'], `${path}.min`);
+  const max = requireInteger(obj['max'], `${path}.max`);
+  const modifier = requireInteger(obj['modifier'], `${path}.modifier`);
+  if (max < min) {
+    throw new Error(
+      `board config: invalid band at "${path}" — max (${max}) < min (${min})`,
+    );
+  }
+  return { min, max, modifier };
+}
+
+/**
+ * Bands must be ascending, non-overlapping, and gapless over every covered
+ * roll range (strength + constitution).
+ */
+function assertStatTableCoversRanges(
+  table: StatBand[],
+  ranges: IntRange[],
+  path: string,
+): void {
+  const sorted = [...table].sort((a, b) => a.min - b.min);
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i]!.min <= sorted[i - 1]!.max) {
+      throw new Error(
+        `board config: "${path}.statTable" bands overlap at ${sorted[i]!.min} — bands must be non-overlapping`,
+      );
+    }
+    if (sorted[i]!.min !== sorted[i - 1]!.max + 1) {
+      throw new Error(
+        `board config: "${path}.statTable" has a gap between ${sorted[i - 1]!.max} and ${sorted[i]!.min} — table must cover the full roll ranges without gaps`,
+      );
+    }
+  }
+  const lo = sorted[0]!.min;
+  const hi = sorted[sorted.length - 1]!.max;
+  for (const [min, max] of ranges) {
+    if (min < lo || max > hi) {
+      throw new Error(
+        `board config: "${path}.statTable" covers ${lo}-${hi} but roll range ${min}-${max} reaches outside it — table must cover the full roll ranges without gaps`,
+      );
+    }
+  }
 }
 
 /** Zones must be disjoint and fully inside the grid (schema rules 3 + 5). */
@@ -277,6 +424,32 @@ function requireInteger(value: unknown, path: string): number {
     );
   }
   return value;
+}
+
+function requirePositiveNumber(value: unknown, path: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    throw new Error(
+      `board config: invalid positive number at "${path}": ${String(value)}`,
+    );
+  }
+  return value;
+}
+
+function requireStatRollRange(value: unknown, path: string): IntRange {
+  if (
+    !Array.isArray(value) ||
+    value.length !== 2 ||
+    typeof value[0] !== 'number' ||
+    typeof value[1] !== 'number' ||
+    !Number.isInteger(value[0]) ||
+    !Number.isInteger(value[1]) ||
+    (value[0] as number) > (value[1] as number)
+  ) {
+    throw new Error(
+      `board config: invalid [min, max] integer roll range at "${path}"`,
+    );
+  }
+  return [value[0], value[1]];
 }
 
 function requireIntRange(

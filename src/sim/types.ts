@@ -55,6 +55,20 @@ export interface Spaceship {
   readonly agility: number;
   /** Movement range derived from the config stat→modifier table. */
   readonly agilityModifier: number;
+  /** Strength stat, integer within the combat roll range (8–20 shipped). */
+  readonly strength: number;
+  /** Attack/damage bonus derived from the shared stat→modifier table. */
+  readonly strengthModifier: number;
+  /** Constitution stat, integer within the combat roll range (8–20 shipped). */
+  readonly constitution: number;
+  /** Hit-point bonus driver derived from the shared stat→modifier table. */
+  readonly constitutionModifier: number;
+  /** Current hit points, integer in 0…maxHitPoints (floored at 0). */
+  readonly hitPoints: number;
+  /** Starting hit points, integer >= 1 (d20 + constitutionModifier × 2, floored at 1). */
+  readonly maxHitPoints: number;
+  /** Static defense target, always 12 for the whole battle. */
+  readonly armorClass: number;
 }
 
 /** Spawn placement before agility is rolled (see setup.ts draw order). */
@@ -94,6 +108,50 @@ export interface AgilityConfig {
   readonly table: readonly AgilityBand[];
 }
 
+/** One stat→modifier band of the shared combat table (tuning data). */
+export interface StatBand {
+  readonly min: number;
+  readonly max: number;
+  readonly modifier: number;
+}
+
+/** Hit-point formula tuning: base die + per-modifier bonus, floored at minStart. */
+export interface HitPointsTuning {
+  readonly die: number;
+  readonly perModifierBonus: number;
+  readonly minStart: number;
+}
+
+/** Attack die tuning (hit iff d20 + strengthModifier >= armorClass). */
+export interface AttackTuning {
+  readonly die: number;
+}
+
+/** Damage die tuning (d8 + strengthModifier, floored at minDamage). */
+export interface DamageTuning {
+  readonly die: number;
+  readonly minDamage: number;
+}
+
+/** Photon-torpedo visual parameters (presentation-only, never affect outcomes). */
+export interface TorpedoTuning {
+  readonly blinkHz: number;
+  readonly speedTilesPerSec: number;
+  readonly nearMissOffsetTiles: number;
+}
+
+/** Combat tuning: stat ranges, shared modifier table, AC, dice, torpedo visuals. */
+export interface CombatConfig {
+  readonly strength: { readonly rollRange: IntRange };
+  readonly constitution: { readonly rollRange: IntRange };
+  readonly statTable: readonly StatBand[];
+  readonly armorClass: number;
+  readonly hitPoints: HitPointsTuning;
+  readonly attack: AttackTuning;
+  readonly damage: DamageTuning;
+  readonly torpedo: TorpedoTuning;
+}
+
 /** Validated board tuning loaded from `src/config/board.json`. */
 export interface BoardConfig {
   readonly version: string;
@@ -101,14 +159,21 @@ export interface BoardConfig {
   readonly spawnZones: readonly SpawnZone[];
   readonly ships: readonly ShipVisual[];
   readonly agility: AgilityConfig;
+  readonly combat: CombatConfig;
 }
 
-/** Which ship moves and on which numbered turn (exactly one active). */
+/** Which ship acts and on which numbered turn (exactly one active). */
 export interface TurnState {
   readonly activeShipId: ShipId;
   readonly turnNumber: number;
   /** Frozen legal destinations for this turn (see movement.ts). */
   readonly legalSet: readonly { readonly row: number; readonly col: number }[];
+  /** False until one accepted move/skip; at most one relocation per turn. */
+  readonly moveUsed: boolean;
+  /** False until one torpedo dispatch/skip; at most one attack per turn. */
+  readonly attackUsed: boolean;
+  /** Null during play; set the instant any HP reaches 0 (terminal). */
+  readonly over: { readonly winner: ShipId } | null;
 }
 
 /** Outcome of dispatching a destination click to the turn reducer. */
@@ -121,6 +186,29 @@ export type MoveResult =
         readonly from: { readonly row: number; readonly col: number };
         readonly to: { readonly row: number; readonly col: number };
       };
+    }
+  | { readonly accepted: false; readonly reason: string };
+
+/** Per-torpedo outcome with HP bookkeeping for the defending ship. */
+export interface AttackOutcome {
+  readonly attackerId: ShipId;
+  readonly defenderId: ShipId;
+  readonly attackRoll: number;
+  readonly total: number;
+  readonly hit: boolean;
+  readonly damageRoll?: number;
+  readonly damage?: number;
+  readonly defenderHPBefore: number;
+  readonly defenderHPAfter: number;
+}
+
+/** Outcome of dispatching an enemy-ship selection to the turn reducer. */
+export type AttackResult =
+  | {
+      readonly accepted: true;
+      readonly next: TurnState;
+      readonly ships: readonly Spaceship[];
+      readonly outcome: AttackOutcome;
     }
   | { readonly accepted: false; readonly reason: string };
 
