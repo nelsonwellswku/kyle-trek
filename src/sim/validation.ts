@@ -18,6 +18,13 @@ export class SetupValidationError extends Error {
  * 3. each ship inside its own spawn zone
  * 4. ships on distinct squares with bidirectional occupant agreement
  * 5. spawn zones disjoint and non-empty
+ * 6. each ship's agility is an integer within the config roll range
+ * 7. each ship's agility falls in exactly one table band with a matching modifier
+ * 8. (config load) agility table ordered, non-overlapping, gapless — enforced
+ *    by loadBoardConfig; re-asserted here defensively via rule 7's exact-band
+ *    requirement
+ * 9. post-move invariant: ships occupy distinct in-bounds cells (rule 4,
+ *    re-checked after every accepted move — never silently corrected)
  */
 export function validateSetup(setup: GameSetup, config: BoardConfig): void {
   const { grid, ships } = setup;
@@ -99,6 +106,25 @@ export function validateSetup(setup: GameSetup, config: BoardConfig): void {
       'distinct',
       `ship-1 and ship-2 share square (${ship1.position.row},${ship1.position.col}) — squares must be distinct`,
     );
+  }
+
+  const [rollMin, rollMax] = config.agility.rollRange;
+  for (const ship of ships) {
+    if (!Number.isInteger(ship.agility) || ship.agility < rollMin || ship.agility > rollMax) {
+      throw new SetupValidationError(
+        'agility',
+        `${ship.id} agility ${String(ship.agility)} is outside the roll range ${rollMin}-${rollMax} (agility out of range)`,
+      );
+    }
+    const bands = config.agility.table.filter(
+      (b) => ship.agility >= b.min && ship.agility <= b.max,
+    );
+    if (bands.length !== 1 || bands[0]!.modifier !== ship.agilityModifier) {
+      throw new SetupValidationError(
+        'agility',
+        `${ship.id} agility ${ship.agility} maps to no single table band with modifier ${String(ship.agilityModifier)} (agility unmapped)`,
+      );
+    }
   }
 
   const occupantByCell = new Map(

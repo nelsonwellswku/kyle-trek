@@ -1,4 +1,6 @@
 import type {
+  AgilityBand,
+  AgilityConfig,
   BoardConfig,
   ShipId,
   ShipVisual,
@@ -42,7 +44,9 @@ export function loadBoardConfig(raw: unknown): BoardConfig {
   assertShipsMatchZones(ships, spawnZones);
   assertShipsVisuallyDistinct(ships);
 
-  return { version, grid: { rows, cols }, spawnZones, ships };
+  const agility = parseAgility(root['agility'], 'agility');
+
+  return { version, grid: { rows, cols }, spawnZones, ships, agility };
 }
 
 function parseZone(raw: unknown, path: string): SpawnZone {
@@ -52,6 +56,87 @@ function parseZone(raw: unknown, path: string): SpawnZone {
   const rows = requireIntRange(obj['rows'], `${path}.rows`);
   const cols = requireIntRange(obj['cols'], `${path}.cols`);
   return { name, shipId, rows, cols };
+}
+
+/** Parse the agility tuning section (schema: agility-config-schema.md rules 1–3). */
+function parseAgility(raw: unknown, path: string): AgilityConfig {
+  const obj = requireObject(raw, path);
+  const rangeRaw = obj['rollRange'];
+  if (
+    !Array.isArray(rangeRaw) ||
+    rangeRaw.length !== 2 ||
+    typeof rangeRaw[0] !== 'number' ||
+    typeof rangeRaw[1] !== 'number' ||
+    !Number.isInteger(rangeRaw[0]) ||
+    !Number.isInteger(rangeRaw[1]) ||
+    (rangeRaw[0] as number) > (rangeRaw[1] as number)
+  ) {
+    throw new Error(
+      `board config: invalid [min, max] integer roll range at "${path}.rollRange"`,
+    );
+  }
+  const rollRange = [rangeRaw[0], rangeRaw[1]] as unknown as AgilityConfig['rollRange'];
+
+  const tableRaw = requireArray(obj['table'], `${path}.table`);
+  if (tableRaw.length === 0) {
+    throw new Error(
+      `board config: "${path}.table" must list at least one band`,
+    );
+  }
+  const table: AgilityBand[] = tableRaw.map((b, i) =>
+    parseAgilityBand(b, `${path}.table[${i}]`),
+  );
+  assertAgilityTableCoversRange(table, rollRange, path);
+
+  return { rollRange, table };
+}
+
+function parseAgilityBand(raw: unknown, path: string): AgilityBand {
+  const obj = requireObject(raw, path);
+  const min = requireInteger(obj['min'], `${path}.min`);
+  const max = requireInteger(obj['max'], `${path}.max`);
+  const modifier = requireInteger(obj['modifier'], `${path}.modifier`);
+  if (max < min) {
+    throw new Error(
+      `board config: invalid band at "${path}" — max (${max}) < min (${min})`,
+    );
+  }
+  return { min, max, modifier };
+}
+
+/** Bands must be ascending, non-overlapping, and gapless over the roll range. */
+function assertAgilityTableCoversRange(
+  table: AgilityBand[],
+  rollRange: AgilityConfig['rollRange'],
+  path: string,
+): void {
+  const sorted = [...table].sort((a, b) => a.min - b.min);
+  const [first] = sorted as [AgilityBand, ...AgilityBand[]];
+  if (first.min !== rollRange[0]) {
+    throw new Error(
+      `board config: "${path}.table" starts at ${first.min} but rollRange starts at ${rollRange[0]} — table must cover the full roll range without gaps`,
+    );
+  }
+  let cursor = first.max;
+  for (const band of sorted.slice(1)) {
+    if (band.min <= cursor) {
+      throw new Error(
+        `board config: "${path}.table" bands overlap at ${band.min} — bands must be non-overlapping`,
+      );
+    }
+    if (band.min !== cursor + 1) {
+      throw new Error(
+        `board config: "${path}.table" has a gap between ${cursor} and ${band.min} — table must cover the full roll range without gaps`,
+      );
+    }
+    cursor = band.max;
+  }
+  const last = sorted[sorted.length - 1]!;
+  if (last.max !== rollRange[1]) {
+    throw new Error(
+      `board config: "${path}.table" ends at ${last.max} but rollRange ends at ${rollRange[1]} — table must cover the full roll range without gaps`,
+    );
+  }
 }
 
 function parseShip(raw: unknown, path: string): ShipVisual {
@@ -180,6 +265,15 @@ function requirePositiveInt(value: unknown, path: string): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
     throw new Error(
       `board config: invalid positive integer at "${path}": ${String(value)}`,
+    );
+  }
+  return value;
+}
+
+function requireInteger(value: unknown, path: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    throw new Error(
+      `board config: invalid integer at "${path}": ${String(value)}`,
     );
   }
   return value;

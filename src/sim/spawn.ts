@@ -1,4 +1,4 @@
-import type { BoardConfig, Rng, Spaceship } from './types.js';
+import type { BoardConfig, Rng, ShipPlacement } from './types.js';
 
 /**
  * Place both ships at uniform-random squares inside their own spawn zones
@@ -6,11 +6,15 @@ import type { BoardConfig, Rng, Spaceship } from './types.js';
  * each zone's eligible cells are enumerated row-major and one index is drawn
  * via `rng.integer(0, count - 1)`. Zones are disjoint (enforced at config
  * load), so the two ships always land on distinct squares.
+ *
+ * Returns bare placements: `setup.ts` attaches agility afterwards, keeping
+ * the pinned RNG draw order (spawn ship-1 → spawn ship-2 → agility ship-1
+ * → agility ship-2; see research.md R-02).
  */
 export function placeShips(
   config: BoardConfig,
   rng: Rng,
-): [Spaceship, Spaceship] {
+): [ShipPlacement, ShipPlacement] {
   const ships = config.spawnZones.map((zone) => {
     const candidates: Array<{ row: number; col: number }> = [];
     for (let row = zone.rows[0]; row <= zone.rows[1]; row++) {
@@ -29,7 +33,7 @@ export function placeShips(
         `spawn: RNG returned an out-of-range index for zone "${zone.name}"`,
       );
     }
-    return { id: zone.shipId, position: pick } satisfies Spaceship;
+    return { id: zone.shipId, position: pick } satisfies ShipPlacement;
   });
   if (ships.length !== 2 || ships[0] === undefined || ships[1] === undefined) {
     throw new Error('spawn: config must define exactly 2 spawn zones');
