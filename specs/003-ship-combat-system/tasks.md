@@ -125,8 +125,8 @@ Manual-only per constitution UI allowance (no automated animation tests). Verify
 
 ### Implementation for User Story 4
 
-- [ ] T028 [US4] Implement hit torpedo animation in `src/scenes/battle-scene.ts` (blinking-star Actor at data-driven `torpedo.blinkHz` traveling attacker-center → defender-center at `torpedo.speedTilesPerSec`, then contact explosion effect; HP reduction + outcome text shown in connection with animation; animation never alters pre-rolled outcome; input during flight ignored so no second dispatch; per contract guarantees 4–6)
-- [ ] T029 [US4] Implement miss torpedo animation in `src/scenes/battle-scene.ts` (blinking star attacker-center → near-miss waypoint offset perpendicular by `torpedo.nearMissOffsetTiles` → continues same heading off-grid and despawns, no explosion on ship; outcome text shown; turn continues if either action remains unused else passes; per contract guarantees 5–6)
+- [X] T028 [US4] Implement hit torpedo animation in `src/scenes/battle-scene.ts` (blinking-star Actor at data-driven `torpedo.blinkHz` traveling attacker-center → defender-center at `torpedo.speedTilesPerSec`, then contact explosion effect; HP reduction + outcome text shown in connection with animation; animation never alters pre-rolled outcome; input during flight ignored so no second dispatch; per contract guarantees 4–6)
+- [X] T029 [US4] Implement miss torpedo animation in `src/scenes/battle-scene.ts` (blinking star attacker-center → near-miss waypoint offset perpendicular by `torpedo.nearMissOffsetTiles` → continues same heading off-grid and despawns, no explosion on ship; outcome text shown; turn continues if either action remains unused else passes; per contract guarantees 5–6)
 
 **Checkpoint**: All user stories independently functional — hits/misses legible by path + explosion + text
 
@@ -136,11 +136,11 @@ Manual-only per constitution UI allowance (no automated animation tests). Verify
 
 **Purpose**: Cross-story validation and hardening
 
-- [ ] T030 Run full `npm test` suite in repository root and fix any 001/002 regressions (spawn/agility/movement/turn seed expectations must be preserved)
-- [ ] T031 [P] Verify data-driven tuning isolation: change only `src/config/board.json` combat values (e.g. AC, dice) and confirm no logic rewrite needed, then revert
-- [ ] T032 [P] Run `npm run build` and `npm run preview` in repository root and confirm the combat game serves with no console errors
-- [ ] T033 Run `specs/003-ship-combat-system/quickstart.md` manual validation end-to-end (browser checks 1–7: stats, flexible turns, resolution/victory, animations, edge cases incl. damage floor 1 and HP floor 1, 10-second SC-006 legibility, failure visibility on corrupted `combat` config) and fix gaps
-- [ ] T034 [P] Verify accessibility baseline in `src/scenes/battle-scene.ts` (hit/miss distinguishable by path + explosion + text, never color alone; controls keyboard-accessible; fonts/scales readable)
+- [X] T030 Run full `npm test` suite in repository root and fix any 001/002 regressions (spawn/agility/movement/turn seed expectations must be preserved)
+- [X] T031 [P] Verify data-driven tuning isolation: change only `src/config/board.json` combat values (e.g. AC, dice) and confirm no logic rewrite needed, then revert
+- [X] T032 [P] Run `npm run build` and `npm run preview` in repository root and confirm the combat game serves with no console errors
+- [X] T033 Run `specs/003-ship-combat-system/quickstart.md` manual validation end-to-end (browser checks 1–7: stats, flexible turns, resolution/victory, animations, edge cases incl. damage floor 1 and HP floor 1, 10-second SC-006 legibility, failure visibility on corrupted `combat` config) and fix gaps
+- [X] T034 [P] Verify accessibility baseline in `src/scenes/battle-scene.ts` (hit/miss distinguishable by path + explosion + text, never color alone; controls keyboard-accessible; fonts/scales readable)
 
 ---
 

@@ -58,6 +58,12 @@ const CELL_BORDER = '#334155';
  * (hollow ring vs. solid halo disc), never by color alone. */
 const HIGHLIGHT = '#facc15';
 
+/** Photon-torpedo styling (presentation-only; path/speed come from config). */
+const TORPEDO_FILL = '#fef08a';
+const TORPEDO_Z = 5;
+/** Contact-explosion styling: expanding amber ring fading out. */
+const EXPLOSION_TTL_MS = 450;
+
 /**
  * Presentation-only battle board: maps a validated GameSetup onto an
  * Excalibur TileMap plus two ship Actors, with highlight markers for the
@@ -66,7 +72,7 @@ const HIGHLIGHT = '#facc15';
  * through the pure turn reducer, never rolls RNG except via the injected
  * seedable source for attacks. Guarantees per contracts/scene-contract.md
  * (001), contracts/movement-scene-contract.md (guarantees 1-5), and
- * contracts/combat-scene-contract.md (guarantees 1-3, 7-10).
+ * contracts/combat-scene-contract.md (all 10 guarantees).
  */
 export class BattleScene extends Scene {
   private tile = 0;
@@ -86,6 +92,8 @@ export class BattleScene extends Scene {
   private endButton: ButtonControl | null = null;
   /** Formatted last-attack outcome for the status display (T027). */
   private lastOutcome: string | null = null;
+  /** In-flight torpedoes and contact explosions (presentation-only). */
+  private fx: ActiveFx[] = [];
 
   constructor(
     private readonly setup: GameSetup,
@@ -198,6 +206,8 @@ export class BattleScene extends Scene {
         this.doSkipMove();
       } else if (event.key === Keys.E || event.key === Keys.Enter) {
         this.doEndTurn();
+      } else if (event.key === Keys.A) {
+        this.doAttackFoe();
       }
     });
   }
@@ -240,20 +250,7 @@ export class BattleScene extends Scene {
       this.turn.activeShipId === 'ship-1' ? 'ship-2' : 'ship-1';
     const foePos = this.positionOf(foeId);
     if (row === foePos.row && col === foePos.col) {
-      if (this.turn.attackUsed) return;
-      const result = dispatchAttack(
-        this.turn,
-        board,
-        this.config,
-        foeId,
-        this.rng,
-      );
-      if (!result.accepted) return;
-      for (const ship of result.ships) {
-        this.hitPoints.set(ship.id, ship.hitPoints);
-      }
-      this.lastOutcome = this.formatOutcome(result.outcome);
-      this.advanceTo(result.next);
+      this.doAttackFoe();
       return;
     }
     if (this.turn.moveUsed) return;
@@ -295,6 +292,40 @@ export class BattleScene extends Scene {
     );
   }
 
+  /**
+   * Launch one torpedo at the enemy ship (shared by enemy-ship clicks and
+   * the A key so turns are fully keyboard-playable): unlimited range,
+   * at most once per turn, ignored with no roll once used or finished.
+   */
+  private doAttackFoe(): void {
+    if (this.turn === null || this.turn.over !== null) return;
+    if (this.turn.attackUsed) return;
+    const foeId: ShipId =
+      this.turn.activeShipId === 'ship-1' ? 'ship-2' : 'ship-1';
+    // Capture launch geometry BEFORE reducer updates: the torpedo flies
+    // from where the ships stand at launch time.
+    const from = this.cellCenter(this.positionOf(this.turn.activeShipId));
+    const target = this.cellCenter(this.positionOf(foeId));
+    const result = dispatchAttack(
+      this.turn,
+      {
+        rows: this.setup.grid.rows,
+        cols: this.setup.grid.cols,
+        ships: this.simShips(),
+      },
+      this.config,
+      foeId,
+      this.rng,
+    );
+    if (!result.accepted) return;
+    for (const ship of result.ships) {
+      this.hitPoints.set(ship.id, ship.hitPoints);
+    }
+    this.lastOutcome = this.formatOutcome(result.outcome);
+    this.launchTorpedo(from, target, result.outcome.hit);
+    this.advanceTo(result.next);
+  }
+
   /** Rotate to a new turn: refresh markers, buttons, and status together,
    * so the board never shows a new turn with stale highlights or text. */
   private advanceTo(turn: TurnState): void {
@@ -316,7 +347,7 @@ export class BattleScene extends Scene {
     const head =
       turn.over !== null
         ? `Turn ${turn.turnNumber} — ${turn.over.winner === 'ship-1' ? 'Player 1' : 'Player 2'} (${turn.over.winner}) wins!`
-        : `Turn ${turn.turnNumber} — ${activePlayer} (${turn.activeShipId}) · Move: ${turn.moveUsed ? 'used' : 'available'} · Attack: ${turn.attackUsed ? 'used' : 'available'}`;
+        : `Turn ${turn.turnNumber} — ${activePlayer} (${turn.activeShipId}) · Move: ${turn.moveUsed ? 'used' : 'available'} · Attack: ${turn.attackUsed ? 'used' : 'available (A)'}`;
     const stats = this.setup.ships
       .map((s) => {
         const sign = s.agilityModifier >= 0 ? '+' : '';
@@ -392,7 +423,7 @@ export class BattleScene extends Scene {
   /**
    * Bottom-strip skip controls (FR-020, contract guarantee 8): in-canvas
    * buttons plus keyboard shortcuts (M skips movement, E/Enter ends the
-   * turn). Enabled state follows the active turn; a used action reads as
+   * turn, A attacks the foe). Enabled state follows the active turn; a used action reads as
    * text ("Move used"), never by color alone.
    */
   private makeButton(centerX: number, label: string): ButtonControl {
@@ -463,6 +494,142 @@ export class BattleScene extends Scene {
     return pos;
   }
 
+  /** Screen-space center of a board cell. */
+  private cellCenter(cell: { readonly row: number; readonly col: number }): Vector {
+    return new Vector(
+      this.originX + (cell.col - 1) * this.tile + this.tile / 2,
+      this.originY + (cell.row - 1) * this.tile + this.tile / 2,
+    );
+  }
+
+  /**
+   * Launch the photon-torpedo visual (FR-015/FR-016, contract guarantees
+   * 4-6): a blinking star. On a hit it flies attacker → defender and bursts
+   * into a contact explosion; on a miss it flies a near-miss waypoint
+   * (perpendicular offset from the defender per data) and continues
+   * off-grid with no explosion. Purely presentational — the outcome was
+   * already decided by the reducer and is never altered here.
+   */
+  private launchTorpedo(from: Vector, target: Vector, hit: boolean): void {
+    const { blinkHz, speedTilesPerSec, nearMissOffsetTiles } =
+      this.config.combat.torpedo;
+    const speedPx = speedTilesPerSec * this.tile;
+    const star = new Actor({
+      x: from.x,
+      y: from.y,
+      anchor: Vector.Half,
+    });
+    star.graphics.add(starGraphic(this.tile * 0.22, Color.fromHex(TORPEDO_FILL)));
+    star.z = TORPEDO_Z;
+    this.add(star);
+    if (hit) {
+      this.fx.push({
+        kind: 'torpedo',
+        actor: star,
+        waypoints: [target],
+        segment: 0,
+        speedPx,
+        ageMs: 0,
+        blinkHz,
+        onArrive: () => this.spawnExplosion(target),
+      });
+      return;
+    }
+    const direction = target.sub(from);
+    const length = direction.distance();
+    if (length === 0) {
+      this.remove(star);
+      return;
+    }
+    const unit = direction.scale(1 / length);
+    const perp = new Vector(-unit.y, unit.x);
+    const nearMiss = target.add(perp.scale(nearMissOffsetTiles * this.tile));
+    // Continue past the waypoint far enough to leave the canvas from any
+    // board position (grid diagonal plus margin).
+    const offGrid = nearMiss.add(
+      unit.scale(this.tile * (this.setup.grid.rows + this.setup.grid.cols)),
+    );
+    this.fx.push({
+      kind: 'torpedo',
+      actor: star,
+      waypoints: [nearMiss, offGrid],
+      segment: 0,
+      speedPx,
+      ageMs: 0,
+      blinkHz,
+      onArrive: () => {},
+    });
+  }
+
+  /** Contact-explosion visual: an expanding amber ring fading out. */
+  private spawnExplosion(at: Vector): void {
+    const ring = new Circle({
+      radius: this.tile * 0.25,
+      color: Color.Transparent,
+      strokeColor: Color.fromHex(HIGHLIGHT),
+      lineWidth: 4,
+    });
+    const actor = new Actor({ x: at.x, y: at.y, anchor: Vector.Half });
+    actor.graphics.add(ring);
+    actor.z = TORPEDO_Z;
+    this.add(actor);
+    this.fx.push({ kind: 'burst', actor, ageMs: 0 });
+  }
+
+  /** Advance torpedo blink/travel and explosion fade; scene-owned timing. */
+  override onPostUpdate(_engine: Engine, delta: number): void {
+    const live: ActiveFx[] = [];
+    for (const effect of this.fx) {
+      effect.ageMs += delta;
+      if (effect.kind === 'burst') {
+        const progress = effect.ageMs / EXPLOSION_TTL_MS;
+        if (progress >= 1) {
+          this.remove(effect.actor);
+          continue;
+        }
+        const scale = 1 + progress * 2;
+        effect.actor.scale.setTo(scale, scale);
+        effect.actor.graphics.opacity = 1 - progress;
+        live.push(effect);
+        continue;
+      }
+      // Blinking star: hard on/off blink, never color-only signaling.
+      const phase = (effect.ageMs / 1000) * effect.blinkHz;
+      effect.actor.graphics.opacity = phase % 1 < 0.5 ? 1 : 0.15;
+      let step = (effect.speedPx * delta) / 1000;
+      let arrived = false;
+      while (step > 0 && !arrived) {
+        const waypoint = effect.waypoints[effect.segment];
+        if (waypoint === undefined) {
+          arrived = true;
+          break;
+        }
+        const toWaypoint = waypoint.sub(effect.actor.pos);
+        const remaining = toWaypoint.distance();
+        if (remaining <= step) {
+          effect.actor.pos = waypoint.clone();
+          step -= remaining;
+          effect.segment++;
+          if (effect.segment >= effect.waypoints.length) {
+            arrived = true;
+          }
+        } else {
+          effect.actor.pos = effect.actor.pos.add(
+            toWaypoint.scale(step / remaining),
+          );
+          step = 0;
+        }
+      }
+      if (arrived) {
+        effect.onArrive();
+        this.remove(effect.actor);
+        continue;
+      }
+      live.push(effect);
+    }
+    this.fx = live;
+  }
+
   /**
    * Draw highlight markers for a turn's frozen legal set (US2, contract
    * guarantees 3-4): every member marked, nothing outside it. Clears the
@@ -501,6 +668,26 @@ interface ButtonControl {
   readonly fill: Rectangle;
   readonly text: Label;
   readonly baseLabel: string;
+}
+
+/** Scene-owned transient combat visuals (torpedoes + explosions). */
+type ActiveFx = TorpedoFx | BurstFx;
+
+interface TorpedoFx {
+  readonly kind: 'torpedo';
+  readonly actor: Actor;
+  readonly waypoints: Vector[];
+  segment: number;
+  readonly speedPx: number;
+  ageMs: number;
+  readonly blinkHz: number;
+  readonly onArrive: () => void;
+}
+
+interface BurstFx {
+  readonly kind: 'burst';
+  readonly actor: Actor;
+  ageMs: number;
 }
 
 /**
@@ -561,4 +748,18 @@ function shipGraphic(
           `(expected "triangle" or "pentagon")`,
       );
   }
+}
+
+/**
+ * Five-pointed photon-torpedo star: alternating outer/inner radius points
+ * around the center — a star silhouette, distinct from the ship polygons.
+ */
+function starGraphic(radius: number, color: Color): Polygon {
+  const points: Vector[] = [];
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? radius : radius * 0.45;
+    const angle = -Math.PI / 2 + (i * Math.PI) / 5;
+    points.push(new Vector(r * Math.cos(angle), r * Math.sin(angle)));
+  }
+  return new Polygon({ points, color });
 }
