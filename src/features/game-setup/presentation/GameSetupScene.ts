@@ -9,6 +9,7 @@ import type { BoardGeometry } from './BoardGeometry.js';
  */
 export class GameSetupScene extends Phaser.Scene {
   private boardView: BoardView | null = null;
+  private revision = 1;
 
   constructor(
     private setup: GameSetup,
@@ -22,7 +23,7 @@ export class GameSetupScene extends Phaser.Scene {
     this.boardView = new BoardView(this, this.geometry);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.dispose, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.dispose, this);
-    this.boardView.draw(this.setup, 1, this.onDrawn);
+    this.boardView.draw(this.setup, this.revision, this.onDrawn);
   }
 
   updateSetup(setup: GameSetup, revision: number): void {
@@ -31,6 +32,7 @@ export class GameSetupScene extends Phaser.Scene {
     }
 
     this.setup = setup;
+    this.revision = revision;
     this.boardView.draw(setup, revision, this.onDrawn);
   }
 

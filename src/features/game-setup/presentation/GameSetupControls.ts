@@ -68,8 +68,13 @@ export class GameSetupControls {
   showSetup(setup: GameSetup): void {
     this.ship1Summary.textContent = `Ship 1 — row ${setup.ship1.position.row}, column ${setup.ship1.position.column}`;
     this.ship2Summary.textContent = `Ship 2 — row ${setup.ship2.position.row}, column ${setup.ship2.position.column}`;
+    this.showPreparing();
+  }
+
+  showPreparing(): void {
     this.status.textContent = 'Preparing game…';
-    this.newGameButton.disabled = true;
+    this.error.textContent = '';
+    this.error.hidden = true;
   }
 
   markReady(revision: number, canvas: HTMLCanvasElement): void {
@@ -78,6 +83,11 @@ export class GameSetupControls {
     canvas.setAttribute('aria-describedby', 'board-description ship-summary');
     canvas.dataset.renderedRevision = String(revision);
     this.status.textContent = `Game ${revision} ready`;
+    this.newGameButton.disabled = this.newGameHandler === undefined;
+  }
+
+  showReplacementError(message: string): void {
+    this.status.textContent = message;
     this.newGameButton.disabled = this.newGameHandler === undefined;
   }
 
