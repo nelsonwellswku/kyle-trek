@@ -46,4 +46,4 @@ The domain session has no loading state or external dependency. Application-leve
 
 `BoardGeometry` converts one-based row/column values to logical cell bounds and centers. Rows increase downward; columns increase rightward. All cells are equal squares; ship markers stay inside their owning cell. FIT changes display scale only.
 
-`BoardView` draws the grid and two labeled markers from a GameSetup. `GameSetupScene` delegates lifecycle/render work to that view. `GameSetupControls` renders summaries and routes New Game to the application/session. DOM summary and canvas always derive from the same revision; a drawn-revision notification establishes browser-test readiness without exposing mutable domain state globally.
+`BoardView` draws the grid and two labeled markers from a GameSetup. `GameSetupScene` delegates lifecycle/render work to that view. `GameSetupControls` renders summaries and routes New Game to the application/session. DOM summary and canvas always derive from the same revision; a drawn-revision notification keeps the two synchronized without exposing mutable domain state globally.

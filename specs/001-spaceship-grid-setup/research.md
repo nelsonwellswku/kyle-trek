@@ -50,26 +50,20 @@ The current shell reports Node 24.12.0 and npm 11.12.1; the implementation quick
 
 **Decision**: Start a game automatically on page entry; New Game explicitly replaces both placements. Use a native button, visible dimensions/coordinate explanation, and two visible DOM position summaries associated with the canvas. Distinguish ships through labels or shapes beyond color. Preserve focus and announce a monotonically increasing game revision even when layouts repeat.
 
-**Rationale**: This is the smallest complete setup flow. Canvas alone has no semantic per-ship elements. A summary makes positions accessible and supplies meaningful browser assertions; visual verification separately proves canvas correctness. A narrow responsive page is useful without introducing a second mobile-specific interface.
+**Rationale**: This is the smallest complete setup flow. Canvas alone has no semantic per-ship elements. A visible summary makes positions accessible and supports manual comparison with the rendered board. A narrow responsive page is useful without introducing a second mobile-specific interface.
 
 **Alternatives considered**: A start screen adds a step without gameplay value. Canvas-only buttons add avoidable keyboard/accessibility work. An interactive 100-cell DOM grid would imply board interactions absent from the spec.
 
-**Source**: [Playwright accessibility testing](https://playwright.dev/docs/accessibility-testing).
-
 ## 5. Test strategy and evidence
 
-**Decision**: Vitest 5.0.5 in Node for domain and geometry; Playwright Test 1.64.1 for the real Vite-served application. Use scripted bucket midpoints, endpoints, representative internal boundaries, all 400 pairings, invalid source outputs, stable observation, fresh setup, and allowed repeated layouts. Use a small reviewed deterministic screenshot baseline for the actual board plus semantic browser assertions. Serve a test-only composition entry to inject the RNG before mounting; production uses only the normal entry.
+**Decision**: Vitest 5.0.5 in Node for domain, geometry, and presentation behavior. Use scripted bucket midpoints, endpoints, representative internal boundaries, all 400 pairings, invalid source outputs, stable observation, fresh setup, and allowed repeated layouts. Manually inspect the normal Vite-served application for WebGL rendering, controls, responsive layout, and browser startup/failure behavior.
 
-**Rationale**: Vitest 5 supports Vite 8 and Node 24. Browser tests exercise actual WebGL, input, resize, and rendering; DOM emulation cannot establish canvas output. Deterministic tests protect behavior without depending on chance. A 1,000-setup controlled sequence can satisfy reachability/invariant acceptance checks without imposing a flaky random-frequency gate. Manual player checks retain SC-004's real user outcome.
+**Rationale**: Vitest 5 supports Vite 8 and Node 24. Deterministic tests protect domain and geometry behavior without depending on chance. A 1,000-setup controlled sequence can satisfy reachability/invariant acceptance checks without imposing a flaky random-frequency gate. Visual and input behavior is checked manually in the running application; player checks retain SC-004's real user outcome.
 
-**Alternatives considered**: Globally mocking `Math.random` lets Phaser consume scripted draws. Requiring consecutive games to differ contradicts the spec. Browser-only testing slows exhaustive domain coverage. Adding Vitest Browser Mode would duplicate the focused Playwright suite at this stage.
+**Alternatives considered**: Globally mocking `Math.random` lets Phaser consume scripted draws. Requiring consecutive games to differ contradicts the spec. Browser-only testing slows exhaustive domain coverage and would require a separate browser runtime setup.
 
 **Sources**:
 - [Vitest 5.0.5 peer dependencies and engines](https://registry.npmjs.org/vitest/5.0.5)
-- [Playwright Test 1.64.1](https://registry.npmjs.org/@playwright/test/1.64.1)
 - [Vitest environments](https://vitest.dev/guide/environment)
-- [Playwright server lifecycle](https://playwright.dev/docs/test-webserver)
-- [Retrying assertions](https://playwright.dev/docs/test-assertions)
-- [Visual comparisons](https://playwright.dev/docs/test-snapshots)
 
-For each implementation slice, record the behavior test failing before implementation, then passing, then passing after refactoring. A compilation/setup failure or absent screenshot baseline is not valid behavioral red evidence.
+For each implementation slice, record the behavior test failing before implementation, then passing, then passing after refactoring. A compilation or setup failure is not valid behavioral red evidence.

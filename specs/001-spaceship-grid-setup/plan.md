@@ -10,7 +10,7 @@
 
 Build a browser-first game showing a 10 × 10 board and two single-square, distinguishable ships. Each new game independently selects Ship 1 from rows 1–2 and Ship 2 from rows 9–10. Keep the selected layout in memory, separate from Phaser rendering, so observation and resizing never reroll positions. Initialize on page entry and offer a native New Game button plus a visible ship-position summary.
 
-Use strict TypeScript classes and composed collaborators within one game-setup feature. Vite supplies the development server and static production bundle; Node runs development tools, not browser gameplay. Deterministic Vitest tests protect placement and session behavior; Playwright checks browser wiring and actual canvas output.
+Use strict TypeScript classes and composed collaborators within one game-setup feature. Vite supplies the development server and static production bundle; Node runs development tools, not browser gameplay. Deterministic Vitest tests protect domain, geometry, and presentation behavior; manually inspect browser wiring and actual canvas output during the local walkthrough.
 
 ## Technical Context
 
@@ -22,9 +22,9 @@ Use strict TypeScript classes and composed collaborators within one game-setup f
 
 **Storage**: One current setup in browser memory. Reload initializes a new game; no persistence or backend.
 
-**Testing**: Vitest 5.0.5 in Node for domain/geometry tests; Playwright Test 1.64.1 in Chromium for browser integration and deterministic visual checks. Type-check application, tests, and configuration separately from Vite transpilation.
+**Testing**: Vitest 5.0.5 in Node for domain, geometry, and presentation tests. Verify browser startup, controls, responsive layout, and canvas output in a manual local walkthrough. Type-check application, tests, and configuration separately from Vite transpilation.
 
-**Target Platform**: Current stable desktop Chrome, Firefox, and Safari with WebGL enabled. Chromium is the automated acceptance baseline; Firefox/Safari receive manual smoke checks. Responsive layout down to a 360 CSS-pixel-wide viewport.
+**Target Platform**: Current stable desktop browsers with WebGL enabled. Browser behavior is manually checked during local walkthroughs. Responsive layout down to a 360 CSS-pixel-wide viewport.
 
 **Project Type**: Single browser game, statically bundled, with a Node-powered development toolchain.
 
@@ -43,7 +43,7 @@ Use strict TypeScript classes and composed collaborators within one game-setup f
 | Gameplay feature cohesion | PASS — one owning game-setup boundary | PASS — domain, scene, DOM presentation, and tests live under `src/features/game-setup/`; app code only composes and mounts them. |
 | Specific, strong types | PASS — strict TypeScript and validated positions | PASS — ship identity union, validated position class, fixed named placements, readonly snapshots, explicit RNG contract; Phaser types stay at its adapter boundary. |
 | Class-based composition | PASS — classes own state and behavior | PASS — factory, session, view, controls, and random source collaborate by explicit contracts. Only the Phaser scene extends a third-party class, as required by scene integration. |
-| Test-driven development | PASS — red–green–refactor required before implementation | PASS — validation design specifies behavior-first tests and exact command/failure/pass evidence. Setup/type errors and missing screenshot baselines do not count as behavioral red. |
+| Test-driven development | PASS — red–green–refactor required before implementation | PASS — validation design specifies behavior-first tests and exact command/failure/pass evidence. Setup/type errors do not count as behavioral red. |
 | Explicit dependencies and exceptions | PASS — browser/tooling boundary identified | PASS — domain has no Phaser/DOM imports; application composes adapters. No dynamic typing or general-purpose shared containers planned. |
 
 No constitutional violations or amendments are required. The scene inheritance justification must remain documented at its implementation boundary and in review evidence.
@@ -80,7 +80,6 @@ eslint.config.js
 .prettierignore
 vite.config.ts
 vitest.config.ts
-playwright.config.ts
 src/
 ├── main.ts
 ├── vite-env.d.ts
@@ -103,31 +102,30 @@ src/
         │   ├── GameSetupScene.ts
         │   └── GameSetupControls.ts
         └── tests/
+            ├── setup.test.ts
+            ├── geometry.test.ts
+            ├── board-view.test.ts
             ├── placement.test.ts
             ├── session.test.ts
-            ├── geometry.test.ts
-            ├── game-setup.spec.ts
-            ├── fixtures/
-            │   ├── ScriptedRandomSource.ts
-            │   └── browser-entry.ts
-            └── __screenshots__/
+            └── fixtures/
+                └── ScriptedRandomSource.ts
 ```
 
-**Structure Decision**: One Vite application. Feature-local technical subdivisions preserve gameplay cohesion; `src/app/` owns only application lifecycle, composition, and page layout. A development-only Vite fixture entry mounts the same application with a scripted RNG for browser tests; it is excluded from production output. Unit and browser test discovery patterns must be disjoint. No backend or shared feature abstraction is needed.
+**Structure Decision**: One Vite application. Feature-local technical subdivisions preserve gameplay cohesion; `src/app/` owns only application lifecycle, composition, and page layout. `ScriptedRandomSource` supports deterministic unit tests; the normal Vite entry is the only application entry. No backend or shared feature abstraction is needed.
 
 ## Phase 0 — Research Outcomes
 
-See [research.md](research.md) for verified package compatibility, source references, and alternatives. All technical unknowns are resolved: Phaser 4 is available, Node 24 LTS satisfies tool requirements, TypeScript 6.0 fits the lint support window, and separate unit/browser tests cover domain and WebGL behavior.
+See [research.md](research.md) for verified package compatibility, source references, and alternatives. All technical unknowns are resolved: Phaser 4 is available, Node 24 LTS satisfies tool requirements, TypeScript 6.0 fits the lint support window, and unit tests cover deterministic domain and rendering behavior.
 
 ## Phase 1 — Design and Validation
 
 - [data-model.md](data-model.md): validated one-based positions; complete immutable setup; session revision; independent uniform sampling and lifecycle rules.
 - [contracts/browser-ui.md](contracts/browser-ui.md): page entry, New Game, readable positions, scaling, failures, readiness, and npm script contract.
-- [quickstart.md](quickstart.md): intended setup/run commands, red–green–refactor evidence, deterministic acceptance coverage, browser checks, and usability validation.
+- [quickstart.md](quickstart.md): setup/run commands, red–green–refactor evidence, deterministic acceptance coverage, manual browser checks, and usability validation.
 
 Phaser renders state supplied by `GameSession`; it does not generate starting positions. `GameApplication` creates collaborators once, routes New Game through the session, and disposes owned resources on teardown/HMR. Rendering readiness is reported only after the current revision has been drawn. Resize scales the view without modifying the setup.
 
-Validation covers all FR-001–FR-009 and SC-001–SC-005. Scripted sequences make placement checks repeatable; equal-width bucket mapping and source-contract review support the probability requirement. The 4-of-5 player identification outcome remains a real usability check. Final implementation checks include type-check, lint, format check, unit tests, production build, and browser tests.
+Validation covers all FR-001–FR-009 and SC-001–SC-005. Scripted sequences make placement checks repeatable; equal-width bucket mapping and source-contract review support the probability requirement. The 4-of-5 player identification outcome remains a real usability check. Final implementation checks include type-check, lint, format check, unit tests, production build, and a manual browser walkthrough.
 
 ## Complexity Tracking
 

@@ -35,25 +35,20 @@ The application exposes a browser page and npm development commands. There is no
 - If replacing the setup fails, retain the previous complete layout/revision, announce **Unable to start a new game. Try again.**, and allow another explicit activation; do not retry random selection automatically.
 - Dispose the owned Phaser Game, canvas, DOM handlers, and scene-lifetime subscriptions on application teardown/HMR. Remove scene subscriptions on shutdown when appropriate for restart.
 
-## Test composition contract
-
-Browser tests mount the same `GameApplication` through a development-only fixture entry with a scripted RandomSource supplied before initialization. Test fixtures stay feature-local and are excluded from production builds. They must not replace Phaser's global randomness or introduce a production seed/query-string API.
-
-Await the drawn revision/status using retrying assertions rather than sleeps. Verify semantic DOM state and a reviewed deterministic canvas rendering; summaries alone do not establish that the grid or ships are drawn correctly. Keep screenshot browser, viewport, scale, fonts, and rendering environment fixed. A baseline is reviewed output, not evidence that tests failed behaviorally before implementation.
-
-## npm command contract (to be implemented)
+## npm command contract
 
 | Command | Required behavior |
 |---------|-------------------|
 | `npm run dev` | Start Vite on loopback port 5173 with strict port selection; print the visitable URL. |
 | `npm run typecheck` | Type-check application, tests, and tool configuration without emitting JavaScript. |
-| `npm run build` | Run type-check then create the static production bundle in `dist/`; exclude fixture entry. |
+| `npm run build` | Run type-check then create the static production bundle in `dist/`. |
 | `npm run preview` | Serve the production bundle on loopback port 4173 with strict port selection. |
 | `npm run lint` | Run ESLint and fail on warnings/errors. |
 | `npm run format` | Apply Prettier formatting to maintained project files. |
 | `npm run format:check` | Check formatting without changing files. |
-| `npm test` | Run deterministic Vitest tests once; exclude Playwright specs. |
+| `npm test` | Run deterministic Vitest tests once. |
 | `npm run test:watch` | Run Vitest watch mode for feature development. |
-| `npm run test:e2e` | Run Playwright Chromium acceptance tests; manage a Vite test server, including fixture routing, on an isolated strict port such as 5174. |
+
+Browser-only behavior is checked during the manual local walkthrough documented in [quickstart.md](../quickstart.md).
 
 The standard dev path remains `nvm use`, `npm ci`, `npm run dev`. The first dependency bootstrap generates the lockfile with `npm install`; subsequent installs use `npm ci`.

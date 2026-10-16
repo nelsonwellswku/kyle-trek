@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/features/game-setup/tests/**/*.test.ts'],
-    exclude: ['src/features/game-setup/tests/**/*.spec.ts', 'node_modules/**', 'dist/**'],
+    exclude: ['node_modules/**', 'dist/**'],
     passWithNoTests: true,
   },
 });
