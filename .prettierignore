@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+test-results/
+playwright-report/
+package-lock.json
+*.min.js
+.opencode/
+.specify/

@@ -1,0 +1,175 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  background: #07111d;
+  color: #eef5fb;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at 50% -20%, rgb(31 77 108 / 42%), transparent 60%), #07111d;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.game-shell {
+  width: min(100%, 56rem);
+  margin-inline: auto;
+  padding: clamp(1rem, 4vw, 2.5rem);
+}
+
+.page-header {
+  margin-bottom: 1.25rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.35rem;
+  color: #60d7f2;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0;
+  font-size: clamp(1.6rem, 5vw, 2.3rem);
+  line-height: 1.12;
+}
+
+.game-layout {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(0.75rem, 3vw, 1.25rem);
+  border: 1px solid #264259;
+  border-radius: 1rem;
+  background: linear-gradient(145deg, #102337, #0a1929);
+  box-shadow: 0 1.25rem 3rem rgb(0 0 0 / 24%);
+}
+
+.board-copy h2 {
+  margin-bottom: 0.35rem;
+  font-size: 1.15rem;
+}
+
+.board-copy p {
+  margin-bottom: 0;
+  color: #bfceda;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.board-host {
+  width: min(100%, 600px);
+  aspect-ratio: 1;
+  margin-inline: auto;
+  overflow: hidden;
+  border-radius: 0.25rem;
+  background: #0b1b2b;
+}
+
+.board-host canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+}
+
+.game-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.game-details p {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid #264259;
+  border-radius: 0.7rem;
+  background: #0d1d2d;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.game-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.new-game-button {
+  min-height: 2.75rem;
+  padding: 0.7rem 1.15rem;
+  border: 1px solid #50d5ef;
+  border-radius: 0.65rem;
+  background: #0c3c53;
+  color: #f4fbff;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.new-game-button:disabled {
+  border-color: #40566b;
+  background: #1a2c3b;
+  color: #9baab8;
+  cursor: not-allowed;
+}
+
+.new-game-button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+.game-status {
+  min-height: 1.5rem;
+  margin: 0;
+  color: #bfe8cc;
+  font-weight: 650;
+}
+
+.startup-error {
+  margin: 1rem 0 0;
+  padding: 1rem;
+  border: 1px solid #f08c8c;
+  border-radius: 0.65rem;
+  background: #3b2027;
+  color: #ffe2e2;
+  line-height: 1.5;
+}
+
+.startup-error[hidden] {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .game-details {
+    grid-template-columns: 1fr;
+  }
+
+  .game-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .new-game-button {
+    width: 100%;
+  }
+}
