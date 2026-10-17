@@ -9,7 +9,15 @@ import { TurnSession } from '../../domain/TurnSession.js';
 import { MovementScene } from '../../presentation/MovementScene.js';
 import { TurnControls } from '../../presentation/TurnControls.js';
 
-type PresetName = 'center' | 'straight' | 'one-immobile' | 'both-immobile' | 'reset-during-flight';
+type PresetName =
+  | 'center'
+  | 'blocked-direct'
+  | 'enemy-detour'
+  | 'edge'
+  | 'straight'
+  | 'one-immobile'
+  | 'both-immobile'
+  | 'reset-during-flight';
 
 const BOARD_SIZE = 600;
 const root = document.querySelector<HTMLElement>('#app');
@@ -30,6 +38,9 @@ const observationLog = fixtureLog;
 function createPreset(name: PresetName): MovementGame {
   const presets: Record<PresetName, readonly [number, number, number, number, number, number]> = {
     center: [5, 5, 14, 10, 10, 18],
+    'blocked-direct': [5, 4, 14, 5, 5, 18],
+    'enemy-detour': [5, 4, 18, 5, 5, 18],
+    edge: [1, 1, 20, 1, 2, 18],
     straight: [5, 2, 20, 10, 10, 18],
     'one-immobile': [1, 1, 8, 10, 10, 16],
     'both-immobile': [1, 1, 9, 10, 10, 11],

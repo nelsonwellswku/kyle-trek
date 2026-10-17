@@ -48,9 +48,44 @@ T003 adds feature-local typed scripted randomness and controllable flight fixtur
 | Task / test | Exact command | Expected behavioral red | Observed red and green/refactor result |
 | ----------- | ------------- | ----------------------- | -------------------------------------- |
 
+### User Story 2 — Navigate Around an Enemy
+
+**T031 — Independent route arrangements**
+
+- Command: `npm test -- src/features/ship-movement/tests/reachability.test.ts src/features/ship-movement/tests/detour-integration.test.ts`
+- Outcome: 30 tests passed before the surrounded-fixture addition. Twenty named center/edge/corner/blocked/detour arrangements compare exact destinations and shortest distances against an independent simple-path enumerator. Route invariants cover endpoints, orthogonality, uniqueness, bounds, blocker avoidance and allowance. A separate tie case asserts up-first selection; five-step and six-step boundary destinations are checked explicitly. The shared BFS already implemented this behavior, so no failure was manufactured.
+
+**T032 — Controller detour integration**
+
+- Command: same targeted command as T031.
+- Outcome: Controller fixtures verify the blocked two-step direct target, accepted four-step same-row detour, matching selected route, occupied-square rejection, two consecutive arrivals with refreshed occupancy/highlights, and edge routes/highlights staying within the board. Initial test-harness coordinate/tie expectation mistakes were corrected; they did not reveal product defects.
+
+**T033 — Routing/integration review**
+
+- Command: `npm test -- src/features/ship-movement/tests/reachability.test.ts src/features/ship-movement/tests/detour-integration.test.ts src/features/ship-movement/tests/controller.test.ts src/features/board/tests`
+- Outcome: No routing or controller defect was found: highlights and selection consume the same cached `ReachabilityResult`, and board bounds/blockers are enforced during search. No behavior correction was made for T033. The extra-blocker boundary fixture is isolated to tests; production MovementGame continues to contain exactly two ships.
+
+**T034 — Surrounded routing and pass boundary**
+
+- Command: `npm test -- src/features/ship-movement/tests/reachability.test.ts src/features/ship-movement/tests/detour-integration.test.ts`
+- Red: The positive-allowance fixture observed destinations despite blockers surrounding all four neighboring cells, and the controller remained ready instead of awaiting an explicit pass.
+- Green: Reachability now excludes fixture-only additional blockers in route-finder tests; live movement continues to provide only the actual enemy ship. The rerun passed 32 tests, including separate pass acknowledgments for both surrounded fixture ships and stale-token rejection.
+
+**T035 — Browser presets**
+
+- Command: `npm run typecheck`
+- Outcome: Added **Blocked direct route** (Ship 1 at 5,4, enemy at 5,5, allowance 2), **Affordable enemy detour** (same arrangement, allowance 4), and **Board-edge detour** (Ship 1 at 1,1, enemy at 1,2). The four-step row-sharing detour and in-bounds route are covered by Node acceptance tests. Type checking passed; browser interaction remains pending.
+
+**T036 — Routing and browser acceptance**
+
+- Commands: `npm test -- src/features/ship-movement/tests/reachability.test.ts src/features/ship-movement/tests/detour-integration.test.ts src/features/ship-movement/tests/controller.test.ts src/features/board/tests`; Vite fixture HTML/module requests via `curl`.
+- Outcome: Automated regressions passed: 47 tests across 6 files; the full suite passed with 144 tests across 20 files. Vite served fixture HTML and its TypeScript module with HTTP 200. Manual browser checks could not run because Chromium/Chrome/Firefox are unavailable; visual highlights, route flight and alternate-route acceptance remain pending, so T036 is unchecked.
+
 ## Manual browser checks
 
 The normal-play and deterministic fixture checks from `quickstart.md` are to be recorded here. Manual browser execution and visual/timing acceptance must be reported as pending when no interactive browser is available; Node mocks are not browser evidence.
+
+- US2 fixture presets are implemented. No Chromium, Chrome, or Firefox executable is installed in this environment, so visual detour flight, browser highlight appearance, and manual route-choice checks remain pending. Fixture HTML and module both returned HTTP 200 from Vite; serving/transform smoke checks do not substitute for browser acceptance.
 
 ## Architecture review
 

@@ -53,7 +53,12 @@ export class Reachability {
     [0, -1],
   ] as const;
 
-  find(snapshot: BoardSnapshot, activeShip: ShipIdentity, allowance: number): ReachabilityResult {
+  find(
+    snapshot: BoardSnapshot,
+    activeShip: ShipIdentity,
+    allowance: number,
+    fixtureBlockers: readonly BoardPosition[] = [],
+  ): ReachabilityResult {
     if (!Number.isFinite(allowance)) {
       throw new RangeError('Movement allowance must be finite.');
     }
@@ -62,7 +67,14 @@ export class Reachability {
     const blocker = activeShip === 'ship-1' ? snapshot.ship2 : snapshot.ship1;
     const effectiveAllowance = Math.min(5, Math.max(0, Math.floor(allowance)));
     const origin = active.position;
-    const blockerKey = Reachability.positionKey(blocker.position);
+    // Extra fixture blockers cover route-finder states unavailable in a two-ship game.
+    const blockersByKey = new Map<string, BoardPosition>([
+      [Reachability.positionKey(blocker.position), blocker.position],
+    ]);
+    for (const fixtureBlocker of fixtureBlockers) {
+      blockersByKey.set(Reachability.positionKey(fixtureBlocker), fixtureBlocker);
+    }
+    const blockerKeys = new Set(blockersByKey.keys());
     const distanceByPosition = new Map<string, number>([[Reachability.positionKey(origin), 0]]);
     const predecessorByPosition = new Map<string, BoardPosition>();
     const queue: BoardPosition[] = [origin];
@@ -88,7 +100,7 @@ export class Reachability {
 
         const next = new BoardPosition(row, column);
         const nextKey = Reachability.positionKey(next);
-        if (nextKey === blockerKey || distanceByPosition.has(nextKey)) {
+        if (blockerKeys.has(nextKey) || distanceByPosition.has(nextKey)) {
           continue;
         }
 
@@ -104,7 +116,12 @@ export class Reachability {
       }
     }
 
-    return new ReachabilityResult(origin, [blocker.position], effectiveAllowance, destinations);
+    return new ReachabilityResult(
+      origin,
+      [...blockersByKey.values()],
+      effectiveAllowance,
+      destinations,
+    );
   }
 
   private static createRoute(
