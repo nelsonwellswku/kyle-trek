@@ -1,18 +1,10 @@
 import { BoardPosition } from '../../board/domain/BoardPosition.js';
 import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
-import { Reachability, type LegalRoute, type ReachabilityResult } from './Reachability.js';
+import { Reachability, type ReachabilityResult } from './Reachability.js';
 import { MovementGame, type PlayerIdentity } from './MovementGame.js';
+import type { PendingMove } from './PendingMove.js';
 
-export interface PendingMove {
-  readonly gameRevision: number;
-  readonly turnToken: number;
-  readonly moveId: number;
-  readonly shipIdentity: ShipIdentity;
-  readonly origin: BoardPosition;
-  readonly destination: BoardPosition;
-  readonly otherShipPosition: BoardPosition;
-  readonly route: LegalRoute;
-}
+export type { PendingMove } from './PendingMove.js';
 
 interface TurnSnapshotBase {
   readonly gameRevision: number;

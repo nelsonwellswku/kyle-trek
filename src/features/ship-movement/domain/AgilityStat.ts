@@ -1,14 +1,20 @@
+import { AbilityStat } from '../../ship-stats/domain/AbilityStat.js';
+
 export class AgilityStat {
-  readonly modifier: number;
+  readonly ability: AbilityStat;
   readonly movementAllowance: number;
 
-  constructor(readonly score: number) {
-    if (!Number.isInteger(score) || score < 8 || score > 20) {
-      throw new RangeError('Agility score must be an integer between 8 and 20.');
-    }
-
-    this.modifier = Math.floor((score - 10) / 2);
-    this.movementAllowance = Math.max(0, this.modifier);
+  constructor(score: number) {
+    this.ability = new AbilityStat(score);
+    this.movementAllowance = Math.max(0, this.ability.modifier);
     Object.freeze(this);
+  }
+
+  get score(): number {
+    return this.ability.score;
+  }
+
+  get modifier(): number {
+    return this.ability.modifier;
   }
 }

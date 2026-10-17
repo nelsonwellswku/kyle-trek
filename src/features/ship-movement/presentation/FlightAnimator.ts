@@ -1,5 +1,5 @@
 import type { BoardPoint } from '../../board/presentation/BoardGeometry.js';
-import type { PendingMove } from '../domain/TurnSession.js';
+import type { PendingMove } from '../domain/PendingMove.js';
 
 export interface FlightIdentity {
   readonly gameRevision: number;

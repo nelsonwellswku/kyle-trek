@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
-import type { PendingMove } from '../domain/TurnSession.js';
+import type { PendingMove } from '../domain/PendingMove.js';
 import type {
   FlightAnimator,
   FlightFailureHandler,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AgilityStat } from '../domain/AgilityStat.js';
+import { AbilityStat } from '../../ship-stats/domain/AbilityStat.js';
 
 describe('AgilityStat', () => {
   it.each([
@@ -31,4 +32,13 @@ describe('AgilityStat', () => {
       expect(() => new AgilityStat(score)).toThrow(RangeError);
     },
   );
+
+  it('composes the shared AbilityStat while retaining the public movement interface', () => {
+    const agility = new AgilityStat(8);
+    expect(agility.ability).toBeInstanceOf(AbilityStat);
+    expect(agility.score).toBe(8);
+    expect(agility.modifier).toBe(-1);
+    expect(agility.movementAllowance).toBe(0);
+    expect(agility).toBeInstanceOf(AgilityStat);
+  });
 });

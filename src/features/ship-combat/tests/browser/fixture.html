@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#081523" />
+    <title>Ship Combat Setup Preview</title>
+  </head>
+  <body>
+    <main class="game-shell">
+      <header class="page-header">
+        <p class="eyebrow">TEST-ONLY ENTRY</p>
+        <h1>Ship combat setup</h1>
+        <p>Deterministic initialization preview using the production board and combat stats.</p>
+      </header>
+      <section class="fixture-panel" aria-label="Setup presets">
+        <label for="setup-preset">Preset</label>
+        <select id="setup-preset">
+          <option value="known">Known rolls</option>
+          <option value="low-hp">Minimum hit points</option>
+          <option value="high-stats">High stats</option>
+        </select>
+        <button id="reset-setup" class="new-game-button" type="button">Reset setup</button>
+      </section>
+      <section class="game-layout" aria-label="Combat setup board">
+        <div class="board-copy">
+          <h2>10 × 10 battle grid</h2>
+          <p>Ships begin in opposing zones. This preview verifies setup and stats only.</p>
+        </div>
+        <div id="combat-board" class="board-host" aria-label="Combat board"></div>
+      </section>
+      <section id="combat-stats" class="turn-hud" aria-label="Combat ship stats"></section>
+      <p id="setup-status" class="game-status" role="status" aria-live="polite">Preparing setup…</p>
+    </main>
+    <script type="module" src="./fixture.ts"></script>
+  </body>
+</html>

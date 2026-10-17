@@ -117,6 +117,49 @@ h1 {
   font-weight: 800;
 }
 
+.combat-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.combat-ship-stats {
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid #29445b;
+  border-radius: 0.7rem;
+  background: #0a1928;
+}
+
+.combat-ship-stats h2 {
+  margin-bottom: 0.65rem;
+  color: #f1f8fc;
+  font-size: 1rem;
+}
+
+.combat-stat-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.combat-stat-list div {
+  min-width: 0;
+}
+
+.combat-stat-list dt {
+  color: #afc1d0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.combat-stat-list dd {
+  margin: 0.15rem 0 0;
+  color: #f1f8fc;
+  font-weight: 800;
+}
+
 .board-copy h2 {
   margin-bottom: 0.35rem;
   font-size: 1.15rem;
@@ -313,6 +356,10 @@ h1 {
 
   .agility-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .combat-stats {
+    grid-template-columns: 1fr;
   }
 
   .new-game-button,

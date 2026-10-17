@@ -1,5 +1,5 @@
 ---
-description: "Executable implementation tasks for Ship Torpedo Combat"
+description: 'Executable implementation tasks for Ship Torpedo Combat'
 ---
 
 # Tasks: Ship Torpedo Combat
@@ -22,8 +22,8 @@ description: "Executable implementation tasks for Ship Torpedo Combat"
 
 **Purpose**: Establish verification evidence and deterministic support without changing gameplay.
 
-- [ ] T001 Record the Node 24/npm 11 environment, current `npm test`, `npm run typecheck`, and `npm run build` baseline and per-slice red-green-refactor evidence format in `specs/003-ship-torpedo-combat/development.md`; inspect `package.json` and `vitest.config.ts` to confirm feature-local discovery without changing working infrastructure.
-- [ ] T002 Create combat-local scripted randomness and DOM test support in `src/features/ship-combat/tests/fixtures/ScriptedRandomSource.ts` and `src/features/ship-combat/tests/fixtures/FakeDom.ts`, reusing existing fixture patterns and adding exact draw-count inspection and the stats/phase/result/button selectors required by `specs/003-ship-torpedo-combat/contracts/combat-ui.md`.
+- [x] T001 Record the Node 24/npm 11 environment, current `npm test`, `npm run typecheck`, and `npm run build` baseline and per-slice red-green-refactor evidence format in `specs/003-ship-torpedo-combat/development.md`; inspect `package.json` and `vitest.config.ts` to confirm feature-local discovery without changing working infrastructure.
+- [x] T002 Create combat-local scripted randomness and DOM test support in `src/features/ship-combat/tests/fixtures/ScriptedRandomSource.ts` and `src/features/ship-combat/tests/fixtures/FakeDom.ts`, reusing existing fixture patterns and adding exact draw-count inspection and the stats/phase/result/button selectors required by `specs/003-ship-torpedo-combat/contracts/combat-ui.md`.
 
 ---
 
@@ -33,12 +33,12 @@ description: "Executable implementation tasks for Ship Torpedo Combat"
 
 **Gate**: All foundation tasks must pass before US1. T003 and T004 may proceed together after T002; their implementations follow their own red tests.
 
-- [ ] T003 [P] Add and run behavioral tests in `src/features/ship-stats/tests/ability-stat.test.ts` and extend `src/features/ship-movement/tests/agility.test.ts` for the constraints “Integer 8–20 inclusive”, “Derived integer `floor((score - 10) / 2)`, range −1 to +5”, and `movementAllowance = max(0, modifier)`; exhaust all 13 scores, invalid/fractional values, immutability, and preserved `AgilityStat` compatibility.
-- [ ] T004 [P] Add and run dice boundary/invalid-input tests in `src/features/ship-combat/tests/dice-roller.test.ts` using scripted samples: finite [0,1) input, inclusive 8–20, 0–20, 1–20, and 1–8 outputs, exact bucket boundaries, and invalid bounds/samples rejected without publishing state.
-- [ ] T005 Implement immutable `AbilityStat` in `src/features/ship-stats/domain/AbilityStat.ts` and refactor `src/features/ship-movement/domain/AgilityStat.ts` to compose it while retaining public score/modifier/allowance and existing `instanceof AgilityStat` behavior; run T003 tests green and affected movement regressions.
-- [ ] T006 Implement `DiceRoller` in `src/features/ship-combat/domain/DiceRoller.ts` using injected `src/features/game-setup/domain/RandomSource.ts`, validated samples, and `min + floor(sample * (max - min + 1))`; run T004 tests green without adding a dependency or renderer randomness.
-- [ ] T007 Extract the existing `PendingMove` interface into `src/features/ship-movement/domain/PendingMove.ts`, re-export it from `src/features/ship-movement/domain/TurnSession.ts`, and update imports in `src/features/ship-movement/presentation/FlightAnimator.ts` and `src/features/ship-movement/presentation/PhaserFlightAnimator.ts`; preserve revision/token/move ID, ship identity, origin, destination, other ship position, and `LegalRoute` without changing movement-only session semantics.
-- [ ] T008 Run the targeted stats, dice, movement, board, and setup tests plus typecheck against `src/features/ship-stats/tests`, `src/features/ship-combat/tests/dice-roller.test.ts`, `src/features/ship-movement/tests`, `src/features/board/tests`, and `src/features/game-setup/tests`; record passing foundation evidence and shared-capability consumers in `specs/003-ship-torpedo-combat/development.md`.
+- [x] T003 [P] Add and run behavioral tests in `src/features/ship-stats/tests/ability-stat.test.ts` and extend `src/features/ship-movement/tests/agility.test.ts` for the constraints “Integer 8–20 inclusive”, “Derived integer `floor((score - 10) / 2)`, range −1 to +5”, and `movementAllowance = max(0, modifier)`; exhaust all 13 scores, invalid/fractional values, immutability, and preserved `AgilityStat` compatibility.
+- [x] T004 [P] Add and run dice boundary/invalid-input tests in `src/features/ship-combat/tests/dice-roller.test.ts` using scripted samples: finite [0,1) input, inclusive 8–20, 0–20, 1–20, and 1–8 outputs, exact bucket boundaries, and invalid bounds/samples rejected without publishing state.
+- [x] T005 Implement immutable `AbilityStat` in `src/features/ship-stats/domain/AbilityStat.ts` and refactor `src/features/ship-movement/domain/AgilityStat.ts` to compose it while retaining public score/modifier/allowance and existing `instanceof AgilityStat` behavior; run T003 tests green and affected movement regressions.
+- [x] T006 Implement `DiceRoller` in `src/features/ship-combat/domain/DiceRoller.ts` using injected `src/features/game-setup/domain/RandomSource.ts`, validated samples, and `min + floor(sample * (max - min + 1))`; run T004 tests green without adding a dependency or renderer randomness.
+- [x] T007 Extract the existing `PendingMove` interface into `src/features/ship-movement/domain/PendingMove.ts`, re-export it from `src/features/ship-movement/domain/TurnSession.ts`, and update imports in `src/features/ship-movement/presentation/FlightAnimator.ts` and `src/features/ship-movement/presentation/PhaserFlightAnimator.ts`; preserve revision/token/move ID, ship identity, origin, destination, other ship position, and `LegalRoute` without changing movement-only session semantics.
+- [x] T008 Run the targeted stats, dice, movement, board, and setup tests plus typecheck against `src/features/ship-stats/tests`, `src/features/ship-combat/tests/dice-roller.test.ts`, `src/features/ship-movement/tests`, `src/features/board/tests`, and `src/features/game-setup/tests`; record passing foundation evidence and shared-capability consumers in `specs/003-ship-torpedo-combat/development.md`.
 
 **Checkpoint**: Shared stats and deterministic dice are verified; existing board, placement, and movement behavior remains intact.
 
@@ -54,18 +54,18 @@ description: "Executable implementation tasks for Ship Torpedo Combat"
 
 T009–T011 can be authored/run independently after Phase 2; all must demonstrate missing behavior before their corresponding implementation.
 
-- [ ] T009 [P] [US1] Add and run immutable ship/game tests in `src/features/ship-combat/tests/combat-game.test.ts` for the field constraints in `data-model.md`: identity “ship-1 or ship-2”, owner “player-1 or player-2, matching ship suffix”, position “Validated `BoardPosition`, rows/columns 1–10”, agility “`AgilityStat`”, strength/constitution “`AbilityStat`”, armorClass “Literal 12”, startingHitPoints “Integer 1–30; immutable for the battle”, and hitPoints “Integer 0–startingHitPoints”; cover distinct placements, frozen snapshots, and position/damage updates preserving all other fields.
-- [ ] T010 [P] [US1] Add and run factory tests in `src/features/ship-combat/tests/combat-game-factory.test.ts` for independent equal-width stat draws, opposing zones, ten-draw ordering, HP endpoints and `max(1, hpRoll + 2 * constitution.modifier)` without rerolls, AC 12, repeated valid setups, and invalid draws rejecting a replacement before publication.
-- [ ] T011 [P] [US1] Add and run stats-display contract tests in `src/features/ship-combat/tests/combat-stats-controls.test.ts` for `CombatControls.renderShips(game)`: both identities/owners, separately labeled scores/signed modifiers, current HP and AC, unchanged values on repeat render, and refreshed values on replacement.
+- [x] T009 [P] [US1] Add and run immutable ship/game tests in `src/features/ship-combat/tests/combat-game.test.ts` for the field constraints in `data-model.md`: identity “ship-1 or ship-2”, owner “player-1 or player-2, matching ship suffix”, position “Validated `BoardPosition`, rows/columns 1–10”, agility “`AgilityStat`”, strength/constitution “`AbilityStat`”, armorClass “Literal 12”, startingHitPoints “Integer 1–30; immutable for the battle”, and hitPoints “Integer 0–startingHitPoints”; cover distinct placements, frozen snapshots, and position/damage updates preserving all other fields.
+- [x] T010 [P] [US1] Add and run factory tests in `src/features/ship-combat/tests/combat-game-factory.test.ts` for independent equal-width stat draws, opposing zones, ten-draw ordering, HP endpoints and `max(1, hpRoll + 2 * constitution.modifier)` without rerolls, AC 12, repeated valid setups, and invalid draws rejecting a replacement before publication.
+- [x] T011 [P] [US1] Add and run stats-display contract tests in `src/features/ship-combat/tests/combat-stats-controls.test.ts` for `CombatControls.renderShips(game)`: both identities/owners, separately labeled scores/signed modifiers, current HP and AC, unchanged values on repeat render, and refreshed values on replacement.
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] Implement frozen `CombatShip` records and immutable `CombatGame` in `src/features/ship-combat/domain/CombatGame.ts` with exactly the T009 constraints, literal 10 rows/columns and structural `BoardSnapshot` compatibility; implement `withPosition` and `withDamage`, require nonnegative integer damage, clamp HP at zero, and retain all combat fields instead of reconstructing through `MovementGame`; make T009 green.
-- [ ] T013 [US1] Implement `CombatGameFactory` in `src/features/ship-combat/domain/CombatGameFactory.ts` composing existing `GameSetupFactory` and `DiceRoller`; draw the two positions first, then agility/strength/constitution/HP for ship-1 and ship-2, set starting/current HP identically, and preserve existing opposing-zone rules; make T010 green after T012.
-- [ ] T014 [US1] Implement the independently usable stats-rendering portion of `CombatControls` in `src/features/ship-combat/presentation/CombatControls.ts` and combat stat layout in `src/app/styles.css`; preserve native DOM semantics, text labels, and idempotent disposal; make T011 green after T012 without depending on a battle session.
-- [ ] T015 [US1] Add the initial browser setup/stats preview in `src/features/ship-combat/tests/browser/fixture.html` and `src/features/ship-combat/tests/browser/fixture.ts` using `CombatGameFactory`, `BoardView`, and `CombatControls.renderShips`; provide deterministic presets/reset using production components; the fixture must never be imported by the production entry and must not add a production stat editor, with later tasks upgrading this same fixture to the production combat scene.
-- [ ] T016 [US1] Extend and run `src/features/ship-combat/tests/combat-game-factory.test.ts` for 100 known-roll setups and 1,000 deterministic setups covering every valid stat bucket, matching modifiers, HP bounds/floor, and independent draw scheduling; review equal-probability mapping rather than treating the sample as proof of fairness.
-- [ ] T017 [US1] Validate the setup preview and targeted tests using `specs/003-ship-torpedo-combat/quickstart.md`, recording SC-001/SC-002/SC-008 evidence in `specs/003-ship-torpedo-combat/development.md`; confirm all starting stats remain stable until a fresh setup and both ships' displayed values match their actual state.
+- [x] T012 [US1] Implement frozen `CombatShip` records and immutable `CombatGame` in `src/features/ship-combat/domain/CombatGame.ts` with exactly the T009 constraints, literal 10 rows/columns and structural `BoardSnapshot` compatibility; implement `withPosition` and `withDamage`, require nonnegative integer damage, clamp HP at zero, and retain all combat fields instead of reconstructing through `MovementGame`; make T009 green.
+- [x] T013 [US1] Implement `CombatGameFactory` in `src/features/ship-combat/domain/CombatGameFactory.ts` composing existing `GameSetupFactory` and `DiceRoller`; draw the two positions first, then agility/strength/constitution/HP for ship-1 and ship-2, set starting/current HP identically, and preserve existing opposing-zone rules; make T010 green after T012.
+- [x] T014 [US1] Implement the independently usable stats-rendering portion of `CombatControls` in `src/features/ship-combat/presentation/CombatControls.ts` and combat stat layout in `src/app/styles.css`; preserve native DOM semantics, text labels, and idempotent disposal; make T011 green after T012 without depending on a battle session.
+- [x] T015 [US1] Add the initial browser setup/stats preview in `src/features/ship-combat/tests/browser/fixture.html` and `src/features/ship-combat/tests/browser/fixture.ts` using `CombatGameFactory`, `BoardView`, and `CombatControls.renderShips`; provide deterministic presets/reset using production components; the fixture must never be imported by the production entry and must not add a production stat editor, with later tasks upgrading this same fixture to the production combat scene.
+- [x] T016 [US1] Extend and run `src/features/ship-combat/tests/combat-game-factory.test.ts` for 100 known-roll setups and 1,000 deterministic setups covering every valid stat bucket, matching modifiers, HP bounds/floor, and independent draw scheduling; review equal-probability mapping rather than treating the sample as proof of fairness.
+- [ ] T017 [US1] Validate the setup preview and targeted tests using `specs/003-ship-torpedo-combat/quickstart.md`, recording SC-001/SC-002/SC-008 evidence in `specs/003-ship-torpedo-combat/development.md`; confirm all starting stats remain stable until a fresh setup and both ships' displayed values match their actual state. (Automated tests and fixture HTTP transformation passed; visual browser validation is pending because no browser executable is available.)
 
 **Checkpoint**: The US1 MVP is a demonstrable battle setup with complete visible stats. Actual combat is delivered by US2/US3, not implied by this checkpoint.
 
@@ -241,19 +241,19 @@ Complete T001–T017 and demonstrate US1 using the setup fixture. This is a focu
 
 ## Requirement Coverage
 
-| Requirements / outcomes | Main task coverage |
-| --- | --- |
-| FR-001–FR-006; SC-001/SC-002/SC-008 | T003–T006, T009–T017 |
-| FR-007–FR-010; SC-003 | T019–T030, T043 |
-| FR-011; invalid input/no RNG consumption | T021/T022/T025, T031/T039/T043 |
-| FR-012–FR-014; SC-004 | T018/T031/T035/T039/T044 |
-| FR-015; result visibility | T034/T038/T039/T044 |
-| FR-016; SC-005/SC-009 | T032/T033/T036/T037/T042/T048 |
-| FR-017; SC-006 | T019/T022/T034/T039/T043/T044 |
-| FR-018; fresh replacement/lifecycle | T010/T013/T028/T029/T040–T043/T048 |
-| FR-019; attack-animation failure recovery | T028/T029/T033/T037/T043 |
-| SC-007; usable controls | T020/T023/T038/T049 |
-| Constitution / full acceptance evidence | T001/T008, per-slice red-green-refactor, T046–T050 |
+| Requirements / outcomes                   | Main task coverage                                 |
+| ----------------------------------------- | -------------------------------------------------- |
+| FR-001–FR-006; SC-001/SC-002/SC-008       | T003–T006, T009–T017                               |
+| FR-007–FR-010; SC-003                     | T019–T030, T043                                    |
+| FR-011; invalid input/no RNG consumption  | T021/T022/T025, T031/T039/T043                     |
+| FR-012–FR-014; SC-004                     | T018/T031/T035/T039/T044                           |
+| FR-015; result visibility                 | T034/T038/T039/T044                                |
+| FR-016; SC-005/SC-009                     | T032/T033/T036/T037/T042/T048                      |
+| FR-017; SC-006                            | T019/T022/T034/T039/T043/T044                      |
+| FR-018; fresh replacement/lifecycle       | T010/T013/T028/T029/T040–T043/T048                 |
+| FR-019; attack-animation failure recovery | T028/T029/T033/T037/T043                           |
+| SC-007; usable controls                   | T020/T023/T038/T049                                |
+| Constitution / full acceptance evidence   | T001/T008, per-slice red-green-refactor, T046–T050 |
 
 ## Notes
 
