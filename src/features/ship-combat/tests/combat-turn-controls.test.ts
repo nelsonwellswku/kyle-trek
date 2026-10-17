@@ -38,6 +38,21 @@ function attackReady(session: BattleSession): Exclude<BattleSnapshot, { phase: '
 }
 
 describe('CombatControls battle phases', () => {
+  it('keeps phase actions unavailable until the matching board revision is ready', () => {
+    const { snapshot } = immobileSnapshot();
+    const root = new FakeElement();
+    const controls = new CombatControls(root as unknown as HTMLElement);
+    controls.renderBattle(snapshot, false);
+
+    const skipButton = root.querySelector<HTMLButtonElement>('button.skip-movement-button');
+    expect(skipButton?.hidden).toBe(true);
+    expect(skipButton?.disabled).toBe(true);
+
+    controls.renderBattle(snapshot, true);
+    expect(skipButton?.hidden).toBe(false);
+    expect(skipButton?.disabled).toBe(false);
+  });
+
   it('offers Skip movement only when immobile and End turn only after movement resolves', () => {
     const { session, snapshot } = immobileSnapshot();
     const root = new FakeElement();

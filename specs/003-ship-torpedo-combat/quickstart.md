@@ -32,17 +32,17 @@ Expect feature discovery to select real tests; do not suppress empty selection. 
 
 ### Deterministic acceptance cases
 
-| Coverage | Required checks |
-| --- | --- |
-| Stats / SC-001 | Exhaust all 13 ability scores across agility/strength/constitution, exact mapping and nonpositive agility allowance; invalid/fractional/out-of-range values rejected |
-| Initialization / SC-002, SC-008 | 100 known-roll setups, ten-draw ordering, independent bucket selection; HP roll 0 and 20; constitution −1 and +5; HP clamp to 1; AC 12; 1,000 deterministic setups for ranges and mapping |
-| Turns / SC-003 | 50 turns mixing attacks and End turn; movement retains player/token; no-move acknowledgement opens attack; both immobile ships do not cycle automatically; invalid, early, repeated, non-left clicks do not consume actions |
-| Rolls / SC-004 | At least 100 controlled attacks covering total 11 miss, total 12 hit, all strength modifiers, d20 and d8 endpoints, zero damage, nonlethal hit, exact lethal damage and overkill |
-| RNG consumption | Miss draws d20 only; hit draws d20 then d8; End turn and invalid input draw nothing; invalid random sample never partially mutates battle state |
-| State preservation | Moves preserve all combat values; damage changes only defender current HP; HP unchanged until matching animation completion; last result persists until replaced |
-| Victory / SC-006 | Lethal commit declares attacker winner without opening another turn; final state rejects gameplay input; New Game resets winner, HP, stats, and player |
-| Lifecycle | Duplicate/stale completions, progress/failures, synchronous callbacks, movement recovery, attack visual failure without reroll, disposal, replacement during travel/explosion, queued New Game, failed replacement generation |
-| Path geometry | Hit endpoint exact; miss segment analytically clears defender, closest approach on-board, endpoint fully off-board; adjacency, edge, corner, diagonal, and maximum separation |
+| Coverage                        | Required checks                                                                                                                                                                                                               |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stats / SC-001                  | Exhaust all 13 ability scores across agility/strength/constitution, exact mapping and nonpositive agility allowance; invalid/fractional/out-of-range values rejected                                                          |
+| Initialization / SC-002, SC-008 | 100 known-roll setups, ten-draw ordering, independent bucket selection; HP roll 0 and 20; constitution −1 and +5; HP clamp to 1; AC 12; 1,000 deterministic setups for ranges and mapping                                     |
+| Turns / SC-003                  | 50 turns mixing attacks and End turn; movement retains player/token; no-move acknowledgement opens attack; both immobile ships do not cycle automatically; invalid, early, repeated, non-left clicks do not consume actions   |
+| Rolls / SC-004                  | At least 100 controlled attacks covering total 11 miss, total 12 hit, all strength modifiers, d20 and d8 endpoints, zero damage, nonlethal hit, exact lethal damage and overkill                                              |
+| RNG consumption                 | Miss draws d20 only; hit draws d20 then d8; End turn and invalid input draw nothing; invalid random sample never partially mutates battle state                                                                               |
+| State preservation              | Moves preserve all combat values; damage changes only defender current HP; HP unchanged until matching animation completion; last result persists until replaced                                                              |
+| Victory / SC-006                | Lethal commit declares attacker winner without opening another turn; final state rejects gameplay input; New Game resets winner, HP, stats, and player                                                                        |
+| Lifecycle                       | Duplicate/stale completions, progress/failures, synchronous callbacks, movement recovery, attack visual failure without reroll, disposal, replacement during travel/explosion, queued New Game, failed replacement generation |
+| Path geometry                   | Hit endpoint exact; miss segment analytically clears defender, closest approach on-board, endpoint fully off-board; adjacency, edge, corner, diagonal, and maximum separation                                                 |
 
 Use injected scripted samples and controlled animators; do not use uncontrolled random trials as a CI fairness oracle. Samples do not prove independence/equal probability: also review separate draws and equal-width bucket mapping.
 
@@ -71,17 +71,18 @@ Implementation must provide a development-only fixture at:
 
 It must use production `CombatScene`, controller, session, board view, and animators, with injected deterministic dice and validated live combat states. Provide preset selection/reset and observations for launch, contact/exit, effect completion, result display, next actionable frame, and winner display, keyed by revision/attack ID. Do not import the fixture from production or add production stat editing. Fixtures may construct live positions outside starting zones without weakening production initialization rules.
 
-| Preset | Setup / action | Expected result |
-| --- | --- | --- |
-| Threshold miss | Strength 10, d20 11; move/skip then attack | Total 11 misses; no d8/HP change; projectile exits |
-| Threshold hit | Strength 10, d20 12, d8 4 | Total 12 hits; 4 damage after contact/explosion |
-| Zero damage | Strength 8, d20 13, d8 1 | Total 12 hits and explodes; zero HP loss |
-| Lethal / overkill | Defender HP 1; guaranteed hit, damage ≥1 | HP 0 and attacker winner; no opponent input |
-| Adjacent | Ship centers one cell apart; repeat hit/miss | Direct contact or analytically clear near miss |
-| Edge / corner | Defender at (1,1), (1,10), (10,1), (10,10) in separate presets | Miss visibly passes defender before full off-board exit |
-| Maximum distance | Ships at opposing corners; fixed hit/miss | Deadline holds despite long distance |
-| Immobile | Agility 8 or 10 | Explicit Skip movement, then optional attack/End turn |
-| Reset interruption | Reset during travel or explosion | Fresh Player 1 battle; old effects/outcome cancelled |
+| Preset             | Setup / action                                                 | Expected result                                         |
+| ------------------ | -------------------------------------------------------------- | ------------------------------------------------------- |
+| Threshold miss     | Strength 10, d20 11; move/skip then attack                     | Total 11 misses; no d8/HP change; projectile exits      |
+| Threshold hit      | Strength 10, d20 12, d8 4                                      | Total 12 hits; 4 damage after contact/explosion         |
+| Zero damage        | Strength 8, d20 13, d8 1                                       | Total 12 hits and explodes; zero HP loss                |
+| Lethal             | Defender HP 2; strength 14, d20 10, d8 1                       | HP 0 and attacker winner; no opponent input             |
+| Overkill           | Defender HP 3; strength 20, d20 7, d8 8                        | Report rolled damage 13, clamp HP to 0, attacker wins   |
+| Adjacent           | Ship centers one cell apart; separate hit and miss presets     | Direct contact or analytically clear near miss          |
+| Edge / corner      | Defender at (1,1), (1,10), (10,1), (10,10) in separate presets | Miss visibly passes defender before full off-board exit |
+| Maximum distance   | Ships at opposing corners; separate fixed hit and miss presets | Deadline holds despite long distance                    |
+| Immobile           | Agility 8 or 10                                                | Explicit Skip movement, then optional attack/End turn   |
+| Reset interruption | Reset during travel or explosion                               | Fresh Player 1 battle; old effects/outcome cancelled    |
 
 ## Visual, timing, and usability acceptance
 

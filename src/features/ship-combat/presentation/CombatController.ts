@@ -271,6 +271,10 @@ export class CombatController {
         ? snapshot.reachability.destinations.map(({ position }) => position)
         : [];
     this.boardView.setHighlights(highlights);
-    this.controls.renderBattle(snapshot);
+    const boardReady =
+      !this.isDisposed &&
+      snapshot.phase !== 'disposed' &&
+      this.readyRevision === snapshot.gameRevision;
+    this.controls.renderBattle(snapshot, boardReady);
   }
 }

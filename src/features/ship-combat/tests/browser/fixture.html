@@ -4,33 +4,60 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#081523" />
-    <title>Ship Combat Setup Preview</title>
+    <title>Ship Torpedo Combat — Deterministic Fixture</title>
   </head>
   <body>
     <main class="game-shell">
       <header class="page-header">
         <p class="eyebrow">TEST-ONLY ENTRY</p>
-        <h1>Ship combat setup</h1>
-        <p>Deterministic initialization preview using the production board and combat stats.</p>
+        <h1>Ship torpedo combat</h1>
+        <p>
+          Deterministic scenarios use the production battle session, Phaser scene, and animators.
+        </p>
       </header>
-      <section class="fixture-panel" aria-label="Setup presets">
-        <label for="setup-preset">Preset</label>
-        <select id="setup-preset">
-          <option value="known">Known rolls</option>
-          <option value="low-hp">Minimum hit points</option>
-          <option value="high-stats">High stats</option>
+      <section class="fixture-panel" aria-label="Combat presets">
+        <label for="combat-preset">Preset</label>
+        <select id="combat-preset">
+          <option value="threshold-hit">Threshold hit (12)</option>
+          <option value="threshold-miss">Threshold miss (11)</option>
+          <option value="zero-damage">Zero-damage hit</option>
+          <option value="lethal">Lethal hit</option>
+          <option value="overkill">Overkill</option>
+          <option value="adjacent-hit">Adjacent hit</option>
+          <option value="adjacent-miss">Adjacent miss</option>
+          <option value="corner-top-left">Top-left corner</option>
+          <option value="corner-top-right">Top-right corner</option>
+          <option value="corner-bottom-left">Bottom-left corner</option>
+          <option value="corner-bottom-right">Bottom-right corner</option>
+          <option value="maximum-separation">Maximum separation miss</option>
+          <option value="maximum-separation-hit">Maximum separation hit</option>
+          <option value="immobility">Both ships immobile</option>
         </select>
-        <button id="reset-setup" class="new-game-button" type="button">Reset setup</button>
+        <button id="reset-battle" class="new-game-button" type="button">Reset battle</button>
+        <button id="clear-observations" type="button">Clear observations</button>
       </section>
-      <section class="game-layout" aria-label="Combat setup board">
+      <section class="game-layout" aria-label="Combat board">
         <div class="board-copy">
           <h2>10 × 10 battle grid</h2>
-          <p>Ships begin in opposing zones. This preview verifies setup and stats only.</p>
+          <p>
+            Both ships are immobile in this fixture. Choose Skip movement, then click the opposing
+            ship.
+          </p>
         </div>
         <div id="combat-board" class="board-host" aria-label="Combat board"></div>
       </section>
-      <section id="combat-stats" class="turn-hud" aria-label="Combat ship stats"></section>
-      <p id="setup-status" class="game-status" role="status" aria-live="polite">Preparing setup…</p>
+      <section id="combat-controls" class="turn-hud" aria-label="Combat controls"></section>
+      <p id="fixture-status" class="game-status" role="status" aria-live="polite">
+        Preparing battle…
+      </p>
+      <section class="fixture-observations" aria-label="Attack observations">
+        <h2>Revision/attack-keyed observations</h2>
+        <p>
+          All timestamps use the page performance clock. Reset during an effect to verify
+          cancellation.
+        </p>
+        <pre id="event-log" aria-live="polite"></pre>
+      </section>
     </main>
     <script type="module" src="./fixture.ts"></script>
   </body>

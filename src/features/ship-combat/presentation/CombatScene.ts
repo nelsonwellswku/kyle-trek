@@ -6,6 +6,7 @@ import type { BattleSnapshot } from '../domain/BattleSession.js';
 import type { FlightAnimator } from '../../ship-movement/presentation/FlightAnimator.js';
 import { PhaserFlightAnimator } from '../../ship-movement/presentation/PhaserFlightAnimator.js';
 import type { TorpedoAnimator } from './TorpedoAnimator.js';
+import { PhaserTorpedoAnimator, type TorpedoVisualObserver } from './PhaserTorpedoAnimator.js';
 import type { CombatControls } from './CombatControls.js';
 import { BoardView } from '../../board/presentation/BoardView.js';
 import { CombatController } from './CombatController.js';
@@ -27,9 +28,10 @@ export class CombatScene extends Phaser.Scene {
     private readonly onDrawn: CombatSceneReadyHandler,
     private readonly onMovementError: (message: string) => void,
     private readonly onAttackError: (message: string) => void,
-    private readonly torpedoAnimator: TorpedoAnimator,
+    private readonly torpedoAnimator?: TorpedoAnimator,
     private readonly flightAnimator?: FlightAnimator,
     private readonly onBoardChanged: (game: CombatGame) => void = () => {},
+    private readonly onTorpedoEvent: TorpedoVisualObserver = () => {},
   ) {
     super({ key: 'ship-combat' });
   }
@@ -47,7 +49,7 @@ export class CombatScene extends Phaser.Scene {
       this.geometry,
       this.boardView,
       this.flightAnimator ?? new PhaserFlightAnimator(this, this.geometry),
-      this.torpedoAnimator,
+      this.torpedoAnimator ?? new PhaserTorpedoAnimator(this, this.geometry, this.onTorpedoEvent),
       this.controls,
       this.onMovementError,
       this.onAttackError,

@@ -19,13 +19,13 @@ export class GameSetupControls {
       <main class="game-shell">
         <header class="page-header">
           <p class="eyebrow">FLEET COMMAND</p>
-          <h1>Ship turn movement</h1>
+          <h1>Ship torpedo combat</h1>
         </header>
         <section class="turn-hud" id="turn-hud" aria-label="Turn controls"></section>
-        <section class="game-layout" aria-label="Movement board">
+        <section class="game-layout" aria-label="Combat board">
           <div class="board-copy" id="board-description">
-            <h2>10 × 10 movement grid</h2>
-            <p>Left-click a highlighted square to move. Rows count top to bottom; columns count left to right.</p>
+            <h2>10 × 10 battle grid</h2>
+            <p>Move to a highlighted square, then click the opposing ship to attack or end your turn.</p>
           </div>
           <div class="board-host" id="game-board"></div>
         </section>
@@ -106,7 +106,7 @@ export class GameSetupControls {
 
   markReady(revision: number, canvas: HTMLCanvasElement): void {
     canvas.setAttribute('role', 'img');
-    canvas.setAttribute('aria-label', 'Two-player spaceship movement board');
+    canvas.setAttribute('aria-label', 'Two-player spaceship combat board');
     canvas.setAttribute('aria-describedby', 'board-description ship-summary turn-hud');
     canvas.dataset.renderedRevision = String(revision);
     this.status.textContent = `Game ${revision} ready`;

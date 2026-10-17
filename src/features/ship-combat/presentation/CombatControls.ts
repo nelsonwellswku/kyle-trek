@@ -1,5 +1,6 @@
 import type { CombatGame } from '../domain/CombatGame.js';
 import type { BattleSnapshot } from '../domain/BattleSession.js';
+import type { AttackOutcome } from '../domain/AttackResolver.js';
 
 export type BattleActionHandler = (gameRevision: number, turnToken: number) => void;
 
@@ -62,7 +63,7 @@ export class CombatControls {
     this.renderShip(game.ship2);
   }
 
-  renderBattle(snapshot: BattleSnapshot): void {
+  renderBattle(snapshot: BattleSnapshot, boardReady = true): void {
     if (this.isDisposed) return;
     this.turnControls.hidden = false;
     this.removeActionListeners();
@@ -70,15 +71,32 @@ export class CombatControls {
     if (snapshot.phase === 'disposed') {
       this.status.textContent = 'Battle closed.';
       this.activeTurn.textContent = '';
+      CombatControls.setText(this.root, '#battle-result', '');
+      CombatControls.setText(this.root, '#battle-winner', '');
       this.setButtonAvailable(this.skipButton, false);
       this.setButtonAvailable(this.endTurnButton, false);
       return;
     }
 
     this.renderShips(snapshot.game);
+    CombatControls.setText(
+      this.root,
+      '#battle-result',
+      snapshot.lastCompletedAttack ? CombatControls.attackResult(snapshot.lastCompletedAttack) : '',
+    );
+    CombatControls.setText(
+      this.root,
+      '#battle-winner',
+      snapshot.phase === 'finished'
+        ? `${CombatControls.playerName(snapshot.winner)} wins. ${CombatControls.shipName(snapshot.defeatedShip)} is defeated at 0 HP.`
+        : '',
+    );
     this.activeTurn.textContent = `${CombatControls.playerName(snapshot.activePlayer)} controls ${CombatControls.shipName(snapshot.activeShip)}.`;
-    this.setButtonAvailable(this.skipButton, snapshot.phase === 'awaiting-movement-skip');
-    this.setButtonAvailable(this.endTurnButton, snapshot.phase === 'attack-ready');
+    this.setButtonAvailable(
+      this.skipButton,
+      boardReady && snapshot.phase === 'awaiting-movement-skip',
+    );
+    this.setButtonAvailable(this.endTurnButton, boardReady && snapshot.phase === 'attack-ready');
 
     switch (snapshot.phase) {
       case 'movement-ready':
@@ -204,5 +222,15 @@ export class CombatControls {
 
   private static shipName(ship: 'ship-1' | 'ship-2'): string {
     return ship === 'ship-1' ? 'Ship 1' : 'Ship 2';
+  }
+
+  private static attackResult(outcome: AttackOutcome): string {
+    const attacker = `${CombatControls.shipName(outcome.attacker)} (${outcome.attacker})`;
+    const defender = `${CombatControls.shipName(outcome.defender)} (${outcome.defender})`;
+    const total = `Attack total ${outcome.attackTotal} vs AC ${outcome.armorClass}`;
+    if (outcome.kind === 'miss') {
+      return `Attack result: ${attacker} missed ${defender}. ${total}. ${defender} remains at ${outcome.hitPointsAfter} HP.`;
+    }
+    return `Attack result: ${attacker} hit ${defender}. ${total}. Damage ${outcome.damage}; ${defender} remaining HP ${outcome.hitPointsAfter}.`;
   }
 }

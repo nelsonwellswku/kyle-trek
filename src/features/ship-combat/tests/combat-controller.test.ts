@@ -214,7 +214,7 @@ describe('CombatController', () => {
     expect(ready.activePlayer).toBe('player-1');
     expect(ready.turnToken).toBe(token);
     expect(onBoardChanged).toHaveBeenCalledWith(ready.game);
-    expect(controls.renderBattle).toHaveBeenLastCalledWith(ready);
+    expect(controls.renderBattle).toHaveBeenLastCalledWith(ready, true);
 
     const target = ready.game.ship2.position;
     controller.handlePointerDown(clickAt(geometry, target));

@@ -1,4 +1,5 @@
 import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
+import type { DiceRoller } from './DiceRoller.js';
 import type { CombatShip } from './CombatGame.js';
 
 interface AttackOutcomeBase {
@@ -37,4 +38,56 @@ export type AttackOutcome = AttackMissOutcome | AttackHitOutcome;
 
 export interface AttackResolution {
   resolve(attacker: CombatShip, defender: CombatShip): AttackOutcome;
+}
+
+export class AttackResolver implements AttackResolution {
+  constructor(private readonly diceRoller: DiceRoller) {}
+
+  resolve(attacker: CombatShip, defender: CombatShip): AttackOutcome {
+    if (
+      attacker.identity === defender.identity ||
+      attacker.armorClass !== 12 ||
+      defender.armorClass !== 12 ||
+      !Number.isInteger(attacker.strength.modifier) ||
+      attacker.strength.modifier < -1 ||
+      attacker.strength.modifier > 5 ||
+      !Number.isInteger(defender.hitPoints) ||
+      defender.hitPoints < 0 ||
+      defender.hitPoints > defender.startingHitPoints
+    ) {
+      throw new RangeError('An attack requires distinct valid ships and combat values.');
+    }
+
+    const attackDie = this.diceRoller.rollD20();
+    const strengthModifier = attacker.strength.modifier;
+    const attackTotal = attackDie + strengthModifier;
+    const hitPointsBefore = defender.hitPoints;
+    const common = {
+      attacker: attacker.identity,
+      defender: defender.identity,
+      attackDie,
+      strengthModifier,
+      attackTotal,
+      armorClass: 12 as const,
+      hitPointsBefore,
+    };
+
+    if (attackTotal < defender.armorClass) {
+      return Object.freeze({
+        ...common,
+        kind: 'miss',
+        hitPointsAfter: hitPointsBefore,
+      });
+    }
+
+    const damageDie = this.diceRoller.rollD8();
+    const damage = Math.max(0, damageDie + strengthModifier);
+    return Object.freeze({
+      ...common,
+      kind: 'hit',
+      damageDie,
+      damage,
+      hitPointsAfter: Math.max(0, hitPointsBefore - damage),
+    });
+  }
 }

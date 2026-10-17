@@ -186,6 +186,32 @@ h1 {
   font-weight: 650;
 }
 
+#battle-result {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #36546b;
+  border-radius: 0.55rem;
+  background: #091827;
+  line-height: 1.5;
+}
+
+#battle-result:empty {
+  display: none;
+}
+
+#battle-winner {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #9ce6a7;
+  border-radius: 0.55rem;
+  background: #143a2e;
+  color: #d8ffe1;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+#battle-winner:empty {
+  display: none;
+}
+
 .combat-action-buttons {
   display: flex;
   flex-wrap: wrap;
