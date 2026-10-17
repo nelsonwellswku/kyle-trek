@@ -1,6 +1,6 @@
 # First-Time Player Usability Trials
 
-**Status**: Pending participant recruitment; no sessions have been conducted.
+**Status**: Complete per user confirmation; individual session records were not provided.
 
 ## Required outcome
 
@@ -8,12 +8,4 @@ Run five first-time-player trials following the normal browser-play flow in [qui
 
 ## Observations
 
-| Trial | Participant         | Time | Identified active ship | Chose legal destination | Recognized handoff | Outcome       |
-| ----- | ------------------- | ---- | ---------------------- | ----------------------- | ------------------ | ------------- |
-| 1     | Pending recruitment | —    | —                      | —                       | —                  | Not conducted |
-| 2     | Pending recruitment | —    | —                      | —                       | —                  | Not conducted |
-| 3     | Pending recruitment | —    | —                      | —                       | —                  | Not conducted |
-| 4     | Pending recruitment | —    | —                      | —                       | —                  | Not conducted |
-| 5     | Pending recruitment | —    | —                      | —                       | —                  | Not conducted |
-
-No usability result is inferred from automated tests or mock browser fixtures. Record actual observations and timings here after recruiting participants and running the trials.
+The user confirmed completing T047 manually. Participant identities, individual observations, and trial timings were not included in that confirmation, so those details are not reconstructed here.
