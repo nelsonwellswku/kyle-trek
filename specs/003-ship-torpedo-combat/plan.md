@@ -8,7 +8,7 @@
 
 ## Summary
 
-Extend the two-player local game with strength, constitution, starting/current hit points, fixed armor class, and move-then-optional-attack turns. Add a feature-local battle state machine, immutable combat state, deterministic injectable dice, and a cancellable Phaser torpedo animator. Reuse the established board, random starting zones, reachability, and smooth ship flight. Hits use d20 plus strength against AC 12 and d8 plus strength damage; lethal damage ends the battle. Every attack finishes its visuals, result, and handoff/winner display within 1.5 seconds under the reference acceptance conditions.
+Extend the two-player local game with strength, constitution, starting/current hit points, fixed armor class, and move-then-optional-attack turns. Add a feature-local battle state machine, immutable combat state, deterministic injectable dice, and a cancellable Phaser torpedo animator. Reuse the established board, random starting zones, reachability, and smooth ship flight. Hits use d20 plus strength against AC 12 and d8 plus strength damage; lethal damage ends the battle. Use a larger, outlined five-point torpedo star and independently randomize each miss across 10°–35° on either side of the direct aim. Use curved/offset paths for close misses without exceeding the launch-angle cap, keeping the full star on-screen through closest approach before it exits. Every attack finishes its visuals, result, and handoff/winner display within 1.5 seconds under the reference acceptance conditions.
 
 ## Technical Context
 
@@ -128,7 +128,7 @@ Completed [research.md](research.md) covers battle authority, shared ability rul
 ### UI and effects
 
 - Native controls show all stats and the active phase, offer Skip movement only when immobile, and offer End turn only while attack-ready. Keep native keyboard focus/activation and textual live outcome/winner messages consistent with the existing HUD.
-- Procedural star travels directly on hits and along an analytically clear near-miss ray on misses. An explosion follows contact on hits. One finite tween drives effects, and all resources are destroyed on finish/cancel.
+- A prominent five-point star (12 px outer radius with a 2 px white outline at 60 px cells) travels directly on hits and along an analytically clear near-miss path on misses. A fresh random sample selects each 10°–35° launch angle/side independently of attack identity and previous attacks. Close or edge-constrained misses use a safe curved/offset path without exceeding the 35° cap. Keep the full star on-screen through closest approach, then continue until it has fully exited. An explosion follows hit contact. One finite tween drives effects, and all resources are destroyed on finish/cancel.
 - User-facing behavior, input matrix, rendering readiness, animator identity contracts, and result semantics are defined in [contracts/combat-ui.md](contracts/combat-ui.md).
 
 ### Verification design

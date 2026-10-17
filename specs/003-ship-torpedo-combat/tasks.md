@@ -118,8 +118,8 @@ T031–T034 can proceed in parallel after US2 contracts are available; implement
 ### Implementation for User Story 3
 
 - [X] T035 [US3] Implement the `AttackResolver` class against its existing interface in `src/features/ship-combat/domain/AttackResolver.ts`, composing `DiceRoller` and preserving all T018 hit/miss field constraints; use d20 + strength against AC 12, d8 + strength only on a hit, zero-minimum damage and HP clamp, and make T031 green with no renderer-owned randomness.
-- [X] T036 [US3] Implement pure `TorpedoPath` geometry in `src/features/ship-combat/presentation/TorpedoPath.ts`: direct hit segment or deterministic tangent ray to defender clearance radius 24 + 3 + 1 = 28 px at 60 px cells, scaled with geometry; require closest approach on-board before exit and extend the ray beyond the board expanded by projectile radius; make T032 green using continuous geometry checks.
-- [X] T037 [US3] Implement `PhaserTorpedoAnimator` in `src/features/ship-combat/presentation/PhaserTorpedoAnimator.ts` after T036 using one finite normalized tween, procedural 3 px-radius star, two-cycle-per-second alpha pulse, 850 ms hit travel + 300 ms explosion or 1,150 ms miss travel, and complete cleanup/cancel/error handling; make T033 green and reserve margin below the 1,500 ms full-outcome deadline.
+- [X] T036 [US3] Implement pure `TorpedoPath` geometry in `src/features/ship-combat/presentation/TorpedoPath.ts`: direct hit segment or 10°–35° rotated miss paths, scaled with geometry; curve/offset close misses as needed, require the complete star to stay on-screen through closest approach, and extend each path until the full projectile has exited; make T032 green using continuous geometry checks.
+- [X] T037 [US3] Implement `PhaserTorpedoAnimator` in `src/features/ship-combat/presentation/PhaserTorpedoAnimator.ts` after T036 using one finite normalized tween, a prominent five-point 12 px-radius gold star with 2 px white outline and two-cycle-per-second alpha pulse, 850 ms hit travel + 300 ms explosion or 1,150 ms miss travel, and complete cleanup/cancel/error handling; make T033 green and reserve margin below the 1,500 ms full-outcome deadline.
 - [X] T038 [US3] Extend `src/features/ship-combat/presentation/CombatControls.ts` and `src/app/styles.css` for persistent completed result text, rolled damage versus remaining HP, zero-damage hits, and winner display with native/live status semantics; make the T034 controls tests green without showing the precomputed result at launch.
 - [X] T039 [US3] Integrate production resolver and torpedo animator dependencies with `src/features/ship-combat/domain/BattleSession.ts`, `src/features/ship-combat/presentation/CombatController.ts`, and `src/features/ship-combat/presentation/CombatScene.ts`; ensure one completion commits stored HP/result and opens one next turn or winner, and make T034 integration tests green after T035/T037/T038.
 - [X] T040 [US3] Add and run application composition tests in `src/features/ship-combat/tests/game-application.test.ts` and update affected mocks/expectations in `src/features/ship-movement/tests/game-application.test.ts` and `src/features/game-setup/tests/game-application.test.ts` for combat startup, ten initialization draws, generation failure retaining the old battle, serialized replacements, matching readiness, and one canvas/listener set; retain original movement-only domain tests.
@@ -142,6 +142,13 @@ T031–T034 can proceed in parallel after US2 contracts are available; implement
 - [ ] T048 Execute `specs/003-ship-torpedo-combat/quickstart.md` browser validation using `src/features/ship-combat/tests/browser/fixture.html`: record the reference environment and at least 20 individual attacks covering hit/miss, adjacency, maximum distance, corners, and lethal hits; verify every full effect/result/actionable-next-turn-or-winner frame is ≤1,500 ms, no contact on misses, no duplicate changes, preserved movement/highlight timing, resize targeting, restart interruption, and production `npm run preview` smoke results in `specs/003-ship-torpedo-combat/development.md`.
 - [ ] T049 Run five first-time-player trials from `specs/003-ship-torpedo-combat/quickstart.md`, require at least four players to identify both HP values, move legally, launch an attack, and identify the outcome without assistance, and record SC-007 observations plus native button keyboard/live-status checks in `specs/003-ship-torpedo-combat/development.md`.
 - [X] T050 Update `README.md` for move/Skip movement, optional attack/End turn, combat stats, victory and New Game; reconcile runnable instructions in `specs/003-ship-torpedo-combat/quickstart.md` and finalize `specs/003-ship-torpedo-combat/development.md` with acceptance evidence or explicit outstanding browser/usability checks, without claiming unexecuted checks passed.
+- [X] T051 Polish torpedo presentation in `TorpedoPath` and `PhaserTorpedoAnimator`: enlarge and outline the star, vary valid miss tangent ordering by attack identity, update analytical geometry/animator tests, and synchronize FR-020/FR-021, SC-010, and presentation documentation.
+- [X] T052 Further enlarge the torpedo and widen identity-based miss angles while preserving a close 1–8 px surface clearance at 60 px cells; test varied clearances/sides across adjacent, edge, corner, and maximum-distance setups, and update FR-020/FR-021, SC-010, and all affected geometry/visual documentation.
+- [X] T053 Expand identity-based miss clearance to 1–20 px and increase the fixed-adjacent-position trajectory spread to at least 120°; test 40 identities across both sides plus edge/corner fallback, and synchronize FR-021, SC-010, geometry contracts, and development evidence.
+- [X] T054 Extend miss surface clearance to 1–100 px wherever shot geometry permits; cap requests only for near-range or board constraints. Verify a 200-identity long horizontal series includes 1, 10, 20, and 100 px clearances on both sides, and keep adjacent/corner cases valid with 120° adjacent spread.
+- [X] T055 Select miss trajectories as 10–90° rotations from the direct attacker-to-defender line on either side, rather than selecting surface-gap distances. Define side/angle mapping from the full revision/token/attack identity and alternate sides on consecutive accepted attacks. Test the full long-shot angle range, safe-angle clamping for adjacent ships, and board-edge fallback; synchronize FR-021, SC-010, and presentation documentation.
+- [X] T056 Replace identity-derived miss selection in `PhaserTorpedoAnimator` with one fresh `RandomSource` draw per miss, uniformly mapping to 81 integer angles × 2 sides, independent of attack identity and prior choices. Enlarge the star to 12 px outer radius with a 2 px outline, use a 13 px collision envelope, keep the complete star on-screen through closest approach, then carry it fully off-screen. Add controlled random-draw and analytical geometry regressions, and synchronize FR-016/FR-020/FR-021, SC-010, and all current presentation documentation.
+- [X] T057 Cap each independent miss-path sample to 26 integer launch angles (10°–35°) on both sides; preserve the cap for close shots by bending/offsetting the route rather than exceeding 35°. Keep defender clearance, full-star visibility through closest approach, and full off-screen exit. Cover all 52 choices plus adjacent/edge/corner/max-distance positions and synchronize FR-021, SC-010, and presentation documents.
 
 ---
 
@@ -160,7 +167,7 @@ US2 / Phase 4: T018–T030  -> independently verified sequencing via injected po
         |
 US3 / Phase 5: T031–T045  -> actual dice/effects + playable application
         |
-Phase 6: T046–T050       -> final regression, browser and usability evidence
+Phase 6: T046–T057       -> final regression, browser, usability, and presentation polish evidence
 ```
 
 US2 depends on US1's complete ships and stats display. US3 depends on US2's phase/animator contracts and orchestration. These are explicit domain dependencies, not a claim that all stories can be implemented concurrently. Tests for each story isolate its behavior with deterministic dependencies.
@@ -171,7 +178,7 @@ US2 depends on US1's complete ships and stats display. US3 depends on US2's phas
 - US1: T009 → T012; T010 + T012 → T013; T011 + T012 → T014; T013 + T014 → T015; T013 → T016; T015 + T016 → T017.
 - US2: T018 → T019/T020/T021. T019 → T022; T020 + T022 → T023; T018 → T024; T021 + T022/T023/T024 → T025; T025 → T026 → T027; T025/T027 → T028 → T029 → T030.
 - US3: T031 → T035; T032 → T036; T033 + T036 → T037; T034 → T038. T035/T037/T038 → T039; T039 → T040 → T041; T041 → T042; T041 → T043; T042/T043 → T044 → T045.
-- All story checkpoints → T046 → T047 → T048 → T049 → T050. Fixes after final verification require repeating affected checks.
+- All story checkpoints → T046 → T047 → T048 → T049 → T050 → T051 → T052 → T053 → T054 → T055 → T056 → T057. Fixes after final verification require repeating affected checks.
 
 ### Parallel opportunities
 
@@ -252,11 +259,12 @@ Complete T001–T017 and demonstrate US1 using the setup fixture. This is a focu
 | FR-017; SC-006                            | T019/T022/T034/T039/T043/T044                      |
 | FR-018; fresh replacement/lifecycle       | T010/T013/T028/T029/T040–T043/T048                 |
 | FR-019; attack-animation failure recovery | T028/T029/T033/T037/T043                           |
+| FR-016/FR-020/FR-021; prominent torpedo and independent random miss paths; SC-010 | T032/T033/T036/T037/T051–T057       |
 | SC-007; usable controls                   | T020/T023/T038/T049                                |
-| Constitution / full acceptance evidence   | T001/T008, per-slice red-green-refactor, T046–T050 |
+| Constitution / full acceptance evidence   | T001/T008, per-slice red-green-refactor, T046–T057 |
 
 ## Notes
 
-- Task counts: Setup 2; Foundational 6; US1 9; US2 13; US3 15; Polish 5; **50 total**.
-- All tasks start unchecked because task generation does not implement or verify gameplay.
-- Tasks are immediately executable with the design documents above; tests/fixtures mentioned as additions are not claimed to exist already.
+- Task counts: Setup 2; Foundational 6; US1 9; US2 13; US3 15; Polish 12; **57 total**.
+- Completed tasks are checked; browser visual/timing and first-time-player usability tasks remain unchecked pending their actual acceptance runs.
+- Implementation tasks and tests are complete where checked; acceptance evidence and outstanding work are tracked in `development.md`.

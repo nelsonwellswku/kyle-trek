@@ -1,6 +1,6 @@
 # Quickstart Validation: Ship Torpedo Combat
 
-**Status:** Design-time validation guide. Combat tests and the browser fixture described below must be created during implementation; this plan does not claim they exist or have passed.
+**Status:** Implementation validation guide. Automated tests and the deterministic Phaser fixture are present; real-browser and usability checks remain pending where noted in `development.md`.
 
 ## Prerequisites
 
@@ -42,9 +42,10 @@ Expect feature discovery to select real tests; do not suppress empty selection. 
 | State preservation              | Moves preserve all combat values; damage changes only defender current HP; HP unchanged until matching animation completion; last result persists until replaced                                                              |
 | Victory / SC-006                | Lethal commit declares attacker winner without opening another turn; final state rejects gameplay input; New Game resets winner, HP, stats, and player                                                                        |
 | Lifecycle                       | Duplicate/stale completions, progress/failures, synchronous callbacks, movement recovery, attack visual failure without reroll, disposal, replacement during travel/explosion, queued New Game, failed replacement generation |
-| Path geometry                   | Hit endpoint exact; miss segment analytically clears defender, closest approach on-board, endpoint fully off-board; adjacency, edge, corner, diagonal, and maximum separation                                                 |
+| Path geometry / SC-010         | Hit endpoint exact; controlled random samples cover each 10°–35° launch angle on both sides; curved/offset close misses clear the defender with the full star on-screen through closest approach, then exit completely; include adjacent, edge, corner, and maximum-distance positions |
+| Path randomness                | One fresh validated sample per miss; repeated paths and repeated sides are allowed; no miss-path draws on hits and no consumption of attack/damage dice |
 
-Use injected scripted samples and controlled animators; do not use uncontrolled random trials as a CI fairness oracle. Samples do not prove independence/equal probability: also review separate draws and equal-width bucket mapping.
+Use injected scripted samples and controlled animators; do not use uncontrolled random trials as a CI fairness oracle. Review the equal-width 52-choice mapping for miss angles/sides and one fresh sample per miss; the sample alone does not establish randomness quality.
 
 ## Normal browser play
 
@@ -57,7 +58,7 @@ Open `http://127.0.0.1:5173/`.
 1. Confirm exactly one board/canvas, opposing-zone starts, Player 1 first, and both ships' distinct scores/modifiers, HP, and AC 12.
 2. If a ship can move, click one highlighted destination. Confirm existing smooth collision-free flight, then the same player receives the attack choice. Attempting an attack before movement must do nothing.
 3. If immobile, confirm an explanation and **Skip movement**; click it and confirm attack-ready without moving or handing off.
-4. Click the opponent's square. Confirm one blinking star and hit/explosion or near-miss/off-board behavior, a readable result, correct HP, then one handoff. Inputs during either animation do nothing.
+4. Click the opponent's square. Confirm one prominent blinking star and hit/explosion or near-miss/off-screen behavior, a readable result, correct HP, then one handoff. Each miss independently chooses a launch angle from 10–35° and either side of direct aim; repeated choices, including the same side on consecutive attacks, are valid. Confirm close misses curve/offset as needed without exceeding 35°, keep the full star on-screen through closest approach, avoid the defender, then exit completely. Inputs during either animation do nothing.
 5. On another attack-ready turn choose **End turn**. Confirm no torpedo or HP change and exactly one handoff. End turn must be unavailable before movement, during animations, and after victory.
 6. Continue to a lethal hit; confirm HP 0, correct winner, and no further gameplay changes. Start a fresh game and check reset.
 7. Use New Game during flight, torpedo travel, and explosion. Confirm no old callbacks or effects alter the replacement. Repeat rapid requests; retain one canvas/listener set.
@@ -69,7 +70,7 @@ Implementation must provide a development-only fixture at:
 
 `http://127.0.0.1:5173/src/features/ship-combat/tests/browser/fixture.html`
 
-It must use production `CombatScene`, controller, session, board view, and animators, with injected deterministic dice and validated live combat states. Provide preset selection/reset and observations for launch, contact/exit, effect completion, result display, next actionable frame, and winner display, keyed by revision/attack ID. Do not import the fixture from production or add production stat editing. Fixtures may construct live positions outside starting zones without weakening production initialization rules.
+It must use production `CombatScene`, controller, session, board view, and animators, with injected deterministic dice, a separate controllable torpedo-path random source, and validated live combat states. Provide preset selection/reset and observations for launch, contact/exit, effect completion, result display, next actionable frame, and winner display, keyed by revision/attack ID. Do not import the fixture from production or add production stat editing. Fixtures may construct live positions outside starting zones without weakening production initialization rules.
 
 | Preset             | Setup / action                                                 | Expected result                                         |
 | ------------------ | -------------------------------------------------------------- | ------------------------------------------------------- |
@@ -86,7 +87,7 @@ It must use production `CombatScene`, controller, session, board view, and anima
 
 ## Visual, timing, and usability acceptance
 
-- Observe at least 20 attacks across hits/misses, adjacency, maximum distance, edges/corners, and lethal hits. Verify blinking-star motion, contact-before-explosion on hits, close noncontact paths and complete off-board disappearance on misses, and no duplicate HP changes/handoffs.
+- Observe at least 20 attacks across hits/misses, adjacency, maximum distance, edges/corners, and lethal hits. Verify the 12 px outlined star is clearly visible, contact precedes explosion on hits, long-shot misses use the 10°–35° range on both sides, adjacent misses use a safe curved/offset path without exceeding 35°, the full star stays on-screen through closest approach, and every miss disappears fully off-screen. Consecutive misses may repeat sides or paths. Confirm no duplicate HP changes/handoffs.
 - Measure from accepted launch to the first rendered frame showing both completed result and actionable next turn, or winner for lethal hits. Include flight and explosion/exit, not merely tween elapsed configuration. **Every measured attack must be ≤1,500 ms**; retain individual measurements and report every failure, not an average.
 - Verify the result isn't announced before visual impact/outcome and HP is not reduced at launch. Check 0-damage hits and overkill display.
 - Preserve established movement visual checks and timing targets. Reuse the acceptance environment above; foreground timing does not promise execution while a browser tab is suspended.

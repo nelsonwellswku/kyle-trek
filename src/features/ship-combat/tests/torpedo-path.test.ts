@@ -17,7 +17,11 @@ interface ClosestApproach {
   readonly distance: number;
 }
 
-const projectileRadiusAtSixtyPixelCells = 3;
+interface PathClosestApproach extends ClosestApproach {
+  readonly segmentIndex: number;
+}
+
+const projectileRadiusAtSixtyPixelCells = 13;
 const clearanceAtSixtyPixelCells = 1;
 
 function position(coordinates: Coordinates): BoardPosition {
@@ -41,37 +45,77 @@ function closestApproach(start: BoardPoint, end: BoardPoint, target: BoardPoint)
   };
 }
 
+function closestApproachOnPath(path: TorpedoPath, target: BoardPoint): PathClosestApproach {
+  let closest: PathClosestApproach | null = null;
+  for (let segmentIndex = 0; segmentIndex < path.waypoints.length - 1; segmentIndex += 1) {
+    const start = path.waypoints[segmentIndex];
+    const end = path.waypoints[segmentIndex + 1];
+    if (!start || !end) continue;
+    const segment = closestApproach(start, end, target);
+    if (!closest || segment.distance < closest.distance) {
+      closest = { ...segment, segmentIndex };
+    }
+  }
+  if (!closest) throw new Error('A torpedo path must contain at least one segment.');
+  return closest;
+}
+
 function expectAnalyticalNearMiss(
   attackerCoordinates: Coordinates,
   defenderCoordinates: Coordinates,
   geometry: BoardGeometry,
+  missPathChoice = 0,
 ): void {
   const attacker = position(attackerCoordinates);
   const defender = position(defenderCoordinates);
-  const path = new TorpedoPath(attacker, defender, 'miss', geometry);
+  const path = new TorpedoPath(attacker, defender, 'miss', geometry, missPathChoice);
   const start = geometry.cellCenter(attacker);
   const defenderCenter = geometry.cellCenter(defender);
   const endpoint: BoardPoint = path.end;
-  const closest = closestApproach(path.start, endpoint, defenderCenter);
+  const closest = closestApproachOnPath(path, defenderCenter);
   const cellSize = geometry.logicalSize / 10;
   const scale = cellSize / 60;
   const projectileRadius = projectileRadiusAtSixtyPixelCells * scale;
   const shipEnvelopeRadius = geometry.visualEnvelopeRadius();
   const clearance = clearanceAtSixtyPixelCells * scale;
+  const minimumClearanceRadius = shipEnvelopeRadius + projectileRadius + clearance;
+  const directAngle = Math.atan2(defenderCenter.y - start.y, defenderCenter.x - start.x);
+  const firstWaypoint = path.waypoints[1];
+  if (!firstWaypoint) throw new Error('A miss path must include an outgoing segment.');
+  const pathAngle = Math.atan2(firstWaypoint.y - start.y, firstWaypoint.x - start.x);
+  const angleDifference = Math.atan2(
+    Math.sin(pathAngle - directAngle),
+    Math.cos(pathAngle - directAngle),
+  );
+  const requestedAngle = 10 + ((missPathChoice % 52) % 26);
   const exitMargin = projectileRadius;
 
   expect(path.start).toEqual(start);
   expect(path.pointAt(0)).toEqual(start);
-  expect(closest.parameter).toBeGreaterThan(0);
-  expect(closest.parameter).toBeLessThan(1);
-  expect(closest.point.x).toBeGreaterThanOrEqual(0);
-  expect(closest.point.x).toBeLessThanOrEqual(geometry.logicalSize);
-  expect(closest.point.y).toBeGreaterThanOrEqual(0);
-  expect(closest.point.y).toBeLessThanOrEqual(geometry.logicalSize);
+  expect(closest.point.x).toBeGreaterThanOrEqual(projectileRadius - 1e-7);
+  expect(closest.point.x).toBeLessThanOrEqual(geometry.logicalSize - projectileRadius + 1e-7);
+  expect(closest.point.y).toBeGreaterThanOrEqual(projectileRadius - 1e-7);
+  expect(closest.point.y).toBeLessThanOrEqual(geometry.logicalSize - projectileRadius + 1e-7);
 
-  // This is the continuous point-to-segment distance, not a sampled-frame approximation.
-  expect(closest.distance).toBeCloseTo(shipEnvelopeRadius + projectileRadius + clearance, 8);
+  // Check every linear segment analytically, including curved close-shot paths.
+  for (let index = 0; index < path.waypoints.length - 1; index += 1) {
+    const segmentStart = path.waypoints[index];
+    const segmentEnd = path.waypoints[index + 1];
+    if (!segmentStart || !segmentEnd) continue;
+    const segmentClosest = closestApproach(segmentStart, segmentEnd, defenderCenter);
+    expect(segmentClosest.distance).toBeGreaterThanOrEqual(minimumClearanceRadius - 1e-7);
+  }
   expect(closest.distance).toBeGreaterThan(shipEnvelopeRadius + projectileRadius);
+  expect(closest.distance).toBeGreaterThanOrEqual(minimumClearanceRadius - 1e-7);
+  expect(Math.abs(angleDifference) * (180 / Math.PI)).toBeGreaterThanOrEqual(requestedAngle - 1e-7);
+  expect(Math.abs(angleDifference) * (180 / Math.PI)).toBeLessThanOrEqual(35 + 1e-7);
+
+  for (const point of path.waypoints.slice(0, closest.segmentIndex + 1)) {
+    expect(point.x).toBeGreaterThanOrEqual(projectileRadius - 1e-7);
+    expect(point.x).toBeLessThanOrEqual(geometry.logicalSize - projectileRadius + 1e-7);
+    expect(point.y).toBeGreaterThanOrEqual(projectileRadius - 1e-7);
+    expect(point.y).toBeLessThanOrEqual(geometry.logicalSize - projectileRadius + 1e-7);
+  }
 
   // The projectile's center must pass far enough beyond a board edge for its whole radius to exit.
   expect(
@@ -125,34 +169,77 @@ describe('TorpedoPath', () => {
 
   for (const { name, attacker, defender } of nearMissCases) {
     it(`clears the defender and fully exits for ${name}`, () => {
-      expectAnalyticalNearMiss(attacker, defender, new BoardGeometry(600));
+      for (let missPathChoice = 0; missPathChoice < 52; missPathChoice += 1) {
+        expectAnalyticalNearMiss(attacker, defender, new BoardGeometry(600), missPathChoice);
+      }
     });
   }
 
-  it('scales tangent clearance and the fully off-board endpoint with cell size', () => {
+  it('scales safe miss clearance and the fully off-board endpoint with cell size', () => {
     const smallGeometry = new BoardGeometry(600);
     const largeGeometry = new BoardGeometry(900);
     const attacker = position([5, 5]);
     const defender = position([5, 6]);
     const smallPath = new TorpedoPath(attacker, defender, 'miss', smallGeometry);
     const largePath = new TorpedoPath(attacker, defender, 'miss', largeGeometry);
-    const smallClosest = closestApproach(
-      smallPath.start,
-      smallPath.end,
-      smallGeometry.cellCenter(defender),
-    );
-    const largeClosest = closestApproach(
-      largePath.start,
-      largePath.end,
-      largeGeometry.cellCenter(defender),
-    );
+    const smallClosest = closestApproachOnPath(smallPath, smallGeometry.cellCenter(defender));
+    const largeClosest = closestApproachOnPath(largePath, largeGeometry.cellCenter(defender));
 
-    expect(smallClosest.distance).toBeCloseTo(28, 8);
-    expect(largeClosest.distance).toBeCloseTo(42, 8);
+    expect(smallClosest.distance).toBeCloseTo(39, 8);
+    expect(largeClosest.distance).toBeCloseTo(58.5, 8);
     expect(largePath.start.x).toBeCloseTo(smallPath.start.x * 1.5, 8);
     expect(largePath.start.y).toBeCloseTo(smallPath.start.y * 1.5, 8);
     expect(largePath.end.x).toBeCloseTo(smallPath.end.x * 1.5, 8);
     expect(largePath.end.y).toBeCloseTo(smallPath.end.y * 1.5, 8);
     expectAnalyticalNearMiss([5, 5], [5, 6], largeGeometry);
+  });
+
+  it('curves adjacent misses within the launch-angle cap on both sides', () => {
+    const geometry = new BoardGeometry(600);
+    const attacker = position([5, 5]);
+    const defender = position([5, 6]);
+    const firstPath = new TorpedoPath(attacker, defender, 'miss', geometry, 19);
+    const repeatedPath = new TorpedoPath(attacker, defender, 'miss', geometry, 19);
+    const endpoints = new Set<string>();
+    const sides = new Set<number>();
+    const directions: number[] = [];
+
+    expect(repeatedPath.end).toEqual(firstPath.end);
+    for (let missPathChoice = 0; missPathChoice < 52; missPathChoice += 1) {
+      const path = new TorpedoPath(attacker, defender, 'miss', geometry, missPathChoice);
+      expect(path.waypoints).toHaveLength(4);
+      endpoints.add(`${path.end.x},${path.end.y}`);
+      const firstWaypoint = path.waypoints[1];
+      if (!firstWaypoint) throw new Error('The miss path must have an outgoing segment.');
+      directions.push(Math.atan2(firstWaypoint.y - path.start.y, firstWaypoint.x - path.start.x));
+      expectAnalyticalNearMiss([5, 5], [5, 6], geometry, missPathChoice);
+      sides.add(Math.sign(directions.at(-1) ?? 0));
+    }
+    expect(endpoints.size).toBeGreaterThan(30);
+    expect(Math.max(...directions) - Math.min(...directions)).toBeGreaterThan(Math.PI / 3);
+    expect(sides.size).toBe(2);
+  });
+
+  it('selects miss angles from 10 to 35 degrees in both directions for a long shot', () => {
+    const geometry = new BoardGeometry(600);
+    const attacker = position([5, 2]);
+    const defender = position([5, 9]);
+    const angles = new Set<number>();
+    const sides = new Set<number>();
+
+    for (let missPathChoice = 0; missPathChoice < 52; missPathChoice += 1) {
+      const path = new TorpedoPath(attacker, defender, 'miss', geometry, missPathChoice);
+      expectAnalyticalNearMiss([5, 2], [5, 9], geometry, missPathChoice);
+      const firstWaypoint = path.waypoints[1];
+      if (!firstWaypoint) throw new Error('The miss path must have an outgoing segment.');
+      const angle = Math.atan2(firstWaypoint.y - path.start.y, firstWaypoint.x - path.start.x);
+      const degrees = Math.round(Math.abs(angle) * (180 / Math.PI));
+      angles.add(degrees);
+      sides.add(Math.sign(angle));
+    }
+    expect(Math.min(...angles)).toBe(10);
+    expect(Math.max(...angles)).toBe(35);
+    expect(angles.size).toBe(26);
+    expect(sides.size).toBe(2);
   });
 });

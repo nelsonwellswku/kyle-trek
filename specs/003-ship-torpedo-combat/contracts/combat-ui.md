@@ -35,15 +35,15 @@ Highlights contain exactly legal movement destinations only during movement-read
 ### Hit
 
 1. A valid attack is committed and its d20/d8 outcome retained by the session.
-2. A blinking-star photo torpedo travels from attacker center to defender center.
+2. A prominent, blinking five-point star photo torpedo (12 px outer radius and 2 px outline at 60 px cells) travels from attacker center to defender center.
 3. Contact triggers an explosion; no miss or unrelated ship effect is shown.
 4. Complete the effect, commit/show HP change and result, then either open the opponent's movement phase or show victory.
 
 ### Miss
 
 1. A valid attack retains its miss result, with no damage roll.
-2. A blinking star follows a ray passing close to, but outside, the defender's full visual envelope.
-3. Continue past the defender until the entire projectile is outside the board, then remove it.
+2. A prominent, blinking five-point star with a contrasting fill and outline follows a freshly and independently randomized path whose launch angle is 10°–35° to either side of direct aim, clearing the defender without contact.
+3. Keep the entire star on-screen through its closest approach to the defender, then continue until the full projectile is outside the screen and remove it.
 4. Show miss/attack total and open the opponent's movement phase with unchanged HP.
 
 Both flows must complete all animation, outcome display, and next-turn readiness/winner display within **1,500 ms of launch** under the reference foreground-browser conditions. Nominal duration is 1,150 ms; the deadline is not merely a tween configuration value. A zero-damage hit still contacts and explodes. Nonlethal and lethal outcomes never produce a duplicate completion/handoff.
@@ -51,8 +51,9 @@ Both flows must complete all animation, outcome display, and next-turn readiness
 ## Geometry contract
 
 - Hit geometry is a direct center-to-center path.
-- Miss geometry is a tangent ray to a defender clearance circle: envelope radius + projectile radius + positive clearance. At 60 px cells use 24 + 3 + 1 = 28 px closest approach. The path cannot intersect the defender envelope including projectile radius.
-- Compute the two tangent candidates from attacker center, choose a deterministic valid side, and extend the ray to an endpoint outside the board expanded by projectile radius. Closest approach must lie on-board before exit; the ray must continue past that point.
+- The torpedo star scales with cell size and has a 12 px outer radius and 2 px white outline at 60 px cells, with a bright contrasting fill; it pulses while in flight. Use a 13 px collision envelope and 1 px additional clearance.
+- Each miss consumes a fresh validated random sample that uniformly selects an integer launch angle from 10° through 35° and either side of the direct attacker-to-defender line. The choice is independent of attack identity and previous attacks; consecutive misses may repeat the same path. If the straight path would intersect the defender or put the full star off-screen at closest approach, use a curved/offset path and try the other side or another choice within 10°–35°; never increase the selected launch angle above 35°.
+- The closest-approach point must be within the board inset by the projectile radius, so the entire star stays on-screen while passing its closest point to the defender. Continue each valid path until the entire projectile is outside the screen, not merely its center. The same positions and random choice reproduce the same geometry; path randomness does not draw gameplay dice.
 - Scale geometry with cell size. Test adjacent, same-row/column, diagonal, edge, corner, and maximum-distance placements. Continuous segment distance and rectangle intersection checks establish clearance and exit; sampled frames alone do not prove them.
 
 ## Internal typed seams
@@ -96,4 +97,4 @@ Ship movement continues using the existing `FlightAnimator` contract and extract
 
 ## Acceptance references
 
-Stats/initialization cover FR-001–FR-006 and FR-018; input/phase behavior covers FR-007–FR-011; dice/results cover FR-012–FR-015; visuals/deadline cover FR-016 and SC-009; winner/final input lock cover FR-017; attack-animation failure recovery covers FR-019. See [quickstart.md](../quickstart.md) for executable verification procedures.
+Stats/initialization cover FR-001–FR-006 and FR-018; input/phase behavior covers FR-007–FR-011; dice/results cover FR-012–FR-015; visuals/deadline cover FR-016, FR-020, FR-021, SC-009, and SC-010; winner/final input lock cover FR-017; attack-animation failure recovery covers FR-019. See [quickstart.md](../quickstart.md) for executable verification procedures.

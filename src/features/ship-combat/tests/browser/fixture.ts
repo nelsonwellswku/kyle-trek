@@ -150,6 +150,12 @@ class PresetRandomSource implements RandomSource {
   }
 }
 
+class FixedTorpedoPathRandomSource implements RandomSource {
+  next(): number {
+    return 0.5;
+  }
+}
+
 interface FixtureObservation {
   readonly key: string;
   readonly event: string;
@@ -296,6 +302,7 @@ const scene = new CombatScene(
   undefined,
   undefined,
   observeTorpedo,
+  new FixedTorpedoPathRandomSource(),
 );
 
 function attackSamples(preset: CombatPreset): readonly number[] {

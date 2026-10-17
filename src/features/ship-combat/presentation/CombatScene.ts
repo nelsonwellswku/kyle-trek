@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
+import type { RandomSource } from '../../game-setup/domain/RandomSource.js';
 import type { CombatGame } from '../domain/CombatGame.js';
 import { BattleSession } from '../domain/BattleSession.js';
 import type { BattleSnapshot } from '../domain/BattleSession.js';
@@ -32,6 +33,7 @@ export class CombatScene extends Phaser.Scene {
     private readonly flightAnimator?: FlightAnimator,
     private readonly onBoardChanged: (game: CombatGame) => void = () => {},
     private readonly onTorpedoEvent: TorpedoVisualObserver = () => {},
+    private readonly torpedoPathRandomSource?: RandomSource,
   ) {
     super({ key: 'ship-combat' });
   }
@@ -49,7 +51,13 @@ export class CombatScene extends Phaser.Scene {
       this.geometry,
       this.boardView,
       this.flightAnimator ?? new PhaserFlightAnimator(this, this.geometry),
-      this.torpedoAnimator ?? new PhaserTorpedoAnimator(this, this.geometry, this.onTorpedoEvent),
+      this.torpedoAnimator ??
+        new PhaserTorpedoAnimator(
+          this,
+          this.geometry,
+          this.onTorpedoEvent,
+          this.torpedoPathRandomSource,
+        ),
       this.controls,
       this.onMovementError,
       this.onAttackError,

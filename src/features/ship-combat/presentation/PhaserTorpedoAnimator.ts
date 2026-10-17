@@ -1,5 +1,7 @@
 import type Phaser from 'phaser';
 import type { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
+import { MathRandomSource } from '../../game-setup/adapters/MathRandomSource.js';
+import type { RandomSource } from '../../game-setup/domain/RandomSource.js';
 import type { PendingAttack } from '../domain/PendingAttack.js';
 import type {
   TorpedoAnimator,
@@ -26,6 +28,7 @@ export class PhaserTorpedoAnimator implements TorpedoAnimator {
     private readonly scene: Phaser.Scene,
     private readonly geometry: BoardGeometry,
     private readonly observe: TorpedoVisualObserver = () => {},
+    private readonly randomSource: RandomSource = new MathRandomSource(),
   ) {}
 
   start(
@@ -38,11 +41,13 @@ export class PhaserTorpedoAnimator implements TorpedoAnimator {
       turnToken: attack.turnToken,
       attackId: attack.attackId,
     });
+    const missPathChoice = attack.outcome.kind === 'miss' ? this.randomMissPathChoice() : 0;
     const path = new TorpedoPath(
       attack.attackerPosition,
       attack.defenderPosition,
       attack.outcome.kind,
       this.geometry,
+      missPathChoice,
     );
     const scale = this.geometry.logicalSize / 10 / 60;
     let settled = false;
@@ -114,7 +119,8 @@ export class PhaserTorpedoAnimator implements TorpedoAnimator {
 
     try {
       report('launch');
-      star = this.scene.add.star(path.start.x, path.start.y, 4, 1.5 * scale, 3 * scale, 0xffffff);
+      star = this.scene.add.star(path.start.x, path.start.y, 5, 6 * scale, 12 * scale, 0xffe36e, 1);
+      star.setStrokeStyle(2 * scale, 0xffffff, 1);
       const createdTween = this.scene.tweens.addCounter({
         from: 0,
         to: 1,
@@ -188,5 +194,13 @@ export class PhaserTorpedoAnimator implements TorpedoAnimator {
     }
 
     return handle;
+  }
+
+  private randomMissPathChoice(): number {
+    const sample = this.randomSource.next();
+    if (!Number.isFinite(sample) || sample < 0 || sample >= 1) {
+      throw new RangeError('Torpedo path randomness must be a finite number in [0, 1).');
+    }
+    return Math.floor(sample * 52);
   }
 }

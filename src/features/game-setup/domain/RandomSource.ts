@@ -1,4 +1,4 @@
-/** Supplies one independent value in the half-open interval [0, 1) for game creation. */
+/** Supplies one independently sampled value in the half-open interval [0, 1). */
 export interface RandomSource {
   next(): number;
 }

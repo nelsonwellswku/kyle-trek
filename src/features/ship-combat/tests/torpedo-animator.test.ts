@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type Phaser from 'phaser';
 import { BoardPosition } from '../../board/domain/BoardPosition.js';
 import { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
+import type { RandomSource } from '../../game-setup/domain/RandomSource.js';
 import type { PendingAttack } from '../domain/PendingAttack.js';
 import { PhaserTorpedoAnimator } from '../presentation/PhaserTorpedoAnimator.js';
 
@@ -15,6 +16,7 @@ function pendingAttack(
   kind: 'hit' | 'miss',
   attackerPosition = new BoardPosition(2, 2),
   defenderPosition = new BoardPosition(3, 2),
+  attackId = 19,
 ): PendingAttack {
   const outcome =
     kind === 'hit'
@@ -46,7 +48,7 @@ function pendingAttack(
   return Object.freeze({
     gameRevision: 7,
     turnToken: 13,
-    attackId: 19,
+    attackId,
     attackerIdentity: 'ship-1',
     defenderIdentity: 'ship-2',
     attackerPosition,
@@ -55,7 +57,7 @@ function pendingAttack(
   });
 }
 
-function animatorHarness(throwOnStart = false) {
+function animatorHarness(throwOnStart = false, randomSource?: RandomSource) {
   const events: ShapeEvent[] = [];
   const stars: Array<ReturnType<typeof makeShape>> = [];
   const explosions: Array<ReturnType<typeof makeShape>> = [];
@@ -109,7 +111,12 @@ function animatorHarness(throwOnStart = false) {
     add: { star: addStar, circle: addCircle },
     tweens: { addCounter },
   } as unknown as Phaser.Scene;
-  const animator = new PhaserTorpedoAnimator(scene, new BoardGeometry(600));
+  const animator = new PhaserTorpedoAnimator(
+    scene,
+    new BoardGeometry(600),
+    undefined,
+    randomSource,
+  );
 
   function requireConfig(): TweenConfig {
     if (!config) {
@@ -160,7 +167,16 @@ describe('PhaserTorpedoAnimator', () => {
       expect(duration).toBeLessThanOrEqual(1500);
       expect(harness.config.repeat ?? 0).toBe(0);
       expect(harness.addStar).toHaveBeenCalledTimes(1);
-      expect(harness.addStar.mock.calls[0]?.[4]).toBe(3);
+      expect(harness.addStar.mock.calls[0]).toEqual([
+        expect.any(Number),
+        expect.any(Number),
+        5,
+        6,
+        12,
+        0xffe36e,
+        1,
+      ]);
+      expect(harness.stars[0]?.setStrokeStyle).toHaveBeenCalledWith(2, 0xffffff, 1);
     },
   );
 
@@ -230,6 +246,69 @@ describe('PhaserTorpedoAnimator', () => {
     expect(star.destroy).toHaveBeenCalledTimes(1);
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(onComplete).toHaveBeenCalledWith(handle.identity);
+  });
+
+  it('draws an independent random path choice for every miss', () => {
+    const samples = [0.25, 0.25, 0.75];
+    let sampleIndex = 0;
+    const randomSource: RandomSource = {
+      next: vi.fn(() => {
+        const sample = samples[sampleIndex];
+        if (sample === undefined) throw new Error('The controlled path samples are exhausted.');
+        sampleIndex += 1;
+        return sample;
+      }),
+    };
+    const first = animatorHarness(false, randomSource);
+    const second = animatorHarness(false, randomSource);
+    const third = animatorHarness(false, randomSource);
+    const positions = [new BoardPosition(5, 5), new BoardPosition(5, 6)] as const;
+    first.animator.start(pendingAttack('miss', ...positions, 19), vi.fn(), vi.fn());
+    second.animator.start(pendingAttack('hit', ...positions, 20), vi.fn(), vi.fn());
+    second.animator.start(pendingAttack('miss', ...positions, 20), vi.fn(), vi.fn());
+    third.animator.start(pendingAttack('miss', ...positions, 21), vi.fn(), vi.fn());
+    first.updateAt(1150);
+    second.updateAt(1150);
+    third.updateAt(1150);
+
+    const firstEnd = first.stars[0]?.setPosition.mock.calls.at(-1);
+    const secondEnd = second.stars[1]?.setPosition.mock.calls.at(-1);
+    const thirdEnd = third.stars[0]?.setPosition.mock.calls.at(-1);
+    expect(randomSource.next).toHaveBeenCalledTimes(3);
+    expect(firstEnd).toEqual(secondEnd);
+    expect(thirdEnd).not.toEqual(firstEnd);
+    if (!firstEnd || !secondEnd || !thirdEnd) {
+      throw new Error('Expected all misses to reach their off-board endpoints.');
+    }
+
+    const geometry = new BoardGeometry(600);
+    const attacker = geometry.cellCenter(positions[0]);
+    const defender = geometry.cellCenter(positions[1]);
+    const directX = defender.x - attacker.x;
+    const directY = defender.y - attacker.y;
+    const sideOf = (end: readonly [x: number, y: number]): number =>
+      Math.sign(directX * (end[1] - attacker.y) - directY * (end[0] - attacker.x));
+    expect(sideOf(firstEnd)).toBe(sideOf(secondEnd));
+    expect(sideOf(thirdEnd)).toBe(-sideOf(firstEnd));
+  });
+
+  it('maps uniform sample buckets across every angle from 10 to 35 on both sides', () => {
+    const positions = [new BoardPosition(5, 2), new BoardPosition(5, 9)] as const;
+
+    for (let choice = 0; choice < 52; choice += 1) {
+      const randomSource: RandomSource = { next: () => (choice + 0.5) / 52 };
+      const harness = animatorHarness(false, randomSource);
+      harness.animator.start(pendingAttack('miss', ...positions), vi.fn(), vi.fn());
+      harness.updateAt(1150);
+
+      const endpoint = harness.stars[0]?.setPosition.mock.calls.at(-1);
+      if (!endpoint) throw new Error(`Miss choice ${choice} did not reach its endpoint.`);
+      const expectedDegrees = 10 + (choice % 26);
+      const expectedSide = choice < 26 ? 1 : -1;
+      const angleDegrees = (Math.atan2(endpoint[1] - 270, endpoint[0] - 90) * 180) / Math.PI;
+      expect(Math.round(Math.abs(angleDegrees)), `angle choice ${choice}`).toBe(expectedDegrees);
+      expect(Math.sign(angleDegrees), `side choice ${choice}`).toBe(expectedSide);
+    }
   });
 
   it('reports completion once with the T018 attack identity', () => {

@@ -92,7 +92,7 @@ Invalid or stale events return a no-change result. Each mutating operation valid
 ## Presentation-only data
 
 - `BoardPoint` may be outside the board for a torpedo exit; `BoardPosition` may not.
-- `TorpedoPath` contains attack origin, contact or near-miss ray, off-board endpoint on misses, and geometry-derived progress evaluation. It carries no dice or mutable HP.
+- `TorpedoPath` contains attack origin, contact or an angle-selected miss path with optional curved/offset waypoints, off-screen endpoint on misses, and geometry-derived progress evaluation. Each miss consumes one fresh validated random sample, uniformly selecting one of 52 choices (integer launch angle 10°–35° and either side); its choice is independent of the attack identity and all previous attacks. The 12 px star uses a 13 px projectile envelope and 1 px clearance at 60 px cells, all scaled by cell size. A candidate must clear the defender and keep the entire star on-screen through closest approach; close or edge-constrained geometry bends the path rather than increasing the selected launch angle above 35°. It then continues until the entire star is off-screen. It carries no dice or mutable HP; its callback identity remains `(gameRevision, turnToken, attackId)`.
 - `TorpedoIdentity` is revision + token + attack ID. A cancellable handle owns its effects; progress/completion/error are ignored when stale.
 - `CombatControls` derives button availability from phase and board-ready revision. Controls own no battle state.
 - Visual readiness is separate from battle phase: after initialization/replacement the controller ignores input until the matching postrender. A valid domain movement phase alone does not make an undrawn board interactive.
