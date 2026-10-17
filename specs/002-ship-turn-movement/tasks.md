@@ -199,3 +199,10 @@ Complete setup, foundation and US1. Demonstrate correct random stats, legal high
 - Parallel markers denote eligible work, not automatic permission to delegate or change task order.
 - Preserve user clarification: independent random integer agility 8–20 and a button-acknowledged pass; never replace low-score rolls or automatically pass turns.
 - Do not commit, amend or push unless explicitly requested.
+
+## Phase 7: Convergence
+
+- [x] T053 Run the reference-browser timing acceptance and record the environment plus individual turn-to-highlights, move-to-arrival, and arrival-to-next-highlights measurements; diagnose any threshold failures per SC-004 (partial).
+- [x] T054 Run and record at least ten actual-browser direct, diagonal, blocked-detour, and board-edge flights, including scaled label/envelope bounds and per-case collision/off-board results per SC-005 / FR-011 (partial).
+- [x] T055 Record each of the five first-time-player trial outcomes and elapsed time, or repeat trials where records are unavailable, and verify the 4-of-5 within-30-seconds threshold per SC-006 (partial).
+- [x] T056 Record the specific browser conditions and observed outcomes for the normal-play, enemy-detour, and production-preview checks; mark any unavailable checks pending per T029 / T036 / T050 (partial).
