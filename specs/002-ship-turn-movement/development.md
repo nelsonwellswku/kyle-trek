@@ -79,17 +79,95 @@ T003 adds feature-local typed scripted randomness and controllable flight fixtur
 **T036 — Routing and browser acceptance**
 
 - Commands: `npm test -- src/features/ship-movement/tests/reachability.test.ts src/features/ship-movement/tests/detour-integration.test.ts src/features/ship-movement/tests/controller.test.ts src/features/board/tests`; Vite fixture HTML/module requests via `curl`.
-- Outcome: Automated regressions passed: 47 tests across 6 files; the full suite passed with 144 tests across 20 files. Vite served fixture HTML and its TypeScript module with HTTP 200. Manual browser checks could not run because Chromium/Chrome/Firefox are unavailable; visual highlights, route flight and alternate-route acceptance remain pending, so T036 is unchecked.
+- Outcome: The earlier acceptance run passed 47 tests across 6 files and the full suite passed with 144 tests across 20 files. Re-run during US3 implementation passed 48 tests across 6 files. Vite served fixture HTML and its TypeScript module with HTTP 200. Manual browser checks could not run because Chromium/Chrome/Firefox are unavailable; visual highlights, route flight and alternate-route acceptance remain pending, so T036 is unchecked.
+
+### User Story 3 — Shortest Continuous Flight
+
+**Updated flight semantics**: After the first implementation, the user clarified that the visual path should be the shortest path through continuous space, independent of BFS grid turns. The initial rounded-grid implementation was removed. BFS still controls legal destinations and logical step count; the animator flies directly when clear and uses a tangent/circular-arc path around the other ship when blocked.
+
+**T037 — Continuous path tests**
+
+- Red command: `npm test -- src/features/ship-movement/tests/space-flight-path.test.ts`.
+- Observed behavioral red against the typed placeholder: all four cases failed because the path contained no segments (direct diagonal, obstacle detour, edge containment, and clear-line cases).
+- Green command: same path test after T039; 4 tests passed, including shortest tangent/arc/tangent length, exact 48 px center clearance, tangent continuity, and analytic board bounds.
+
+**T038 — Phaser arc adapter tests**
+
+- Red command: `npm test -- src/features/ship-movement/tests/flight-animator.test.ts`.
+- Observed behavioral red: the old route-following adapter emitted intermediate grid segments rather than a direct diagonal and did not create a circular arc for an enemy-blocked path.
+- Green command: `npm test -- src/features/ship-movement/tests/space-flight-path.test.ts src/features/ship-movement/tests/flight-animator.test.ts src/features/ship-movement/tests/turn-session.test.ts`; 3 files and 16 tests passed. Adapter tests verify direct diagonal line segments, numeric `ellipseTo` radius/angle/direction arguments, one whole-flight ease, 250–1,250 ms logical duration, null progress/point recovery, exact destination snap, and cancellation/duplicate-callback rejection.
+
+**T039/T040 — Continuous path and Phaser integration**
+
+- `SpaceFlightPath` now freezes direct-line or shortest feasible tangent/arc/tangent segments, using the two ships' combined 48 px visual envelopes and the 24–576 px safe center rectangle. It checks arc extrema analytically and does not constrain flight to grid cells.
+- `TurnSession` captures the other ship's current position in `PendingMove`. `PhaserFlightAnimator` appends direct `lineTo` and circular `ellipseTo` segments to one path, samples that path with one counter tween, and retains logical BFS step duration and cancellation behavior.
+- The new `otherShipPosition` contract first failed `turn-session.test.ts` because a selected move exposed no obstacle position; the same suite passed after TurnSession included the frozen opposing-ship position.
+- Integrated path, animator, session, controller, lifecycle, board and setup regressions passed: 14 files, 87 tests. `npm run typecheck` also passed.
+
+**T041 — Visual envelope and marker bounds**
+
+- Red command: `npm test -- src/features/board/tests/geometry.test.ts src/features/board/tests/board-view.test.ts`.
+- The new geometry/view assertions initially found no `visualEnvelopeRadius()` bound. BoardGeometry now reserves 40% of a cell (24 px on the 600 px board); BoardView bounds marker outline and labels to that envelope. Existing per-ship circle/stroke/label groups remain independently movable.
+
+**T042 — Lifecycle races**
+
+- `npm test -- src/features/ship-movement/tests/scene-lifecycle.test.ts` passed after adding resets before readiness, cancellation-time callbacks, shutdown, and deferred completion/failure cases. Existing identity/disposal guards handled the cases, so no behavior defect was found and no failure was manufactured.
+
+**T043 — Actual-Phaser fixture observations**
+
+- The fixture overlays each direct or circular path segment and both endpoints. It records turn start, postrender actionable highlights, canvas pointer selection, committed arrival, and next-turn highlights. It uses the production `SpaceFlightPath`, remains outside `src/main.ts`, and does not change production input behavior.
+- After the fixture switched to the continuous path, Vite returned HTTP 200 for both the fixture HTML and module on `127.0.0.1:5190`. Actual browser observation remains pending.
+
+**T044/T045/T050 — Manual browser acceptance (pending)**
+
+- `command -v chromium || command -v chromium-browser || command -v google-chrome || command -v firefox` found no browser executable. Ten-move visual clearance checks, reference-environment timing measurements, and normal-play/pass/scaling/reset preview checks remain pending. No browser rendering or timing result is inferred from mocks or HTTP status.
+
+**T046 — Automated acceptance**
+
+- Focused command: `npm test -- src/features/ship-movement/tests/space-flight-path.test.ts src/features/ship-movement/tests/flight-animator.test.ts src/features/ship-movement/tests/turn-session.test.ts src/features/ship-movement/tests/controller.test.ts src/features/ship-movement/tests/scene-lifecycle.test.ts src/features/board/tests src/features/game-setup/tests` — passed, 14 files and 87 tests.
+- Full `npm test` passed, 21 files and 153 tests. `npm run typecheck`, `npm run lint`, and `npm run format:check` passed. `npm run build` passed with the existing Phaser chunk-size advisory (1,407.32 kB minified).
+- Vite returned HTTP 200 for fixture HTML/module and for the production preview page. These are serving/build checks only; real-browser appearance/timing remains pending under T044/T045/T050.
+- Direct Prettier checks for README, quickstart, task, development, and usability docs passed. `git diff --check` passed.
 
 ## Manual browser checks
 
 The normal-play and deterministic fixture checks from `quickstart.md` are to be recorded here. Manual browser execution and visual/timing acceptance must be reported as pending when no interactive browser is available; Node mocks are not browser evidence.
 
-- US2 fixture presets are implemented. No Chromium, Chrome, or Firefox executable is installed in this environment, so visual detour flight, browser highlight appearance, and manual route-choice checks remain pending. Fixture HTML and module both returned HTTP 200 from Vite; serving/transform smoke checks do not substitute for browser acceptance.
+- US2 and US3 fixture presets/path overlays are implemented. No Chromium, Chrome, or Firefox executable is installed in this environment, so visual flight, browser highlight appearance, and manual route-choice checks remain pending. Fixture HTML and module returned HTTP 200 from Vite; serving/transform smoke checks do not substitute for browser acceptance.
 
 ## Architecture review
 
-Record feature boundaries, canonical board value ownership, strict type contracts, composition, and the Phaser scene inheritance compatibility justification as implementation proceeds.
+`board/` remains the single owner of canonical positions, geometry, BoardView and visual-envelope bounds; it does not depend on setup or movement. A source search found one `BoardPosition` definition and no imports from movement/setup into board. `ship-movement/` owns immutable logical routes, continuous flight paths, Phaser animation and lifecycle integration. `SpaceFlightPath` remains renderer-independent; only `PhaserFlightAnimator` handles Phaser path/tween APIs and nullable runtime values. The two `Phaser.Scene` subclasses, `MovementScene` and the retained `GameSetupScene`, are lifecycle/input adapters and each documents the Phaser compatibility reason beside the class. New Game changes the session revision before cancellation; scene/controller shutdown sets disposed guards before cancellation. Regression tests deliver deferred callbacks across both boundaries. No additional architecture exception or runtime dependency was introduced.
+
+## Requirement and success-criteria reconciliation (T052)
+
+| Item   | Evidence                                                                                                                                                                  | Status                  |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| FR-001 | `agility.test.ts`, `movement-game.test.ts`; integer 8–20 validation and invalid values rejected.                                                                          | Verified                |
+| FR-002 | `agility.test.ts`; all 13 modifier buckets and boundaries.                                                                                                                | Verified                |
+| FR-003 | `turn-controls.test.ts`; separate score/modifier labels and active player/ship.                                                                                           | Verified                |
+| FR-004 | `turn-session.test.ts`; Player 1 starts and 50 completed moves alternate.                                                                                                 | Verified                |
+| FR-005 | `reachability.test.ts`, `turn-session.test.ts`; bounded allowance, shorter move consumes turn, zero allowance.                                                            | Verified                |
+| FR-006 | `reachability.test.ts`; orthogonal, in-bounds routes exclude blockers and origin destinations.                                                                            | Verified                |
+| FR-007 | `reachability.test.ts`, `detour-integration.test.ts`; blocked direct route and affordable four-step detour.                                                               | Verified                |
+| FR-008 | `board-view.test.ts`, `controller.test.ts`; exact highlights clear and refresh on turn updates.                                                                           | Verified                |
+| FR-009 | `geometry.test.ts`, `controller.test.ts`; logical bounds, left-click acceptance, invalid-button rejection.                                                                | Verified                |
+| FR-010 | `space-flight-path.test.ts`, `flight-animator.test.ts`; direct diagonal, shortest tangent/arc detour, exact arrival. Actual visual continuity awaits T044.                | Partial—browser pending |
+| FR-011 | Analytic tests cover combined 48 px envelope clearance and safe board bounds. Actual browser overlap/label measurements await T044.                                       | Partial—browser pending |
+| FR-012 | Animator/controller/session tests cover synchronous input lock, cleared highlights and exactly-once post-arrival handoff. Timing awaits T045.                             | Partial—browser pending |
+| FR-013 | `turn-controls.test.ts`, `turn-session.test.ts`; explicit pass and 20 acknowledgments, including both immobile turns.                                                     | Verified                |
+| FR-014 | `game-application.test.ts`, `scene-lifecycle.test.ts`; atomic replacement and stale callback rejection. Browser reset walkthrough awaits T050.                            | Partial—browser pending |
+| FR-015 | `game-factory.test.ts`; 13 buckets, all 169 score pairs, independent draws, deterministic 1,000-game coverage and mapping review.                                         | Verified                |
+| SC-001 | All 13 score modifiers and allowances checked.                                                                                                                            | Verified                |
+| SC-002 | Twenty independent board arrangements plus detour and edge regressions; exact destinations/routes.                                                                        | Verified                |
+| SC-003 | Fifty completed alternating moves and invalid/repeated-input regressions.                                                                                                 | Verified                |
+| SC-004 | Timing instrumentation is present, but no reference-browser measurements were possible.                                                                                   | Pending browser         |
+| SC-005 | Analytic tangent/arc geometry and Node animation behavior pass; ten real-browser visual observations remain unperformed.                                                  | Pending browser         |
+| SC-006 | Five first-time-player trials are recorded as pending recruitment in `usability.md`.                                                                                      | Pending participants    |
+| SC-007 | Invalid agility, acknowledged passes, both-immobile turns, generation failure and reset callback guards are covered by tests.                                             | Verified                |
+| SC-008 | Each ship receives all 13 scores in the deterministic 1,000-game test; equal-width independent draw mapping is reviewed (the sample is not a statistical fairness proof). | Verified                |
+
+Tasks T037–T043, T046–T049, T051, and T052 are complete. T036 remains pending its real-browser detour checks; T044/T045 and T050 remain pending browser execution; T047 remains pending participant recruitment. These outstanding acceptance observations are not represented as completed work.
 
 ## MVP validation results (T030)
 
@@ -102,4 +180,4 @@ Record feature boundaries, canonical board value ownership, strict type contract
 - Vite smoke requests returned HTTP 200 for `/` and `/src/features/ship-movement/tests/browser/fixture.ts`.
 - Highlight visibility regression: `npm test -- src/features/board/tests/board-view.test.ts` first failed because the highlight Graphics layer was created before the grid, so the board rendered above it. BoardView now caches highlights received before draw and creates/renders the overlay after the grid and ship groups; the expanded BoardView, controller and scene suites pass.
 - Automated acceptance covers all US1 domain/session/UI behaviors, including 50 alternating moves, 20 acknowledged passes, all 169 agility score pairs and 1,000 deterministic games. Interactive browser checks are pending because this environment has no installed browser; see T029.
-- The MVP animator follows legal orthogonal route segments. US3 rounded-corner flight geometry, ten-move browser visuals, reference-environment timing, and visual clearance acceptance remain outstanding.
+- The MVP animator followed legal orthogonal route segments. The revised US3 animator now uses shortest continuous flight; ten-move browser visuals, reference-environment timing, and visual clearance acceptance remain outstanding.

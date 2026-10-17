@@ -35,7 +35,7 @@ Expected outcomes:
 - All 13 agility values and bucket boundaries validate; mapping and all 169 score pairs are correct. Invalid random draws/stats fail without corrupting the current game.
 - At least 20 arrangements produce exact expected destination sets; all returned routes have legal orthogonal steps and shortest affordable lengths. Use independently specified expectations/reference enumeration.
 - Fifty completed moves alternate correctly; repeated/invalid clicks produce no extra move; twenty explicit passes each require a click and cause one handoff.
-- Curve bounds, endpoints and tangents pass; origin/destination and occupied-square safety do not depend only on sampled frames.
+- Direct-path endpoints, tangent continuity, circular obstacle clearance and exact arc bounds pass; collision safety does not depend only on sampled frames.
 - Old game/turn/move callbacks, generation failures, disposal, and duplicate completions cannot mutate the wrong game or double-advance a turn.
 - Matching flight startup/mid-flight failures restore the visual origin and active player's legal input without a handoff; stale success/failure callbacks cannot affect the recovered turn or a replacement game.
 - Existing setup tests continue to pass after canonical board extraction. Test discovery must fail rather than silently succeeding when no intended tests are selected.
@@ -68,24 +68,24 @@ With the Vite server running, open:
 
 `http://127.0.0.1:5173/src/features/ship-movement/tests/browser/fixture.html`
 
-This URL becomes runnable after the implementation phase adds the planned fixture.
+The manually operated fixture is implemented at this URL; it uses the production scene/controller and provides preset resets, route overlays, and timeline observations.
 
-| Preset | Initial state / action | Expected result |
-| --- | --- | --- |
-| Center | Ship 1 (5,5), agility 14; enemy (10,10) | Exactly 12 destination squares; (6,6) reachable in two steps with a curved turn |
-| Blocked direct | Ship 1 (5,4), agility 14; enemy (5,5) | (5,6) unavailable; occupied square never highlighted |
-| Enemy detour | Same positions, Ship 1 agility 18 | (5,6) reachable in four steps and flight arcs around enemy |
-| Edge | Ship 1 (1,1), agility 20; enemy (1,2) | Only affordable in-board detours; full ship stays within board and clears occupied square |
-| Straight | Ship 1 (5,2), agility 20; enemy (10,10), select (5,7) | Five-step continuous straight flight, nominal 1.25 seconds, exact arrival |
-| One immobile | Ship 1 agility 8, Ship 2 agility 16 | Player 1 waits for Pass; Player 2 then gets movement highlights |
-| Both immobile | Agility 9 and 11 | No automatic advance; each player's turn requires its own Pass click |
-| Reset during flight | Any movable preset, reset/New Game mid-flight | Old callbacks cannot move the new game's ships or advance its first turn |
+| Preset              | Initial state / action                                | Expected result                                                                           |
+| ------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Center              | Ship 1 (5,5), agility 14; enemy (10,10)               | Exactly 12 destinations; (6,6) costs two logical steps but flies directly on a diagonal   |
+| Blocked direct      | Ship 1 (5,4), agility 14; enemy (5,5)                 | (5,6) unavailable; occupied square never highlighted                                      |
+| Enemy detour        | Same positions, Ship 1 agility 18                     | (5,6) reachable in four logical steps; flight uses the shortest circular arc around enemy |
+| Edge                | Ship 1 (1,1), agility 20; enemy (1,2)                 | Only affordable in-board detours; full ship stays within board and clears occupied square |
+| Straight            | Ship 1 (5,2), agility 20; enemy (10,10), select (5,7) | Five-step continuous straight flight, nominal 1.25 seconds, exact arrival                 |
+| One immobile        | Ship 1 agility 8, Ship 2 agility 16                   | Player 1 waits for Pass; Player 2 then gets movement highlights                           |
+| Both immobile       | Agility 9 and 11                                      | No automatic advance; each player's turn requires its own Pass click                      |
+| Reset during flight | Any movable preset, reset/New Game mid-flight         | Old callbacks cannot move the new game's ships or advance its first turn                  |
 
 Use route-finder unit fixtures, rather than a playable preset, for fully surrounded positive-allowance ships: that situation requires more blockers than the two-ship game contains.
 
 ## Visual/performance acceptance
 
-- Observe at least ten moves across straight, turning, detour, and board-edge cases. Confirm continuous flight, curved direction changes, no occupied-square crossing, no overlap and exact destination centering.
+- Observe at least ten moves across direct diagonal, straight, blocked-detour, and board-edge cases. Confirm continuous shortest flight, circular arcs around blockers, no visual overlap or off-board travel, and exact destination centering.
 - Measure digit-label bounds and ensure circle/stroke/text/effects fit within the reserved 24 px radius at 60 px cells. Validate at normal and resized display scales.
 - Manually use fixture timestamps/DevTools Performance in the reference environment above to measure turn-to-highlight latency (≤200 ms), accepted move to arrival (≤1.5 s), and arrival to next playable highlights (≤200 ms). Retain individual timings for every acceptance move and report each threshold failure rather than averaging it away. A waiting-for-pass turn has no actionable highlights.
 - Record environment and observations. Mocks cannot establish these outcomes. Note checks as pending when a real browser is unavailable.

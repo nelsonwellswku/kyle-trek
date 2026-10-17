@@ -33,25 +33,25 @@
 
 **Evidence**: `domain/RandomSource.ts`, `adapters/MathRandomSource.ts`, `domain/GameSetupFactory.ts`, `domain/GameSession.ts`, `tests/placement.test.ts`, `tests/fixtures/ScriptedRandomSource.ts` under game-setup; clarified FR-013/FR-015.
 
-## 4. Safe smooth flight
+## 4. Shortest continuous safe flight
 
-**Decision**: Trim 15 px at each corner on the 60 px grid, then use a quadratic curve with the original cell center as control. Use one progress tween across the assembled path.
+**Decision**: Keep BFS solely for logical route legality and movement cost. Animate a direct center-to-center line when it clears the other ship; otherwise choose the shortest feasible tangent-line/circular-arc/tangent-line route around the combined visual envelopes.
 
-**Rationale**: For trim d, the curve stays within d/4 of the original legal center segments. With d=15 and a reserved 24 px visual radius, occupied-square clearance remains 2.25 px and visual ship separation 8.25 px. Curve/control convexity keeps the center within the board's center bounds; the full ship retains 6 px edge clearance. Consecutive corners retain at least 30 px of straight joining segment. Tangents match at joins, removing abrupt direction changes without requiring acceleration continuity.
+**Rationale**: The animation represents a ship in continuous space, so empty cells impose no trajectory restriction. For a circular obstacle of radius 48 px, a shortest path consists of tangent line segments and a circular arc. Enumerating tangent points from both endpoints, both arc directions, and rejecting candidates outside the `[24,576] × [24,576]` safe center rectangle yields the shortest in-bounds candidate. The 24 px per-ship visual radius matches BoardGeometry/BoardView bounds; center separation of 48 px prevents visual overlap. Logical BFS stepCount remains the authority for affordability and 250 ms-per-step duration.
 
-**Alternatives considered**: Unrestricted global splines can cut blocked corners or overshoot the board; straight origin-to-destination tweens cross ships; per-cell stopping lacks smooth turns. Circular fillets are viable but require more angle bookkeeping.
+**Alternatives considered**: Following orthogonal grid segments or rounding every axis change looks mechanical and needlessly lengthens clear flights. Quadratic corner splines are not circular and do not represent shortest obstacle avoidance. Unrestricted splines can cross ships or leave the board.
 
-**Evidence**: Current 600 px board in `src/app/GameApplication.ts`; 70%-cell marker diameter in BoardGeometry; 2 px stroke and 16.8 px digit label in BoardView. The label must be checked against the reserved envelope in a real browser. Cosmetic effects must fit the same bound.
+**Evidence**: Current 600 px board in `src/app/GameApplication.ts`; BoardGeometry and BoardView reserve a 24 px visual radius including the 2 px outline and digit label. The SVG test overlay uses the same line/arc segments as the production animator. Real rendered label bounds and edge visuals remain a browser acceptance check.
 
 ## 5. Installed Phaser integration
 
-**Decision**: Retain Phaser 4.2.1; use `Phaser.Curves.Path.lineTo`, numeric `quadraticBezierTo(endX, endY, controlX, controlY)`, `path.getPoint(progress)`, and `scene.tweens.addCounter`. Group each ship's circle and label in a Container. Use one Sine ease-in/out tween, 250 ms per step, no repeat/yoyo/delay.
+**Decision**: Retain Phaser 4.2.1; use `Phaser.Curves.Path.lineTo`, `ellipseTo(radius, radius, startAngle, endAngle, clockwise, 0)`, `path.getPoint(progress)`, and `scene.tweens.addCounter`. Group each ship's circle and label in a Container. Use one Sine ease-in/out tween, 250 ms per logical step, no repeat/yoyo/delay.
 
-**Rationale**: Installed APIs already support the required path and animation. `Path.getPoint` uses cumulative curve lengths and `getPointAt` mapping for approximately distance-based traversal. The numerical mapping remains on the mathematically safe curves. The nominal 1,250 ms maximum leaves normal-frame headroom below 1.5 seconds.
+**Rationale**: Installed APIs support exact ellipse arcs and whole-flight animation. `Path.getPoint` traverses the assembled line/ellipse path by cumulative curve lengths. The maximum logical duration remains 1,250 ms, leaving normal-frame headroom below 1.5 seconds; the path length may vary with the direct or obstacle-avoiding route.
 
 **Alternatives considered**: New animation libraries add no necessary capability; hand-managed requestAnimationFrame duplicates Phaser lifecycle; whole-scene redrawing every frame couples grid and ship visuals.
 
-**Evidence**: `node_modules/phaser/src/curves/path/Path.js` (numeric quadratic argument order and getPoint); `src/curves/Curve.js` (getPointAt); `src/tweens/TweenManager.js` (addCounter/remove); `src/tweens/tween/BaseTween.js` (stop/remove); `types/phaser.d.ts` (container/setPosition and counter APIs). Runtime getPoint can return null despite its declaration; getValue is declared nullable. Handle these only in the adapter. Avoid the misleading vector quadratic overload.
+**Evidence**: `node_modules/phaser/src/curves/path/Path.js` (ellipseTo and getPoint); `node_modules/phaser/src/curves/EllipseCurve.js` (clockwise angle normalization); `src/tweens/TweenManager.js` (addCounter/remove); `src/tweens/tween/BaseTween.js` (stop/remove); `types/phaser.d.ts` (ellipseTo, container/setPosition and counter APIs). Runtime getPoint can return null despite its declaration; getValue is declared nullable. Handle these only in the adapter.
 
 ## 6. Turn, reset, and event identity
 

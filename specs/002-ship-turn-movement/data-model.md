@@ -73,7 +73,7 @@ The UI can additionally be preparing or showing a startup error; these are appli
 ### PendingMove
 
 - `gameRevision`, `turnToken`, `moveId`, active ship identity.
-- `origin`, `destination`, immutable LegalRoute.
+- `origin`, `destination`, frozen `otherShipPosition`, and immutable LegalRoute.
 - All callback identity fields must match the current moving state before update/commit.
 - Authoritative ship position stays at origin until successful completion.
 - Selection updates phase before animation starts, preventing re-entrant selection.
@@ -93,7 +93,7 @@ The UI can additionally be preparing or showing a startup error; these are appli
 ## Presentation-only data
 
 - BoardGeometry: logical size 600, cell size 60; maps centers and rejects pointer points outside half-open `[0,600) × [0,600)` bounds. Phaser supplies scale-correct logical coordinates.
-- FlightPath: immutable line/quadratic segment sequence, independent of grid-step cost; corner trim 15 px and reserved visual envelope radius 24 px at current geometry.
+- FlightPath: immutable line/circular-arc segment sequence from origin to destination, computed independently of grid-step cost. A clear direct segment remains a straight line; otherwise shortest feasible tangent/arc candidates avoid a circle with radius 48 px (both 24 px ship envelopes) while keeping the moving ship's center within the 24–576 px board bounds.
 - FlightHandle: cancellation capability owned by PhaserFlightAnimator; stopping does not emit successful completion. A typed failure notification carries the pending move's game revision, turn token and move ID so the controller can reject stale failures and recover only the matching move.
 - Turn HUD: active player/ship, scores/modifiers, moving or no-moves message, pass-button availability. Existing shell retains New Game/readiness/errors and current position summaries.
 

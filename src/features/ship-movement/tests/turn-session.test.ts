@@ -52,6 +52,7 @@ describe('TurnSession', () => {
     const pending = session.selectDestination(ready.turnToken, new BoardPosition(5, 6));
 
     expect(pending?.route.stepCount).toBe(1);
+    expect(pending?.otherShipPosition).toEqual(new BoardPosition(10, 10));
     const moving = session.snapshot;
     expect(moving.phase).toBe('moving');
     if (moving.phase !== 'moving') {

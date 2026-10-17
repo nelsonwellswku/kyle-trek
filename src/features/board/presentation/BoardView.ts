@@ -128,7 +128,11 @@ export class BoardView {
   private drawShip(placement: BoardSnapshot['ship1'], label: string, color: number): void {
     const center = this.geometry.cellCenter(placement.position);
     const bounds = this.geometry.markerBounds(placement.position);
-    const radius = Math.min(bounds.width, bounds.height) / 2;
+    const radius = Math.min(
+      Math.min(bounds.width, bounds.height) / 2,
+      this.geometry.visualEnvelopeRadius() - 1,
+    );
+    const fontSize = Math.min(bounds.width * 0.4, this.geometry.visualEnvelopeRadius() * 0.7);
     const marker = this.scene.add.graphics();
     marker
       .fillStyle(color, 1)
@@ -140,7 +144,7 @@ export class BoardView {
         align: 'center',
         color: '#071523',
         fontFamily: 'system-ui, sans-serif',
-        fontSize: `${Math.max(12, bounds.width * 0.4)}px`,
+        fontSize: `${fontSize}px`,
         fontStyle: 'bold',
       })
       .setOrigin(0.5);

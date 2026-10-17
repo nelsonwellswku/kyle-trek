@@ -8,6 +8,7 @@ import type {
   FlightIdentity,
   FlightProgressHandler,
 } from './FlightAnimator.js';
+import { SpaceFlightPath } from './SpaceFlightPath.js';
 
 export class PhaserFlightAnimator implements FlightAnimator {
   private static readonly millisecondsPerStep = 250;
@@ -62,9 +63,27 @@ export class PhaserFlightAnimator implements FlightAnimator {
     try {
       const origin = this.geometry.cellCenter(move.origin);
       const path = new Phaser.Curves.Path(origin.x, origin.y);
-      for (const position of move.route.positions.slice(1)) {
-        const point = this.geometry.cellCenter(position);
-        path.lineTo(point.x, point.y);
+      const flightPath = new SpaceFlightPath(
+        move.origin,
+        move.destination,
+        move.otherShipPosition,
+        this.geometry,
+      );
+      for (const segment of flightPath.segments) {
+        if (segment.kind === 'line') {
+          path.lineTo(segment.end.x, segment.end.y);
+        } else {
+          const startDegrees = (segment.startAngleRadians * 180) / Math.PI;
+          const endDegrees = ((segment.startAngleRadians + segment.sweepRadians) * 180) / Math.PI;
+          path.ellipseTo(
+            segment.radius,
+            segment.radius,
+            startDegrees,
+            endDegrees,
+            segment.sweepRadians < 0,
+            0,
+          );
+        }
       }
 
       tween = this.scene.tweens.addCounter({

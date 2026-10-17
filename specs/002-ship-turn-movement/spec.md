@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: User description: "Ships have agility from 8 to 20 and a separate stepped modifier, increasing by 1 every 2 points with 10–11 giving 0. Local players alternate turns, moving up to their agility modifier in orthogonal grid steps. Highlight reachable squares and select a destination with a left mouse click. Completing a move ends the turn. Ships cannot move through occupied squares but may route around enemies within their movement allowance. Animate movement with smooth arcs for changes of direction and to avoid passing through another ship."
+**Input**: User description: "Ships have agility from 8 to 20 and a separate stepped modifier, increasing by 1 every 2 points with 10–11 giving 0. Local players alternate turns, moving up to their agility modifier in orthogonal grid steps. Highlight reachable squares and select a destination with a left mouse click. Completing a move ends the turn. Ships cannot move through occupied squares but may route around enemies within their movement allowance. Animate the ship along the shortest continuous flight path: fly diagonally when clear and use circular arcs to avoid another ship."
 
 ## Clarifications
 
@@ -57,27 +57,27 @@ As a player, I want highlights to account for ships blocking my route so that I 
 
 ### User Story 3 - Follow Smooth, Collision-Free Flight (Priority: P3)
 
-As a player, I want to watch my ship fly smoothly to the selected destination, curving when it changes direction or passes around an enemy, so that the move is clear and visually believable.
+As a player, I want to watch my ship take the shortest continuous flight to the selected destination, including diagonals and circular arcs around another ship, so that movement feels like a ship flying through space rather than following a mechanical grid path.
 
 **Why this priority**: Readable animation communicates the route and reinforces the movement rules.
 
-**Independent Test**: Observe a straight move, a move changing both row and column, and a same-row detour around an enemy. Confirm smooth flight, clear separation from the other ship, and correct arrival before control passes.
+**Independent Test**: Observe an unobstructed diagonal flight and a same-row move whose direct segment is blocked by an enemy. Confirm the diagonal is flown directly, the blocked flight takes the shortest tangent-and-circular-arc path around the enemy, the ships remain separated, and control passes only after exact arrival.
 
 **Acceptance Scenarios**:
 
-1. **Given** a legal straight move, **When** its destination is selected, **Then** the ship visibly travels continuously from its original square to the center of its destination rather than teleporting.
-2. **Given** a legal route that changes direction between rows and columns, **When** the move plays, **Then** direction changes follow smooth arcs rather than abrupt right-angle turns; a straight unobstructed same-row or same-column move may remain straight.
-3. **Given** an enemy between the origin and a reachable destination, **When** the move plays, **Then** the flight curves around the enemy without visually intersecting it or cutting through its occupied square, even if origin and destination share a row or column.
+1. **Given** a legal destination whose direct center-to-center flight is clear, including one in a different row and column, **When** the destination is selected, **Then** the ship travels continuously along that straight path, including diagonally, without following intermediate grid cells.
+2. **Given** an enemy whose visual envelope blocks the direct flight, **When** the move plays, **Then** the ship follows the shortest collision-free path, with straight tangent sections joined by a circular arc around the enemy.
+3. **Given** a legal move around an enemy, **When** the flight plays near any board edge, **Then** the ship's full visual envelope remains on the board and never intersects or overlaps the other ship.
 4. **Given** a move in progress, **When** either player clicks repeatedly, **Then** no second move begins, no destination changes, and the turn changes exactly once after arrival.
 
 ### Edge Cases
 
 - Agility 8–9 gives −1 and 10–11 gives 0: both permit zero movement, not backward movement or an extra square.
 - Agility 20 gives +5; routes requiring six steps are unavailable even if the destination appears close across an enemy.
-- A diagonally adjacent destination requires two empty orthogonal steps. Curved visuals never authorize a one-step diagonal shortcut.
+- A diagonally adjacent destination still requires two empty orthogonal steps for legality, even though its unobstructed animation may fly diagonally.
 - The active ship's original square is not a destination; selecting it does not end a turn.
 - A destination's allowance is based on the shortest available legal route, not straight-line distance or animated curve length.
-- A detour cannot leave the board to bypass an enemy near an edge; smooth flight also stays within the board.
+- The continuous flight path may cross empty cells freely, but cannot intersect the other ship's visual envelope or leave the board to bypass an enemy near an edge.
 - Occupancy and highlights are refreshed after every completed move, before another move can be accepted.
 - A ship with no reachable destination shows a visible explanation and pass button, with no highlights. Its turn remains active until the button is clicked.
 - If neither ship can move, each turn waits for its player's pass-button click; turns never cycle automatically, and movement clicks do not acknowledge a pass.
@@ -109,8 +109,8 @@ As a player, I want to watch my ship fly smoothly to the selected destination, c
 - **FR-007**: A destination MUST be legal if and only if at least one route of empty orthogonally adjacent squares reaches it within the allowance. The presence of a blocked direct route MUST NOT invalidate an affordable detour.
 - **FR-008**: Before accepting a destination, the board MUST highlight all and only legal destination squares for the active ship, excluding its origin, and refresh those highlights for each new turn and completed move.
 - **FR-009**: A single left mouse click on a highlighted square MUST select that destination and begin the move without a separate confirmation. Invalid targets and other mouse buttons MUST leave the positions and turn unchanged.
-- **FR-010**: The selected move MUST visibly animate from the ship's origin to the destination center, following a legal route within its movement allowance. Unobstructed straight routes may be straight; routes changing direction MUST use smooth arcs at direction changes.
-- **FR-011**: Animated flight MUST remain within the board and avoid crossing any other ship's occupied square or visually overlapping that ship. Routes around a blocking ship MUST curve around it, including when the destination shares the origin's row or column. Curves MUST NOT create a shortcut through blocked space or change the counted movement allowance.
+- **FR-010**: The selected move MUST animate along the shortest continuous flight path from origin to destination, independently of the orthogonal route used to establish grid-step legality and cost. If the direct segment is clear, the ship MUST fly straight to the destination, including diagonally. If the other ship blocks that segment, the flight MUST use the shortest feasible tangent-line/circular-arc path around it.
+- **FR-011**: Flight MUST remain within the board and keep the moving ship's visual envelope clear of the other ship's visual envelope. Empty grid cells impose no animation constraint; the flight path MUST NOT intersect the blocking ship or leave the board, and MUST NOT change the move's logical grid-step allowance.
 - **FR-012**: During flight, destination selection MUST be disabled and actionable destination highlights MUST be removed. On arrival, the ship MUST occupy exactly the selected square and control MUST pass exactly once to the other player, with updated highlights.
 - **FR-013**: A player with no legal destinations MUST see an explanation and a pass button. The turn MUST remain active until that button is clicked, then pass exactly once to the other player. The pass button MUST be unavailable when legal movement exists and during flight. If neither ship has legal destinations, each successive turn MUST wait for its player's explicit pass-button click rather than cycling automatically.
 - **FR-014**: Starting a new game MUST preserve the established 10 × 10 board and randomized opposing starting zones, restore Player 1's first turn, and discard any in-progress move and previous highlights.
@@ -133,7 +133,7 @@ As a player, I want to watch my ship fly smoothly to the selected destination, c
 - **SC-002**: Across at least 20 board arrangements covering center, edge, corner, blocked-direct-route, and affordable-detour cases, 100% of highlighted squares match the legal destinations and no legal destination is omitted.
 - **SC-003**: Across 50 consecutive completed moves, players alternate correctly every time, each move ends on the selected square, and invalid or repeated clicks cause zero extra moves or turn changes.
 - **SC-004**: On the existing 100-square board, actionable highlights appear within 200 milliseconds of a playable turn beginning. Every accepted move visibly animates and completes within 1.5 seconds, followed by the next turn's highlights within 200 milliseconds.
-- **SC-005**: Across at least 10 observed animations covering straight moves, row-and-column changes, enemy detours, and board edges, all moves arrive at the selected square with continuous flight, all direction changes are curved, and zero moves visibly intersect another ship or leave the board.
+- **SC-005**: Across at least 10 observed animations covering straight and diagonal flights, blocked enemy detours, and board edges, clear flights travel directly, blocked flights take a shortest circular-arc detour, all moves arrive at the selected square, and zero moves visibly overlap another ship or leave the board.
 - **SC-006**: At least 4 of 5 first-time players identify the active ship, choose a legal destination, and recognize the handoff to the other player within 30 seconds without assistance.
 - **SC-007**: In checks of nonpositive modifiers, a blocked ship, both ships unable to move, invalid agility values, and a new game during flight, every case enforces the specified valid-stat, acknowledged-pass, or fresh-game behavior without accepting an illegal move or applying an interrupted move. Across 20 acknowledged passes, zero turns advance before a pass-button click and every click advances exactly one turn, including when both ships cannot move.
 - **SC-008**: Across 1,000 new games, every assigned agility is an integer from 8 through 20, each ship receives all 13 scores at least once, and every displayed modifier matches FR-002. Equal probability and independent selection are additionally reviewed against FR-015; this sample alone does not establish fairness.
@@ -144,7 +144,7 @@ As a player, I want to watch my ship fly smoothly to the selected destination, c
 - Two players share one local game and mouse. Player 1 owns Ship 1 and starts; Player 2 owns Ship 2.
 - Agility is independently randomized for each ship at the start of each game, as clarified by the user. Stat selection by players and progression are outside scope; all valid scores remain supported by the movement rules.
 - Nonpositive modifiers provide zero movement. Players must acknowledge a no-moves turn with the pass button, including when neither ship can move. Voluntary passing when legal moves exist is outside scope.
-- Players choose a destination rather than individual route steps. An available shortest legal route is used; any equally short route is acceptable. Visual curves smooth that route without altering grid-step costs or permitting blocked-square crossings.
-- “Different row or column” is interpreted as flight that changes direction between grid axes, or requires an obstacle detour. An unobstructed flight wholly within one row or column may be straight.
+- Players choose a destination rather than individual route steps. BFS determines the shortest legal route and grid-step cost; any equally short logical route is acceptable. The visual flight independently takes the shortest continuous path, crossing empty cells freely while clearing the other ship and board edge.
+- Grid steps determine whether a destination is legal and how much agility it costs. The visual flight path is separately optimized in continuous space: it is a direct line when clear and tangent-line/circular-arc segments when avoiding the other ship.
 - The first playable turn begins after the existing game initialization. Combat, scoring, victory conditions, additional obstacles, networking, and mid-turn stat changes are outside this feature.
 - Timing targets are evaluated on the existing 100-square board in a foreground, visible tab using the current stable desktop Chromium browser, a 1280 × 800 viewport, hardware-accelerated WebGL, and a reference desktop with at least four logical CPU cores and 8 GB RAM. Developer-tool CPU/network throttling must be disabled. Record the exact browser version, OS, CPU, RAM, GPU and display refresh rate before acceptance testing. These conditions define the measurement baseline, not minimum requirements for running the game. No external service or data dependency is introduced.

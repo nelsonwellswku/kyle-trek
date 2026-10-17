@@ -139,6 +139,7 @@ class LateCallbackAnimator implements FlightAnimator {
   private completeHandler: ((identity: FlightIdentity) => void) | null = null;
   private failureHandler: ((identity: FlightIdentity, error: Error) => void) | null = null;
   cancelled = false;
+  onCancel: (() => void) | null = null;
 
   start(
     move: Parameters<FlightAnimator['start']>[0],
@@ -157,6 +158,7 @@ class LateCallbackAnimator implements FlightAnimator {
       identity: this.identity,
       cancel: () => {
         this.cancelled = true;
+        this.onCancel?.();
       },
     };
   }
@@ -296,5 +298,87 @@ describe('MovementScene lifecycle', () => {
     expect(onDrawn).toHaveBeenCalledTimes(1);
     harness.game.events.emit('postrender');
     expect(onDrawn).toHaveBeenLastCalledWith(2);
+  });
+
+  it('rejects resets before first readiness, cancellation-time callbacks, and callbacks after shutdown', () => {
+    const gameSession = session();
+    const controls = { render: vi.fn(), dispose: vi.fn() };
+    const animator = new LateCallbackAnimator();
+    const onDrawn = vi.fn();
+    const scene = new MovementScene(
+      gameSession,
+      new BoardGeometry(600),
+      controls as never,
+      onDrawn,
+      vi.fn(),
+      animator,
+    );
+    const harness = scene as unknown as {
+      readonly input: EventEmitterPort;
+      readonly events: EventEmitterPort;
+      readonly game: { readonly events: EventEmitterPort };
+    };
+
+    scene.create();
+    const beforeReady = new MovementGame(
+      {
+        identity: 'ship-1',
+        owner: 'player-1',
+        position: new BoardPosition(2, 2),
+        agility: new AgilityStat(16),
+      },
+      {
+        identity: 'ship-2',
+        owner: 'player-2',
+        position: new BoardPosition(9, 9),
+        agility: new AgilityStat(18),
+      },
+    );
+    const beforeReadyRevision = gameSession.newGame(beforeReady);
+    scene.updateGame(beforeReadyRevision);
+    harness.game.events.emit('postrender');
+    expect(onDrawn).toHaveBeenCalledTimes(1);
+    expect(onDrawn).toHaveBeenCalledWith(beforeReadyRevision);
+
+    harness.input.emit('pointerdown', { button: 0, worldX: 150, worldY: 90 });
+    expect(gameSession.snapshot.phase).toBe('moving');
+    const replacement = new MovementGame(
+      {
+        identity: 'ship-1',
+        owner: 'player-1',
+        position: new BoardPosition(3, 3),
+        agility: new AgilityStat(18),
+      },
+      {
+        identity: 'ship-2',
+        owner: 'player-2',
+        position: new BoardPosition(8, 8),
+        agility: new AgilityStat(16),
+      },
+    );
+    animator.onCancel = () => {
+      animator.deliverSuccess();
+      animator.deliverFailure();
+    };
+    const replacementRevision = gameSession.newGame(replacement);
+    scene.updateGame(replacementRevision);
+
+    expect(animator.cancelled).toBe(true);
+    expect(gameSession.snapshot.phase).toBe('ready');
+    if (gameSession.snapshot.phase !== 'disposed') {
+      expect(gameSession.snapshot.game).toBe(replacement);
+      expect(gameSession.snapshot.gameRevision).toBe(replacementRevision);
+      expect(gameSession.snapshot.activePlayer).toBe('player-1');
+    }
+
+    harness.game.events.emit('postrender');
+    harness.input.emit('pointerdown', { button: 0, worldX: 210, worldY: 210 });
+    expect(gameSession.snapshot.phase).toBe('moving');
+    const turnBeforeShutdown = gameSession.snapshot;
+    harness.events.emit('shutdown');
+    animator.deliverSuccess();
+    animator.deliverFailure();
+    expect(gameSession.snapshot).toEqual(turnBeforeShutdown);
+    expect(harness.input.listenerCount('pointerdown')).toBe(0);
   });
 });

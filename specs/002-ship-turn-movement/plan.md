@@ -8,7 +8,7 @@
 
 ## Summary
 
-Extend the local two-ship board with independently randomized agility, stepped modifiers, alternating turns, exact reachable-square highlights, left-click destination selection, acknowledged passes, and smooth obstacle-safe flight. Use breadth-first search (BFS) for shortest orthogonal routes and a composed, renderer-independent turn session. Round route corners with bounded quadratic curves and animate with the installed Phaser tween system. Stage whole new games atomically and guard animation/input callbacks with game and turn identities.
+Extend the local two-ship board with independently randomized agility, stepped modifiers, alternating turns, exact reachable-square highlights, left-click destination selection, acknowledged passes, and shortest continuous obstacle-safe flight. Use breadth-first search (BFS) for logical legality and step cost; compute the visual flight path independently in continuous space. Fly directly (including diagonally) when clear, otherwise use tangent lines and a circular arc around the other ship. Stage whole new games atomically and guard animation/input callbacks with game and turn identities.
 
 ## Technical Context
 
@@ -26,7 +26,7 @@ Extend the local two-ship board with independently randomized agility, stepped m
 
 **Performance Goals**: Highlights within 200 ms of a playable turn; animation 250 ms per counted step, at most 1,250 ms nominal and 1.5 seconds observed; next-turn highlights within 200 ms. Target display-refresh-paced animation on the existing 600 × 600 logical-pixel canvas. Evaluate SC-004 manually in the specification's reference environment, retain individual timings for each acceptance move, and report any threshold failure rather than averaging it away.
 
-**Constraints**: 10 × 10 board, two ships, maximum five steps, orthogonal travel only, no occupied-square crossings or visual ship overlap. Agility integers 8–20; nonpositive modifiers allow zero steps. No-moves turns require a pass-button click, including when both ships cannot move. Keep initial-zone validation separate from live positions. Preserve New Game and renderer-error recovery.
+**Constraints**: 10 × 10 board, two ships, maximum five logical steps, orthogonal grid legality, no occupied logical route cells, and no visual ship overlap. Continuous animation may cross empty cells diagonally. Agility integers 8–20; nonpositive modifiers allow zero steps. No-moves turns require a pass-button click, including when both ships cannot move. Keep initial-zone validation separate from live positions. Preserve New Game and renderer-error recovery.
 
 **Scale/Scope**: Two local players, one screen, at most 100 visited cells per reachability search. No network, combat, saves, player stat editor, or progression.
 
@@ -86,7 +86,7 @@ src/
 │       ├── presentation/
 │       │   ├── MovementController.ts
 │       │   ├── MovementScene.ts
-│       │   ├── RoundedFlightPath.ts
+│       │   ├── SpaceFlightPath.ts
 │       │   ├── PhaserFlightAnimator.ts
 │       │   └── TurnControls.ts
 │       └── tests/
@@ -104,7 +104,7 @@ GameSetupControls remains the application shell and New Game/readiness/error own
 
 ## Phase 0: Research Outcomes
 
-See [research.md](research.md). All planning unknowns are resolved: existing dependencies are sufficient, BFS supplies highlights and selected routes, quadratic corner rounding has an explicit visual-clearance bound, and generation/animation lifecycles use atomic replacement and identity checks. No unresolved clarification blocks design.
+See [research.md](research.md). Existing dependencies are sufficient; BFS supplies legal destinations and logical routes, continuous geometry supplies shortest visual flight, and generation/animation lifecycles use atomic replacement and identity checks. Phaser ellipse curves provide exact circular obstacle arcs. No unresolved clarification blocks design.
 
 ## Phase 1: Design
 
@@ -129,15 +129,15 @@ See [research.md](research.md). All planning unknowns are resolved: existing dep
 
 ### Flight geometry
 
-For cell size `s`, use corner trim `d = s/4`. At an orthogonal corner center P, replace the trimmed junction with a quadratic curve from `P - d*incoming` to `P + d*outgoing`, with control P. Straight segments join tangentially; a route with multiple turns remains one continuous path. Use `Phaser.Curves.Path`, its numeric `quadraticBezierTo` overload, and one `scene.tweens.addCounter` progress tween sampled with `getPoint`.
+At the current 600 × 600 logical board, reserve a 24 px visual radius for each ship, including its outline and label. The moving ship's center is constrained to `[24,576] × [24,576]`; the other ship creates a circular exclusion radius of 48 px (both visual envelopes). The path is the direct origin-to-destination segment whenever its minimum distance to the obstacle center is at least 48 px. If blocked, compute both tangents from each endpoint to the obstacle circle, join tangent pairs with clockwise/counterclockwise circular arcs, reject candidates outside the safe board rectangle, and choose the shortest remaining candidate. Each arc is exactly circular and tangent-matched to its straight segments. Empty cells and intermediate BFS route positions do not constrain visual flight; the BFS `stepCount` remains authoritative for allowance and duration.
 
-At current `s = 60`, reserve a ship visual envelope of radius 24 px, including outline, label, and rounding allowance. A rounded corner deviates by at most `s/16 = 3.75` px from legal center segments. Occupied-square clearance is at least `30 - 3.75 - 24 = 2.25` px, and two ship envelopes retain at least `60 - 3.75 - 48 = 8.25` px separation. Board-edge clearance is at least 6 px. Enforce label/effect bounds; do not enlarge visuals without revisiting the proof. Curves smooth logical routes but never change counted grid-step distance.
+Use `Phaser.Curves.Path.lineTo`, `ellipseTo(radius, radius, startDegrees, endDegrees, clockwise, 0)`, and one `scene.tweens.addCounter` progress tween sampled with `getPoint`. Validate arc containment using exact cardinal extrema, not frame sampling. Keep labels/effects within the 24 px radius. Direct paths and arcs stay inside the center bounds, so the full ship remains on-board without changing logical movement cost.
 
 Use whole-flight Sine ease-in/out, 250 ms per step, no per-cell pause. Clamp progress, handle Phaser's actual nullable path results at the adapter boundary, snap exactly on completion, and issue at most one completion notification. Stopping is cancellation, never successful arrival.
 
 ### Verification strategy
 
-Expand Vitest discovery to `src/features/*/tests/**/*.test.ts`, disable silent no-test success, and retain existing setup tests. Before each implementation slice, write and run a behavioral failing test, then implement/refactor with passing verification. Record commands and evidence. Unit tests cover stat boundaries and all 169 score pairs, route sets and shortest-path invariants, turn identity and acknowledgments, atomic replacement failures, and analytic curve bounds. Use independent expected destinations, not the production BFS as its own oracle.
+Expand Vitest discovery to `src/features/*/tests/**/*.test.ts`, disable silent no-test success, and retain existing setup tests. Before each implementation slice, write and run a behavioral failing test, then implement/refactor with passing verification. Record commands and evidence. Unit tests cover stat boundaries and all 169 score pairs, route sets and shortest-path invariants, turn identity and acknowledgments, atomic replacement failures, and exact tangent/arc lengths and bounds. Use independent expected destinations, not the production BFS as its own oracle.
 
 Application/adapter tests deliberately deliver old/duplicate callbacks and verify exactly one handoff, preserved queued New Game behavior, readiness gates, disposal, retained state on generation failure, and retryable recovery from flight startup/mid-flight failures. A manually operated test-only browser fixture supplies center/edge/detour and no-moves states through the same composed scene/controller without adding production stat editing. Manual browser checks validate actual Phaser APIs, scaling, footprint bounds, timing, and native-button focus. Positive-allowance total blockage is only a route-finder fixture with additional blockers, not a playable two-ship scenario.
 

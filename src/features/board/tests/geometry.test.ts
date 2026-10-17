@@ -79,4 +79,9 @@ describe('BoardGeometry', () => {
       expect(marker.y + marker.height).toBeLessThan(cell.y + cell.height);
     }
   });
+
+  it('reserves a cell-relative visual envelope for ship flight clearance', () => {
+    expect(geometry.visualEnvelopeRadius()).toBe(20);
+    expect(new BoardGeometry(600).visualEnvelopeRadius()).toBe(24);
+  });
 });

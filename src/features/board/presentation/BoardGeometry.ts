@@ -61,7 +61,10 @@ export class BoardGeometry {
 
   markerBounds(position: BoardPosition): BoardRectangle {
     const cell = this.cellBounds(position);
-    const markerSize = cell.width * 0.7;
+    const markerSize = Math.min(
+      cell.width * 0.7,
+      Math.max(0, (this.visualEnvelopeRadius() - 1) * 2),
+    );
     const inset = (cell.width - markerSize) / 2;
 
     return Object.freeze({
@@ -70,6 +73,10 @@ export class BoardGeometry {
       width: markerSize,
       height: markerSize,
     });
+  }
+
+  visualEnvelopeRadius(): number {
+    return (this.logicalSize / 10) * 0.4;
   }
 
   private static validatePosition(position: BoardPosition): void {

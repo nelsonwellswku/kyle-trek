@@ -10,6 +10,7 @@ export interface PendingMove {
   readonly shipIdentity: ShipIdentity;
   readonly origin: BoardPosition;
   readonly destination: BoardPosition;
+  readonly otherShipPosition: BoardPosition;
   readonly route: LegalRoute;
 }
 
@@ -145,6 +146,7 @@ export class TurnSession {
 
     const moveId = TurnSession.incrementCounter(this.currentMoveId, 'Move identity');
     const activeShip = TurnSession.shipForPlayer(this.activePlayer);
+    const otherShip = this.ship(activeShip === 'ship-1' ? 'ship-2' : 'ship-1');
     const pendingMove: PendingMove = Object.freeze({
       gameRevision: this.currentGameRevision,
       turnToken: this.currentTurnToken,
@@ -152,6 +154,7 @@ export class TurnSession {
       shipIdentity: activeShip,
       origin: this.ship(activeShip).position,
       destination: position,
+      otherShipPosition: otherShip.position,
       route,
     });
 

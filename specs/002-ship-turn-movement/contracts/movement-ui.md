@@ -52,9 +52,9 @@ No Phaser type enters domain classes. MovementController connects session result
 
 ## Flight contract
 
-- Straight unobstructed same-row/column routes may be straight; all axis changes use tangent-matched curves.
-- Use a legal shortest orthogonal route even when the direct line is blocked. Physical curves never cross another occupied square, overlap another ship, or leave the board.
-- Preserve the ship/label visual envelope used by the clearance proof in [plan.md](../plan.md).
+- Animation geometry is independent of the BFS route used for logical legality and step cost. If the origin-to-destination segment clears the other ship's combined visual envelope, fly that direct segment, including diagonally.
+- If the direct segment is blocked, use the shortest feasible tangent-line/circular-arc/tangent-line path around the other ship. Empty grid cells do not constrain the flight; the path must not overlap either visual envelope or leave the board.
+- At current geometry, each ship reserves a 24 px visual radius and the center path clears the other ship's circle by 48 px. Preserve the marker/label bounds used in [plan.md](../plan.md).
 - Animation runs continuously from origin to exact destination center, nominally 250 ms per logical step, completing within 1.5 seconds in the acceptance environment.
 - Commit and hand off only after arrival. New Game, scene shutdown, and disposal invalidate old callbacks before cancellation. A stop callback is not arrival.
 - On a matching startup/mid-flight failure, invalidate the move before cancellation, restore its origin visual, retain its player, issue a fresh turn token and recompute legal input. Report a retryable error without committing or advancing the turn. Failure callbacks for old/cancelled moves have no effect.

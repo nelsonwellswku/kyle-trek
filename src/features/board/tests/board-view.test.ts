@@ -83,6 +83,7 @@ describe('BoardView', () => {
       setPosition: ReturnType<typeof vi.fn>;
       destroy: ReturnType<typeof vi.fn>;
     }> = [];
+    const textStyles: Array<{ fontSize?: string; shadow?: unknown }> = [];
     const addGraphics = vi.fn(() => {
       const item = {
         clear: vi.fn().mockReturnThis(),
@@ -98,11 +99,16 @@ describe('BoardView', () => {
       graphics.push(item);
       return item;
     });
-    const addText = vi.fn((_x: number, _y: number, text: string) => ({
-      text,
-      setOrigin: vi.fn().mockReturnThis(),
-      destroy: vi.fn(),
-    }));
+    const addText = vi.fn(
+      (_x: number, _y: number, text: string, style: { fontSize?: string; shadow?: unknown }) => {
+        textStyles.push(style);
+        return {
+          text,
+          setOrigin: vi.fn().mockReturnThis(),
+          destroy: vi.fn(),
+        };
+      },
+    );
     const addContainer = vi.fn((x: number, y: number, children: readonly unknown[]) => {
       const container = {
         x,
@@ -141,6 +147,7 @@ describe('BoardView', () => {
     expect(containers).toHaveLength(2);
     expect(containers[0]?.children).toHaveLength(2);
     expect(containers[1]?.children).toHaveLength(2);
+    expect(textStyles).toHaveLength(2);
     expect(containers[0]?.x).toBe(270);
     expect(containers[0]?.y).toBe(270);
 
@@ -149,6 +156,24 @@ describe('BoardView', () => {
     expect(containers[0]?.y).toBe(270);
     expect(containers[1]?.x).toBe(570);
     expect(containers[1]?.y).toBe(570);
+
+    const envelopeRadius = new BoardGeometry(600).visualEnvelopeRadius();
+    const shipMarkers = graphics.filter(
+      (item) => item.fillCircle.mock.calls.length > 0 && item.strokeCircle.mock.calls.length > 0,
+    );
+    expect(shipMarkers).toHaveLength(2);
+    for (const marker of shipMarkers) {
+      const fillRadius = marker.fillCircle.mock.calls[0]?.[2] as number;
+      const strokeRadius = marker.strokeCircle.mock.calls[0]?.[2] as number;
+      const outlineWidth = marker.lineStyle.mock.calls[0]?.[0] as number;
+      expect(Math.max(fillRadius, strokeRadius + outlineWidth / 2)).toBeLessThanOrEqual(
+        envelopeRadius,
+      );
+    }
+    for (const style of textStyles) {
+      expect(Number.parseFloat(style.fontSize ?? '0')).toBeLessThanOrEqual(envelopeRadius * 0.7);
+      expect(style.shadow).toBeUndefined();
+    }
 
     view.setHighlights([]);
     expect(highlightLayer?.clear).toHaveBeenCalled();
