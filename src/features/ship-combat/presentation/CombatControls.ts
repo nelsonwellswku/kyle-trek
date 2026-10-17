@@ -1,6 +1,18 @@
 import type { CombatGame } from '../domain/CombatGame.js';
+import type { BattleSnapshot } from '../domain/BattleSession.js';
+
+export type BattleActionHandler = (gameRevision: number, turnToken: number) => void;
 
 export class CombatControls {
+  private readonly turnControls: HTMLElement;
+  private readonly status: HTMLElement;
+  private readonly activeTurn: HTMLElement;
+  private readonly skipButton: HTMLButtonElement;
+  private readonly endTurnButton: HTMLButtonElement;
+  private skipHandler: EventListener | null = null;
+  private endTurnHandler: EventListener | null = null;
+  private onSkipMovement: BattleActionHandler = () => {};
+  private onEndTurn: BattleActionHandler = () => {};
   private isDisposed = false;
 
   constructor(private readonly root: HTMLElement) {
@@ -9,7 +21,39 @@ export class CombatControls {
         ${CombatControls.shipMarkup('ship-1', 'Player 1')}
         ${CombatControls.shipMarkup('ship-2', 'Player 2')}
       </section>
+      <section class="combat-turn-controls" aria-label="Battle turn controls" hidden>
+        <p id="turn-status" role="status" aria-live="polite"></p>
+        <p id="active-turn"></p>
+        <p id="battle-result" aria-live="polite"></p>
+        <p id="battle-winner" role="status" aria-live="polite"></p>
+        <div class="combat-action-buttons">
+          <button class="skip-movement-button" type="button" hidden disabled>Skip movement</button>
+          <button class="end-turn-button" type="button" hidden disabled>End turn</button>
+        </div>
+      </section>
     `;
+
+    const turnControls = root.querySelector<HTMLElement>('.combat-turn-controls');
+    const status = root.querySelector<HTMLElement>('#turn-status');
+    const activeTurn = root.querySelector<HTMLElement>('#active-turn');
+    const skipButton = root.querySelector<HTMLButtonElement>('button.skip-movement-button');
+    const endTurnButton = root.querySelector<HTMLButtonElement>('button.end-turn-button');
+    if (!turnControls || !status || !activeTurn || !skipButton || !endTurnButton) {
+      throw new Error('Combat turn controls could not be initialized.');
+    }
+    this.turnControls = turnControls;
+    this.status = status;
+    this.activeTurn = activeTurn;
+    this.skipButton = skipButton;
+    this.endTurnButton = endTurnButton;
+    this.status.setAttribute('role', 'status');
+    this.status.setAttribute('aria-live', 'polite');
+  }
+
+  setActionHandlers(onSkipMovement: BattleActionHandler, onEndTurn: BattleActionHandler): void {
+    if (this.isDisposed) return;
+    this.onSkipMovement = onSkipMovement;
+    this.onEndTurn = onEndTurn;
   }
 
   renderShips(game: CombatGame): void {
@@ -18,10 +62,77 @@ export class CombatControls {
     this.renderShip(game.ship2);
   }
 
+  renderBattle(snapshot: BattleSnapshot): void {
+    if (this.isDisposed) return;
+    this.turnControls.hidden = false;
+    this.removeActionListeners();
+
+    if (snapshot.phase === 'disposed') {
+      this.status.textContent = 'Battle closed.';
+      this.activeTurn.textContent = '';
+      this.setButtonAvailable(this.skipButton, false);
+      this.setButtonAvailable(this.endTurnButton, false);
+      return;
+    }
+
+    this.renderShips(snapshot.game);
+    this.activeTurn.textContent = `${CombatControls.playerName(snapshot.activePlayer)} controls ${CombatControls.shipName(snapshot.activeShip)}.`;
+    this.setButtonAvailable(this.skipButton, snapshot.phase === 'awaiting-movement-skip');
+    this.setButtonAvailable(this.endTurnButton, snapshot.phase === 'attack-ready');
+
+    switch (snapshot.phase) {
+      case 'movement-ready':
+        this.status.textContent = `${CombatControls.playerName(snapshot.activePlayer)} — move ${CombatControls.shipName(snapshot.activeShip)} to a highlighted destination.`;
+        break;
+      case 'awaiting-movement-skip': {
+        this.status.textContent = snapshot.reason;
+        const { gameRevision, turnToken } = snapshot;
+        this.skipHandler = (): void => this.onSkipMovement(gameRevision, turnToken);
+        this.skipButton.addEventListener('click', this.skipHandler);
+        break;
+      }
+      case 'moving':
+        this.status.textContent = `${CombatControls.shipName(snapshot.activeShip)} is moving.`;
+        break;
+      case 'attack-ready': {
+        this.status.textContent = `Movement is complete. Click the opposing ship to attack or choose End turn.`;
+        const { gameRevision, turnToken } = snapshot;
+        this.endTurnHandler = (): void => this.onEndTurn(gameRevision, turnToken);
+        this.endTurnButton.addEventListener('click', this.endTurnHandler);
+        break;
+      }
+      case 'attacking':
+        this.status.textContent = `Attack in progress. The torpedo result is resolving.`;
+        break;
+      case 'finished':
+        this.status.textContent = `Battle finished. ${CombatControls.playerName(snapshot.winner)} wins.`;
+        break;
+    }
+  }
+
   dispose(): void {
     if (this.isDisposed) return;
     this.isDisposed = true;
+    this.removeActionListeners();
+    this.setButtonAvailable(this.skipButton, false);
+    this.setButtonAvailable(this.endTurnButton, false);
     this.root.replaceChildren();
+  }
+
+  private setButtonAvailable(button: HTMLButtonElement, available: boolean): void {
+    button.hidden = !available;
+    button.disabled = !available;
+  }
+
+  private removeActionListeners(): void {
+    if (this.skipHandler) {
+      this.skipButton.removeEventListener('click', this.skipHandler);
+      this.skipHandler = null;
+    }
+    if (this.endTurnHandler) {
+      this.endTurnButton.removeEventListener('click', this.endTurnHandler);
+      this.endTurnHandler = null;
+    }
   }
 
   private renderShip(ship: CombatGame['ship1']): void {
@@ -85,5 +196,13 @@ export class CombatControls {
 
   private static signed(value: number): string {
     return value < 0 ? `−${Math.abs(value)}` : `+${value}`;
+  }
+
+  private static playerName(player: 'player-1' | 'player-2'): string {
+    return player === 'player-1' ? 'Player 1' : 'Player 2';
+  }
+
+  private static shipName(ship: 'ship-1' | 'ship-2'): string {
+    return ship === 'ship-1' ? 'Ship 1' : 'Ship 2';
   }
 }

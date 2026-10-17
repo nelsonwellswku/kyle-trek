@@ -31,6 +31,7 @@ describe('CombatControls.renderShips', () => {
   it('renders both ships, owners, separately labeled scores/modifiers, HP, and armor class', () => {
     const root = render(combatGame());
     expect(root.innerHTML).toContain('<dl class="combat-stat-list">');
+    expect(root.querySelector<HTMLElement>('.combat-turn-controls')?.hidden).toBe(true);
     expect(root.innerHTML).toContain('<dt>Agility score</dt>');
     expect(root.innerHTML).toContain('<dt>Strength modifier</dt>');
     expect(root.innerHTML).toContain('<dt>Constitution modifier</dt>');

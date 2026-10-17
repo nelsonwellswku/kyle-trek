@@ -160,6 +160,70 @@ h1 {
   font-weight: 800;
 }
 
+.combat-turn-controls {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #31506a;
+  border-radius: 0.75rem;
+  background: #0d1d2d;
+}
+
+#turn-status {
+  min-height: 1.5rem;
+  margin: 0;
+  color: #a5f0ff;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+#active-turn,
+#battle-result,
+#battle-winner {
+  margin: 0;
+  color: #d4e4f0;
+  font-weight: 650;
+}
+
+.combat-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.skip-movement-button,
+.end-turn-button {
+  min-height: 2.75rem;
+  padding: 0.7rem 1.15rem;
+  border: 1px solid #9ce6a7;
+  border-radius: 0.65rem;
+  background: #194b38;
+  color: #f4fbff;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.skip-movement-button:disabled,
+.end-turn-button:disabled {
+  border-color: #40566b;
+  background: #1a2c3b;
+  color: #9baab8;
+  cursor: not-allowed;
+}
+
+.skip-movement-button:focus-visible,
+.end-turn-button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+.skip-movement-button[hidden],
+.end-turn-button[hidden] {
+  display: none;
+}
+
 .board-copy h2 {
   margin-bottom: 0.35rem;
   font-size: 1.15rem;

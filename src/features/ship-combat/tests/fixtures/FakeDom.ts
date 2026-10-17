@@ -16,6 +16,7 @@ export class FakeElement {
       '#active-turn',
       '#battle-result',
       '#battle-winner',
+      '.combat-turn-controls',
       '#ship-1-agility',
       '#ship-1-agility-modifier',
       '#ship-1-strength',
@@ -40,7 +41,9 @@ export class FakeElement {
       'button.end-turn-button',
       'button.new-game-button',
     ]) {
-      this.descendants.set(selector, new FakeElementLeaf());
+      const element = new FakeElementLeaf();
+      if (selector === '.combat-turn-controls') element.hidden = true;
+      this.descendants.set(selector, element);
     }
   }
 
