@@ -1,5 +1,5 @@
 import type { RandomSource } from './RandomSource.js';
-import { BoardPosition } from './BoardPosition.js';
+import { BoardPosition } from '../../board/domain/BoardPosition.js';
 import { GameSetup } from './GameSetup.js';
 
 export class GameSetupFactory {

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { GameSetup } from '../domain/GameSetup.js';
-import { BoardView, type RenderedRevisionHandler } from './BoardView.js';
-import type { BoardGeometry } from './BoardGeometry.js';
+import { BoardView, type RenderedRevisionHandler } from '../../board/presentation/BoardView.js';
+import type { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
 
 /**
  * Phaser requires a Scene subclass to integrate its scene lifecycle. This adapter owns no

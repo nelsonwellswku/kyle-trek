@@ -1,44 +1,15 @@
-import { BoardPosition } from './BoardPosition.js';
+import { BoardSnapshot, type ShipPlacement } from '../../board/domain/BoardSnapshot.js';
+import type { BoardSnapshot as GameSetupSnapshot } from '../../board/domain/BoardSnapshot.js';
 
-export type ShipIdentity = 'ship-1' | 'ship-2';
+export type { ShipIdentity, ShipPlacement } from '../../board/domain/BoardSnapshot.js';
+export type { GameSetupSnapshot };
 
-export interface ShipPlacement {
-  readonly identity: ShipIdentity;
-  readonly position: BoardPosition;
-}
-
-export interface GameSetupSnapshot {
-  readonly rows: 10;
-  readonly columns: 10;
-  readonly ship1: ShipPlacement;
-  readonly ship2: ShipPlacement;
-}
-
-export class GameSetup implements GameSetupSnapshot {
-  readonly rows = 10 as const;
-  readonly columns = 10 as const;
-  readonly ship1: ShipPlacement;
-  readonly ship2: ShipPlacement;
-
+export class GameSetup extends BoardSnapshot implements GameSetupSnapshot {
   constructor(ship1: ShipPlacement, ship2: ShipPlacement) {
-    if (ship1.identity !== 'ship-1' || ship2.identity !== 'ship-2') {
-      throw new RangeError('GameSetup requires ship-1 followed by ship-2.');
-    }
-
-    if (!(ship1.position instanceof BoardPosition) || !(ship2.position instanceof BoardPosition)) {
-      throw new RangeError('Each ship placement must contain a valid BoardPosition.');
-    }
+    super(ship1, ship2);
 
     if (ship1.position.row > 2 || ship2.position.row < 9) {
       throw new RangeError('Each ship must be placed in its assigned starting zone.');
     }
-
-    if (ship1.position.equals(ship2.position)) {
-      throw new RangeError('Ships must occupy distinct board positions.');
-    }
-
-    this.ship1 = Object.freeze({ identity: 'ship-1', position: ship1.position });
-    this.ship2 = Object.freeze({ identity: 'ship-2', position: ship2.position });
-    Object.freeze(this);
   }
 }

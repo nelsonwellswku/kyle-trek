@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameApplication } from '../../../app/GameApplication.js';
+import type { TurnSession } from '../../ship-movement/domain/TurnSession.js';
 import { ScriptedRandomSource } from './fixtures/ScriptedRandomSource.js';
 import { FakeRoot } from './fixtures/FakeDom.js';
 
@@ -9,6 +10,7 @@ interface TestGame {
 }
 
 interface TestScene {
+  readonly session: TurnSession;
   readonly updateCalls: Array<{ readonly setup: unknown; readonly revision: number }>;
   disposeCount: number;
   reportDrawn(revision: number): void;
@@ -60,21 +62,22 @@ vi.mock('phaser', () => {
   };
 });
 
-vi.mock('../presentation/GameSetupScene.js', () => ({
-  GameSetupScene: class {
+vi.mock('../../ship-movement/presentation/MovementScene.js', () => ({
+  MovementScene: class {
     readonly updateCalls: Array<{ readonly setup: unknown; readonly revision: number }> = [];
     disposeCount = 0;
 
     constructor(
-      private readonly initialSetup: unknown,
-      private readonly geometry: unknown,
+      readonly session: TurnSession,
+      _geometry: unknown,
+      _controls: unknown,
       private readonly onDrawn: (revision: number) => void,
     ) {
       testRuntime.scenes.push(this as unknown as TestScene);
     }
 
-    updateSetup(setup: unknown, revision: number): void {
-      this.updateCalls.push({ setup, revision });
+    updateGame(revision: number): void {
+      this.updateCalls.push({ setup: this.session.snapshot, revision });
     }
 
     dispose(): void {
@@ -113,7 +116,9 @@ describe('GameApplication', () => {
   });
 
   it('publishes readiness only after drawing, routes New Game, and retains a failed replacement for recovery', () => {
-    const source = new ScriptedRandomSource([0.01, 0.91, 0.21, 0.71, 0.41, 1, 0.99, 0.99]);
+    const source = new ScriptedRandomSource([
+      0.01, 0.91, 0.5, 0.7, 0.21, 0.71, 0.5, 0.6, 0.41, 1, 0.99, 0.99, 0.4, 0.8,
+    ]);
     const root = new FakeRoot();
     const application = new GameApplication(root as unknown as HTMLElement, source);
     const controls = {
@@ -126,7 +131,7 @@ describe('GameApplication', () => {
 
     expect(controls.status.textContent).toBe('Preparing game…');
     expect(controls.button.disabled).toBe(true);
-    expect(source.consumedDraws).toBe(2);
+    expect(source.consumedDraws).toBe(4);
     expect(testRuntime.games).toHaveLength(1);
 
     scene?.reportDrawn(1);
@@ -136,7 +141,7 @@ describe('GameApplication', () => {
     expect(controls.ship1.textContent).toBe('Ship 1 — row 1, column 1');
     expect(controls.ship2.textContent).toBe('Ship 2 — row 10, column 9');
     expect(testRuntime.games[0]?.canvas.getAttribute('aria-describedby')).toBe(
-      'board-description ship-summary',
+      'board-description ship-summary turn-hud',
     );
 
     controls.button.click();
@@ -144,7 +149,7 @@ describe('GameApplication', () => {
     expect(controls.status.textContent).toBe('Preparing game…');
     expect(scene?.updateCalls).toHaveLength(1);
     expect(scene?.updateCalls[0]?.revision).toBe(2);
-    expect(source.consumedDraws).toBe(4);
+    expect(source.consumedDraws).toBe(8);
 
     scene?.reportDrawn(2);
 
@@ -155,7 +160,7 @@ describe('GameApplication', () => {
     scene?.reportDrawn(2);
     expect(controls.status.textContent).toBe('Game 2 ready');
     expect(scene?.updateCalls).toHaveLength(1);
-    expect(source.consumedDraws).toBe(4);
+    expect(source.consumedDraws).toBe(8);
 
     const failedSetupSummary = [controls.ship1.textContent, controls.ship2.textContent];
     controls.button.click();
@@ -163,7 +168,7 @@ describe('GameApplication', () => {
     expect(controls.status.textContent).toBe('Unable to start a new game. Try again.');
     expect([controls.ship1.textContent, controls.ship2.textContent]).toEqual(failedSetupSummary);
     expect(scene?.updateCalls).toHaveLength(1);
-    expect(source.consumedDraws).toBe(6);
+    expect(source.consumedDraws).toBe(10);
     expect(controls.button.disabled).toBe(false);
 
     controls.button.click();
@@ -171,7 +176,7 @@ describe('GameApplication', () => {
     expect(controls.status.textContent).toBe('Preparing game…');
     expect(scene?.updateCalls).toHaveLength(2);
     expect(scene?.updateCalls[1]?.revision).toBe(3);
-    expect(source.consumedDraws).toBe(8);
+    expect(source.consumedDraws).toBe(14);
 
     scene?.reportDrawn(3);
 
@@ -186,7 +191,7 @@ describe('GameApplication', () => {
     testRuntime.failGameConstruction = true;
     const root = new FakeRoot();
 
-    new GameApplication(root as unknown as HTMLElement, new ScriptedRandomSource([0, 0]));
+    new GameApplication(root as unknown as HTMLElement, new ScriptedRandomSource([0, 0, 0.5, 0.5]));
 
     expect(root.element('[role="alert"]').textContent).toBe(
       'Unable to start the game. Check that WebGL is available and reload the page.',
@@ -198,7 +203,9 @@ describe('GameApplication', () => {
   });
 
   it('serializes activations and advances the ready revision when layouts repeat', async () => {
-    const source = new ScriptedRandomSource([0, 0.95, 0, 0.95, 0, 0.95]);
+    const source = new ScriptedRandomSource([
+      0, 0.95, 0.5, 0.5, 0, 0.95, 0.5, 0.5, 0, 0.95, 0.5, 0.5,
+    ]);
     const root = new FakeRoot();
     const application = new GameApplication(root as unknown as HTMLElement, source);
     const button = root.element('button.new-game-button');
@@ -215,7 +222,7 @@ describe('GameApplication', () => {
 
     expect(scene?.updateCalls).toHaveLength(1);
     expect(scene?.updateCalls[0]?.revision).toBe(2);
-    expect(source.consumedDraws).toBe(4);
+    expect(source.consumedDraws).toBe(8);
 
     scene?.reportDrawn(2);
     await Promise.resolve();
@@ -223,10 +230,12 @@ describe('GameApplication', () => {
     expect(scene?.updateCalls).toHaveLength(2);
     expect(scene?.updateCalls[1]?.revision).toBe(3);
     expect(scene?.updateCalls[1]?.setup).toMatchObject({
-      ship1: { position: { row: 1, column: 1 } },
-      ship2: { position: { row: 10, column: 10 } },
+      game: {
+        ship1: { position: { row: 1, column: 1 } },
+        ship2: { position: { row: 10, column: 10 } },
+      },
     });
-    expect(source.consumedDraws).toBe(6);
+    expect(source.consumedDraws).toBe(12);
     expect(root.element('button.new-game-button')).toBe(button);
 
     scene?.reportDrawn(3);
@@ -237,7 +246,7 @@ describe('GameApplication', () => {
       root.element('#ship-2-position').textContent,
     ];
     expect(repeatedSummary).toEqual(initialSummary);
-    expect(source.consumedDraws).toBe(6);
+    expect(source.consumedDraws).toBe(12);
 
     application.dispose();
   });
@@ -246,7 +255,7 @@ describe('GameApplication', () => {
     const root = new FakeRoot();
     const application = new GameApplication(
       root as unknown as HTMLElement,
-      new ScriptedRandomSource([0, 0]),
+      new ScriptedRandomSource([0, 0, 0.5, 0.5]),
     );
     const game = testRuntime.games[0];
     const scene = testRuntime.scenes[0];

@@ -42,6 +42,25 @@ describe('BoardGeometry', () => {
     expect(geometry.cellCenter(new BoardPosition(3, 8))).toEqual({ x: 375, y: 125 });
   });
 
+  it('maps logical points inside half-open bounds to the cell on the right and below', () => {
+    const board = new BoardGeometry(600);
+
+    expect(board.positionAt({ x: 0, y: 0 })).toEqual(new BoardPosition(1, 1));
+    expect(board.positionAt({ x: 60, y: 60 })).toEqual(new BoardPosition(2, 2));
+    expect(board.positionAt({ x: 599.999, y: 599.999 })).toEqual(new BoardPosition(10, 10));
+  });
+
+  it('rejects outer-boundary, out-of-bounds and nonfinite logical points', () => {
+    const board = new BoardGeometry(600);
+
+    expect(board.positionAt({ x: 600, y: 300 })).toBeNull();
+    expect(board.positionAt({ x: 300, y: 600 })).toBeNull();
+    expect(board.positionAt({ x: -0.001, y: 300 })).toBeNull();
+    expect(board.positionAt({ x: 300, y: -0.001 })).toBeNull();
+    expect(board.positionAt({ x: Number.NaN, y: 10 })).toBeNull();
+    expect(board.positionAt({ x: 10, y: Number.POSITIVE_INFINITY })).toBeNull();
+  });
+
   it('keeps ship markers fully inside all corner cells', () => {
     const corners = [
       new BoardPosition(1, 1),

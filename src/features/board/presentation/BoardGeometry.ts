@@ -40,6 +40,25 @@ export class BoardGeometry {
     });
   }
 
+  positionAt(point: BoardPoint): BoardPosition | null {
+    if (
+      !Number.isFinite(point.x) ||
+      !Number.isFinite(point.y) ||
+      point.x < 0 ||
+      point.y < 0 ||
+      point.x >= this.logicalSize ||
+      point.y >= this.logicalSize
+    ) {
+      return null;
+    }
+
+    const cellSize = this.logicalSize / 10;
+    return new BoardPosition(
+      Math.floor(point.y / cellSize) + 1,
+      Math.floor(point.x / cellSize) + 1,
+    );
+  }
+
   markerBounds(position: BoardPosition): BoardRectangle {
     const cell = this.cellBounds(position);
     const markerSize = cell.width * 0.7;

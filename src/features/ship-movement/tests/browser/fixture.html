@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#081523" />
+    <title>Ship Movement Acceptance Fixture</title>
+  </head>
+  <body>
+    <div class="game-shell">
+      <header class="page-header">
+        <p class="eyebrow">TEST-ONLY ENTRY</p>
+        <h1>Ship movement fixture</h1>
+        <p>Uses the production movement scene, controller, turn session, and board view.</p>
+      </header>
+      <section class="fixture-panel" aria-label="Fixture presets">
+        <label for="fixture-preset">Preset</label>
+        <select id="fixture-preset">
+          <option value="center">Center</option>
+          <option value="straight">Straight</option>
+          <option value="one-immobile">One immobile</option>
+          <option value="both-immobile">Both immobile</option>
+          <option value="reset-during-flight">Reset during flight</option>
+        </select>
+        <button id="reset-preset" type="button">Reset preset</button>
+        <button id="clear-observations" type="button">Clear observations</button>
+      </section>
+      <div id="app"></div>
+      <section class="fixture-observations" aria-label="Timing and identity observations">
+        <h2>Observed turn timeline</h2>
+        <p>
+          Times are relative to this page load. Use these observations during manual fixture checks.
+        </p>
+        <pre id="fixture-log" aria-live="polite"></pre>
+      </section>
+    </div>
+    <script type="module" src="./fixture.ts"></script>
+  </body>
+</html>

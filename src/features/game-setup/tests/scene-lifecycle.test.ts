@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BoardGeometry } from '../presentation/BoardGeometry.js';
+import { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
 import { GameSetupScene } from '../presentation/GameSetupScene.js';
 import { GameSession } from '../domain/GameSession.js';
 import { GameSetupFactory } from '../domain/GameSetupFactory.js';
@@ -15,6 +15,12 @@ const sceneHarness = vi.hoisted(() => ({
     clear: ReturnType<typeof vi.fn>;
     fillCircle: ReturnType<typeof vi.fn>;
     lineBetween: ReturnType<typeof vi.fn>;
+    destroy: ReturnType<typeof vi.fn>;
+  }>,
+  containers: [] as Array<{
+    x: number;
+    y: number;
+    setPosition: ReturnType<typeof vi.fn>;
     destroy: ReturnType<typeof vi.fn>;
   }>,
 }));
@@ -87,6 +93,16 @@ vi.mock('phaser', () => {
         setOrigin: vi.fn().mockReturnThis(),
         destroy: vi.fn(),
       })),
+      container: (x: number, y: number) => {
+        const container = {
+          x,
+          y,
+          setPosition: vi.fn().mockReturnThis(),
+          destroy: vi.fn(),
+        };
+        sceneHarness.containers.push(container);
+        return container;
+      },
     };
 
     constructor() {}
@@ -103,6 +119,7 @@ vi.mock('phaser', () => {
 describe('GameSetupScene lifecycle', () => {
   it('retains the setup and revision through redraw and scene recreation without placement draws', () => {
     sceneHarness.graphics.length = 0;
+    sceneHarness.containers.length = 0;
     const source = new ScriptedRandomSource([0.01, 0.91, 0.21, 0.71]);
     const session = new GameSession(new GameSetupFactory(source));
     const onDrawn = vi.fn();
@@ -124,9 +141,9 @@ describe('GameSetupScene lifecycle', () => {
     expect(harness.game.events.listenerCount('postrender')).toBe(1);
     harness.game.events.emit('postrender');
     expect(onDrawn).toHaveBeenLastCalledWith(2);
-    expect(sceneHarness.graphics[0]?.fillCircle.mock.calls.slice(-2)).toEqual([
-      [270, 30, 21],
-      [270, 570, 21],
+    expect(sceneHarness.containers.slice(-2).map(({ x, y }) => [x, y])).toEqual([
+      [270, 30],
+      [270, 570],
     ]);
 
     scene.updateSetup(session.currentSetup, session.revision);
@@ -143,9 +160,9 @@ describe('GameSetupScene lifecycle', () => {
     harness.game.events.emit('postrender');
 
     expect(onDrawn.mock.calls.map(([revision]) => revision)).toEqual([1, 2, 2, 2]);
-    expect(sceneHarness.graphics[1]?.fillCircle.mock.calls).toEqual([
-      [270, 30, 21],
-      [270, 570, 21],
+    expect(sceneHarness.containers.slice(-2).map(({ x, y }) => [x, y])).toEqual([
+      [270, 30],
+      [270, 570],
     ]);
     expect(session.currentSetup).toBe(replacement);
     expect(session.revision).toBe(2);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BoardPosition } from '../domain/BoardPosition.js';
+import { BoardPosition } from '../../board/domain/BoardPosition.js';
 import { GameSetup } from '../domain/GameSetup.js';
 import type { ShipPlacement } from '../domain/GameSetup.js';
 
