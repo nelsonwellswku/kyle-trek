@@ -1,23 +1,35 @@
 {
   "name": "kyle-trek",
-  "private": true,
   "version": "0.1.0",
-  "description": "A local-only 2D browser game built with ExcaliburJS",
+  "private": true,
   "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc --noEmit"
+  "engines": {
+    "node": ">=24 <25",
+    "npm": ">=11 <12"
   },
-  "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
-    "excalibur": "^0.32.0"
+    "phaser": "4.2.1"
   },
   "devDependencies": {
-    "typescript": "~5.6.0",
-    "vite": "^6.0.0",
-    "vitest": "^3.0.0"
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.10.0",
+    "eslint": "10.12.0",
+    "eslint-config-prettier": "10.1.8",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write \"src/**/*.{ts,css,html}\" \"*.{js,ts,json,css,html}\" \"specs/001-spaceship-grid-setup/development.md\"",
+    "format:check": "prettier --check \"src/**/*.{ts,css,html}\" \"*.{js,ts,json,css,html}\" \"specs/001-spaceship-grid-setup/development.md\"",
+    "test": "vitest run",
+    "test:watch": "vitest"
   }
 }

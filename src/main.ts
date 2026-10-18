@@ -1,58 +1,14 @@
-import { Engine, Random } from 'excalibur';
-import boardJson from './config/board.json';
-import { BattleScene } from './scenes/battle-scene.js';
-import { loadBoardConfig } from './sim/board-config.js';
-import { setupGame } from './sim/setup.js';
-import type { RngFactory } from './sim/types.js';
+import './app/styles.css';
+import { GameApplication } from './app/GameApplication.js';
 
-/** Surface setup failures explicitly (scene-contract guarantee 5). */
-function showFatal(error: unknown): void {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error('[kyle-trek] invalid game setup:', message);
-  document
-    .getElementById('game-root')
-    ?.replaceChildren(
-      Object.assign(document.createElement('pre'), {
-        textContent: `Could not start the game:\n${message}`,
-      }),
-    );
+const root = document.querySelector<HTMLElement>('#app');
+
+if (!root) {
+  throw new Error('Application root #app was not found.');
 }
 
-let setup;
-try {
-  const config = loadBoardConfig(boardJson);
-  // ex.Random adapter: explicit seed reproduces its sequence (SC-004);
-  // unseeded construction draws a unique Date.now()-based seed per instance,
-  // so every page visit is an independent draw. Seed selection stays a
-  // developer-only detail — no player-facing seed UI.
-  const exRandomFactory: RngFactory = {
-    create(seed?: number) {
-      const random = seed === undefined ? new Random() : new Random(seed);
-      return {
-        rng: {
-          integer: (min, max) => random.integer(min, max),
-        },
-        seed: random.seed,
-      };
-    },
-  };
-  const { rng, seed: effectiveSeed } = exRandomFactory.create();
-  const game = setupGame(config, effectiveSeed, rng);
-  console.info(`[kyle-trek] game seed: ${game.seed} (re-run with this seed to replay this setup)`);
-  // The battle stream continues on the SAME rng instance past setup, so one
-  // seed reproduces the whole battle (FR-019): the scene draws attack/damage
-  // rolls from where setup left off.
-  setup = { config, game, rng };
-} catch (error) {
-  showFatal(error);
-  throw error;
+const application = new GameApplication(root);
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => application.dispose());
 }
-
-const game = new Engine({
-  width: 800,
-  height: 600,
-});
-game.addScene('battle', new BattleScene(setup.game, setup.config, setup.rng));
-
-await game.start();
-await game.goToScene('battle');

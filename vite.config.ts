@@ -2,11 +2,17 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   server: {
+    host: '127.0.0.1',
     port: 5173,
+    strictPort: true,
+  },
+  preview: {
+    host: '127.0.0.1',
+    port: 4173,
+    strictPort: true,
   },
   build: {
-    // Modern baseline (local-only game for current browsers):
-    // enables top-level await / async-await without transpilation.
-    target: 'es2022',
+    outDir: 'dist',
+    emptyOutDir: true,
   },
 });

@@ -1,39 +1,53 @@
-# kyle-trek
-A proof of concept to see how far I can take gamedev with a free model
+# Kyle Trek — Ship Torpedo Combat
 
-A local-only 2D browser game built with [ExcaliburJS](https://excaliburjs.com/).
-Open the page and you get a 10×10 board with two spaceships spawned at random
-starting positions — one in the top two rows, one in the bottom two rows.
+A local two-player browser battle on a 10 × 10 board. Each player moves their ship, then chooses to attack the opponent with a photo torpedo or end the turn.
 
-## Getting started
+## Requirements
 
-Prerequisites: Node.js 20+ LTS and npm 10+ (`node --version`, `npm --version`).
-No network access is needed at runtime — only `npm install` fetches packages,
-after which the game runs fully offline.
+- [nvm](https://github.com/nvm-sh/nvm)
+- Node.js 24 and npm 11 (selected by the project `.nvmrc`)
+- A WebGL-capable browser
+
+## Run locally
+
+From the repository root:
 
 ```sh
-git clone <repo-url> && cd kyle-trek
-npm install      # fetch dependencies (only network step)
-npm run dev      # serve with hot reload, then open the printed localhost URL
+nvm install
+nvm use
+npm ci
+npm run dev
 ```
 
-Each visit draws fresh random starting positions. The devtools console logs
-`[kyle-trek] game seed: N` — re-running with that seed replays the setup.
+Open <http://127.0.0.1:5173/>. Player 1 starts each battle and controls Ship 1; Player 2 controls Ship 2. Each ship receives independent agility, strength, and constitution scores from 8 through 20, with their modifiers, current/starting hit points, and armor class 12 shown in the controls. Starting hit points equal a 0–20 roll plus twice the constitution modifier, with a minimum of 1.
 
-## Scripts
+## Turn controls
 
-| Command          | What it does                              |
-|------------------|-------------------------------------------|
-| `npm run dev`    | Start the Vite dev server (default `http://localhost:5173`) |
-| `npm test`       | Run the Vitest rule suite (grid, spawn, validation, seeds) |
-| `npm run build`  | Typecheck + production bundle into `dist/` |
-| `npm run preview`| Serve the production bundle locally       |
-| `npm run typecheck` | Strict TypeScript check with no output |
+- Move first by left-clicking a highlighted empty destination within the ship's nonnegative agility modifier. Existing collision-safe flight moves directly when possible and detours around the other ship when needed.
+- If no legal destination exists, choose **Skip movement** to continue to the attack choice without moving.
+- After movement or a skip, click the opposing ship to attack or choose **End turn** to pass without attacking. An attack rolls d20 + strength against AC 12; a hit rolls d8 + strength damage, with damage floored at 0. The result and remaining HP appear after the torpedo animation.
+- A hit travels to the defender and explodes on contact. A miss passes nearby and exits the board. Attacks resolve within the designed 1.5-second deadline; a lethal hit reduces HP to 0 and declares the attacker the winner.
+- **New Game** creates fresh ships and stats, returns control to Player 1, and cancels any move or torpedo effect in progress.
 
-## Layout
+See the [ship torpedo combat quickstart and validation guide](specs/003-ship-torpedo-combat/quickstart.md) for automated checks, deterministic presets, and acceptance scenarios. The implementation evidence in `specs/003-ship-torpedo-combat/development.md` distinguishes automated verification from pending browser and usability acceptance.
 
-- `src/main.ts` — engine boot: loads tuning, builds the setup, starts the scene
-- `src/sim/` — pure game-logic core (grid, spawn, validation, setup, seeded RNG);
-  imports nothing from the engine, covered by `tests/unit/`
-- `src/scenes/battle-scene.ts` — presentation only: TileMap board + ship actors
-- `src/config/board.json` — all tuning data (grid size, spawn zones, ship visuals)
+## Build and preview
+
+```sh
+npm run build
+npm run preview
+```
+
+Open <http://127.0.0.1:4173/>. Both servers bind to loopback and use strict ports. The test-only deterministic combat fixture is available during development at <http://127.0.0.1:5173/src/features/ship-combat/tests/browser/fixture.html>; it is not imported by the production entry.
+
+## Quality checks
+
+```sh
+npm run typecheck
+npm run lint
+npm run format:check
+npm test
+npm run build
+```
+
+Use `npm run test:watch` for iterative unit-test development. Vitest runs deterministic domain, geometry, and presentation tests in Node. Real-browser visual, timing, and first-time-player usability acceptance is described in the quickstart and must be recorded separately from automated test results.

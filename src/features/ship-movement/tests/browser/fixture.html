@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#081523" />
+    <title>Ship Movement Acceptance Fixture</title>
+    <style>
+      .board-host {
+        position: relative;
+      }
+
+      .flight-observation-overlay {
+        position: absolute;
+        z-index: 2;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        pointer-events: none;
+      }
+
+      .flight-route-segment {
+        fill: none;
+        stroke: #fff3a6;
+        stroke-dasharray: 5 4;
+        stroke-linecap: round;
+        stroke-width: 2;
+      }
+
+      .flight-route-endpoint {
+        fill: #fff3a6;
+        stroke: #07111d;
+        stroke-width: 2;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="game-shell">
+      <header class="page-header">
+        <p class="eyebrow">TEST-ONLY ENTRY</p>
+        <h1>Ship movement fixture</h1>
+        <p>Uses the production movement scene, controller, turn session, and board view.</p>
+      </header>
+      <section class="fixture-panel" aria-label="Fixture presets">
+        <label for="fixture-preset">Preset</label>
+        <select id="fixture-preset">
+          <option value="center">Center</option>
+          <option value="blocked-direct">Blocked direct route</option>
+          <option value="enemy-detour">Affordable enemy detour</option>
+          <option value="edge">Board-edge detour</option>
+          <option value="straight">Straight</option>
+          <option value="one-immobile">One immobile</option>
+          <option value="both-immobile">Both immobile</option>
+          <option value="reset-during-flight">Reset during flight</option>
+        </select>
+        <button id="reset-preset" type="button">Reset preset</button>
+        <button id="clear-observations" type="button">Clear observations</button>
+      </section>
+      <div id="app"></div>
+      <section class="fixture-observations" aria-label="Timing and identity observations">
+        <h2>Observed turn timeline</h2>
+        <p>
+          Times are relative to this page load. Route segments and endpoint dots overlay actual
+          Phaser flights.
+        </p>
+        <pre id="fixture-log" aria-live="polite"></pre>
+      </section>
+    </div>
+    <script type="module" src="./fixture.ts"></script>
+  </body>
+</html>
