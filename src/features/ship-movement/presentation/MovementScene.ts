@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { BoardSnapshot } from '../../board/domain/BoardSnapshot.js';
+import type { CubeSnapshot } from '../../board/domain/CubeSnapshot.js';
 import type { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
 import { BoardView } from '../../board/presentation/BoardView.js';
 import type { TurnSession } from '../domain/TurnSession.js';
@@ -7,12 +7,15 @@ import type { FlightAnimator } from './FlightAnimator.js';
 import { PhaserFlightAnimator } from './PhaserFlightAnimator.js';
 import { MovementController } from './MovementController.js';
 import type { TurnControls } from './TurnControls.js';
+import { ThreeCubeView } from '../../board/presentation/ThreeCubeView.js';
+import { ThreeFlightAnimator } from './ThreeFlightAnimator.js';
 
 export type MovementSceneReadyHandler = (revision: number) => void;
 
 /** Phaser requires a Scene subclass for lifecycle and input integration; gameplay remains composed. */
 export class MovementScene extends Phaser.Scene {
   private boardView: BoardView | null = null;
+  private cubeView: ThreeCubeView | null = null;
   private controller: MovementController | null = null;
   private isListeningForPointer = false;
   private isDisposed = false;
@@ -24,7 +27,8 @@ export class MovementScene extends Phaser.Scene {
     private readonly onDrawn: MovementSceneReadyHandler,
     private readonly onMovementError: (message: string) => void,
     private readonly animator?: FlightAnimator,
-    private readonly onBoardChanged: (snapshot: BoardSnapshot) => void = () => {},
+    private readonly onBoardChanged: (snapshot: CubeSnapshot) => void = () => {},
+    private readonly cubeHost?: HTMLElement,
   ) {
     super({ key: 'ship-movement' });
   }
@@ -40,19 +44,29 @@ export class MovementScene extends Phaser.Scene {
     }
 
     this.boardView = new BoardView(this, this.geometry);
+    if (this.cubeHost) {
+      this.cubeView = new ThreeCubeView(this.cubeHost, undefined, {
+        onSelect: (target) => this.controller?.handlePickTarget(target),
+      });
+    }
     this.controller = new MovementController(
       this.session,
       this.geometry,
       this.boardView,
-      this.animator ?? new PhaserFlightAnimator(this, this.geometry),
+      this.animator ??
+        (this.cubeView ? new ThreeFlightAnimator() : new PhaserFlightAnimator(this, this.geometry)),
       this.controls,
       this.onMovementError,
       this.onBoardChanged,
+      this.cubeView ?? undefined,
     );
-    this.input.on('pointerdown', this.handlePointerDown, this);
-    this.isListeningForPointer = true;
+    if (!this.cubeView) {
+      this.input.on('pointerdown', this.handlePointerDown, this);
+      this.isListeningForPointer = true;
+    }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.dispose, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.dispose, this);
+    this.cubeView?.render(snapshot.game);
     this.boardView.draw(snapshot.game, snapshot.gameRevision, (revision) => {
       if (this.isDisposed) {
         return;
@@ -79,6 +93,7 @@ export class MovementScene extends Phaser.Scene {
     }
 
     this.controller.prepareForReplacement();
+    this.cubeView?.render(snapshot.game);
     this.boardView.draw(snapshot.game, revision, (renderedRevision) => {
       if (this.isDisposed) {
         return;
@@ -110,6 +125,8 @@ export class MovementScene extends Phaser.Scene {
     }
     this.controller?.dispose();
     this.controller = null;
+    this.cubeView?.dispose();
+    this.cubeView = null;
     this.boardView?.dispose();
     this.boardView = null;
     this.controls.dispose();

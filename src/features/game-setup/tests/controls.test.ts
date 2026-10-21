@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
 import { CubePosition } from '../../board/domain/CubePosition.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
 import { MovementGame } from '../../ship-movement/domain/MovementGame.js';
@@ -27,13 +26,13 @@ describe('GameSetupControls', () => {
         {
           identity: 'ship-1',
           owner: 'player-1',
-          position: new BoardPosition(5, 6),
+          position: new CubePosition(6, 5, 1),
           agility: new AgilityStat(14),
         },
         {
           identity: 'ship-2',
           owner: 'player-2',
-          position: new BoardPosition(7, 8),
+          position: new CubePosition(8, 7, 1),
           agility: new AgilityStat(18),
         },
       ),

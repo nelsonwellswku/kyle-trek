@@ -17,6 +17,8 @@ function game(
     readonly strength2?: number;
     readonly hitPoints1?: number;
     readonly hitPoints2?: number;
+    readonly position1?: CubePosition;
+    readonly position2?: CubePosition;
   } = {},
 ): CombatGame {
   const ship = (
@@ -42,14 +44,14 @@ function game(
   return new CombatGame(
     ship(
       'ship-1',
-      new CubePosition(1, 1, 1),
+      options.position1 ?? new CubePosition(1, 1, 1),
       options.agility1 ?? 14,
       options.strength1 ?? 10,
       options.hitPoints1 ?? 10,
     ),
     ship(
       'ship-2',
-      new CubePosition(10, 10, 10),
+      options.position2 ?? new CubePosition(10, 10, 10),
       options.agility2 ?? 14,
       options.strength2 ?? 10,
       options.hitPoints2 ?? 10,
@@ -138,9 +140,7 @@ describe('BattleSession', () => {
     expect(arrived.phase).toBe('attack-ready');
     expect(arrived.activePlayer).toBe('player-1');
     expect(arrived.turnToken).toBe(initial.turnToken);
-    expect(arrived.game.ship1.position).toEqual(
-      new CubePosition(move.destination.column, move.destination.row, 1),
-    );
+    expect(arrived.game.ship1.position).toEqual(move.destination);
   });
 
   it('requires explicit movement skip when immobile and only ends an attack-ready turn', () => {
@@ -165,6 +165,99 @@ describe('BattleSession', () => {
     expect(next.game).toBe(gameBefore);
     expect(next.lastCompletedAttack).toBeNull();
     expect(attackResolution.resolve).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['+X', new CubePosition(6, 5, 5)],
+    ['-X', new CubePosition(4, 5, 5)],
+    ['+Y', new CubePosition(5, 6, 5)],
+    ['-Y', new CubePosition(5, 4, 5)],
+    ['+Z', new CubePosition(5, 5, 6)],
+    ['-Z', new CubePosition(5, 5, 4)],
+  ] as const)(
+    'moves along %s while retaining the turn until arrival',
+    (_direction, destination) => {
+      const origin = new CubePosition(5, 5, 5);
+      const session = new BattleSession(
+        game({ position1: origin, position2: new CubePosition(10, 10, 10) }),
+        resolution(),
+      );
+      const before = snapshot(session);
+      if (before.phase !== 'movement-ready') throw new Error('Expected movement-ready.');
+
+      const pending = session.selectDestination(before.gameRevision, before.turnToken, destination);
+      expect(pending?.route.positions).toEqual([origin, destination]);
+      expect(session.snapshot).toMatchObject({ phase: 'moving', activePlayer: 'player-1' });
+      expect(snapshot(session).game.ship1.position).toEqual(origin);
+      expect(
+        session.selectDestination(before.gameRevision, before.turnToken, new CubePosition(5, 5, 7)),
+      ).toBeNull();
+      expect(
+        session.completeMove(before.gameRevision, before.turnToken, pending?.moveId ?? 0),
+      ).toBe(true);
+
+      const arrived = snapshot(session);
+      expect(arrived.phase).toBe('attack-ready');
+      expect(arrived.activePlayer).toBe('player-1');
+      expect(arrived.turnToken).toBe(before.turnToken);
+      expect(arrived.game.ship1.position).toEqual(destination);
+      expect(session.selectDestination(arrived.gameRevision, arrived.turnToken, origin)).toBeNull();
+    },
+  );
+
+  it('rejects diagonal, occupied, unreachable, and premature movement selections without spending the move', () => {
+    const session = new BattleSession(
+      game({
+        agility1: 12,
+        position1: new CubePosition(5, 5, 5),
+        position2: new CubePosition(6, 5, 5),
+      }),
+      resolution(),
+    );
+    const ready = snapshot(session);
+    if (ready.phase !== 'movement-ready') throw new Error('Expected movement-ready.');
+
+    expect(
+      session.selectDestination(ready.gameRevision, ready.turnToken, new CubePosition(6, 6, 5)),
+    ).toBeNull();
+    expect(
+      session.selectDestination(ready.gameRevision, ready.turnToken, new CubePosition(6, 5, 5)),
+    ).toBeNull();
+    expect(
+      session.selectDestination(ready.gameRevision, ready.turnToken, new CubePosition(8, 5, 5)),
+    ).toBeNull();
+    expect(snapshot(session).phase).toBe('movement-ready');
+
+    const valid = ready.reachability.destinations.find(
+      ({ position }) => !position.equals(new CubePosition(5, 5, 5)),
+    )?.position;
+    if (!valid) throw new Error('Expected at least one valid adjacent destination.');
+    const pending = session.selectDestination(ready.gameRevision, ready.turnToken, valid);
+    expect(pending).not.toBeNull();
+    expect(
+      session.selectDestination(ready.gameRevision, ready.turnToken, new CubePosition(5, 5, 6)),
+    ).toBeNull();
+    expect(snapshot(session).phase).toBe('moving');
+  });
+
+  it('allows explicit movement skip only with no legal destination and preserves the active ship cell', () => {
+    const mobile = new BattleSession(game(), resolution());
+    const mobileReady = snapshot(mobile);
+    expect(mobileReady.phase).toBe('movement-ready');
+    expect(mobile.acknowledgeMovementSkip(mobileReady.gameRevision, mobileReady.turnToken)).toBe(
+      false,
+    );
+
+    const immobile = new BattleSession(game({ agility1: 8 }), resolution());
+    const awaiting = snapshot(immobile);
+    if (awaiting.phase !== 'awaiting-movement-skip') throw new Error('Expected no-move phase.');
+    const origin = awaiting.game.ship1.position;
+    expect(immobile.acknowledgeMovementSkip(awaiting.gameRevision, awaiting.turnToken)).toBe(true);
+    const attackReady = snapshot(immobile);
+    expect(attackReady.phase).toBe('attack-ready');
+    expect(attackReady.activePlayer).toBe('player-1');
+    expect(attackReady.game.ship1.position).toBe(origin);
+    expect(immobile.acknowledgeMovementSkip(awaiting.gameRevision, awaiting.turnToken)).toBe(false);
   });
 
   it('keeps HP unchanged while an injected hit is pending, then commits once on matching completion', () => {

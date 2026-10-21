@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 import { MovementGameFactory } from '../domain/MovementGameFactory.js';
 import { ScriptedRandomSource } from './fixtures/ScriptedRandomSource.js';
 
@@ -21,8 +22,8 @@ describe('MovementGameFactory', () => {
     const { game, source } = createWithScores(14, 14);
 
     expect(source.consumedDraws).toBe(4);
-    expect(game.ship1.position).toEqual({ row: 1, column: 1 });
-    expect(game.ship2.position).toEqual({ row: 10, column: 10 });
+    expect(game.ship1.position).toEqual(new CubePosition(1, 1, 3));
+    expect(game.ship2.position).toEqual(new CubePosition(10, 10, 9));
     expect(game.ship1.agility.score).toBe(14);
     expect(game.ship2.agility.score).toBe(14);
   });

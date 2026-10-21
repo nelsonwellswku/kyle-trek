@@ -1,5 +1,5 @@
-import type { BoardPoint } from '../../board/presentation/BoardGeometry.js';
 import type { PendingMove } from '../domain/PendingMove.js';
+import type { CubeWorldPoint } from './CubeFlightPath.js';
 
 export interface FlightIdentity {
   readonly gameRevision: number;
@@ -12,7 +12,7 @@ export interface FlightHandle {
   cancel(): void;
 }
 
-export type FlightProgressHandler = (point: BoardPoint) => void;
+export type FlightProgressHandler = (point: CubeWorldPoint) => void;
 export type FlightCompletionHandler = (identity: FlightIdentity) => void;
 export type FlightFailureHandler = (identity: FlightIdentity, error: Error) => void;
 

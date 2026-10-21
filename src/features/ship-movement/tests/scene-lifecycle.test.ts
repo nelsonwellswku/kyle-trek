@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 import { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
 import { AgilityStat } from '../domain/AgilityStat.js';
 import { MovementGame } from '../domain/MovementGame.js';
@@ -121,13 +121,13 @@ function session(): TurnSession {
       {
         identity: 'ship-1',
         owner: 'player-1',
-        position: new BoardPosition(5, 5),
+        position: new CubePosition(5, 5, 5),
         agility: new AgilityStat(14),
       },
       {
         identity: 'ship-2',
         owner: 'player-2',
-        position: new BoardPosition(10, 10),
+        position: new CubePosition(10, 10, 10),
         agility: new AgilityStat(18),
       },
     ),
@@ -272,13 +272,13 @@ describe('MovementScene lifecycle', () => {
       {
         identity: 'ship-1',
         owner: 'player-1',
-        position: new BoardPosition(2, 2),
+        position: new CubePosition(2, 2, 5),
         agility: new AgilityStat(16),
       },
       {
         identity: 'ship-2',
         owner: 'player-2',
-        position: new BoardPosition(9, 9),
+        position: new CubePosition(9, 9, 5),
         agility: new AgilityStat(18),
       },
     );
@@ -324,13 +324,13 @@ describe('MovementScene lifecycle', () => {
       {
         identity: 'ship-1',
         owner: 'player-1',
-        position: new BoardPosition(2, 2),
+        position: new CubePosition(2, 2, 5),
         agility: new AgilityStat(16),
       },
       {
         identity: 'ship-2',
         owner: 'player-2',
-        position: new BoardPosition(9, 9),
+        position: new CubePosition(9, 9, 5),
         agility: new AgilityStat(18),
       },
     );
@@ -346,13 +346,13 @@ describe('MovementScene lifecycle', () => {
       {
         identity: 'ship-1',
         owner: 'player-1',
-        position: new BoardPosition(3, 3),
+        position: new CubePosition(3, 3, 5),
         agility: new AgilityStat(18),
       },
       {
         identity: 'ship-2',
         owner: 'player-2',
-        position: new BoardPosition(8, 8),
+        position: new CubePosition(8, 8, 5),
         agility: new AgilityStat(16),
       },
     );

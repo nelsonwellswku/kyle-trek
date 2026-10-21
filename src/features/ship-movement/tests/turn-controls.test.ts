@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 import { AgilityStat } from '../domain/AgilityStat.js';
 import { MovementGame } from '../domain/MovementGame.js';
 import { TurnSession } from '../domain/TurnSession.js';
@@ -11,13 +11,13 @@ function game(score1: number, score2: number): MovementGame {
     {
       identity: 'ship-1',
       owner: 'player-1',
-      position: new BoardPosition(5, 5),
+      position: new CubePosition(5, 5, 5),
       agility: new AgilityStat(score1),
     },
     {
       identity: 'ship-2',
       owner: 'player-2',
-      position: new BoardPosition(10, 10),
+      position: new CubePosition(10, 10, 10),
       agility: new AgilityStat(score2),
     },
   );

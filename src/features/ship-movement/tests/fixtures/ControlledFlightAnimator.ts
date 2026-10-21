@@ -14,7 +14,7 @@ export interface ControlledFlight extends FlightHandle {
   readonly completed: boolean;
   readonly cancelled: boolean;
   readonly failed: boolean;
-  update(point: { readonly x: number; readonly y: number }): void;
+  update(point: { readonly x: number; readonly y: number; readonly z: number }): void;
   complete(): void;
   fail(error: Error): void;
   cancel(): void;

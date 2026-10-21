@@ -1,4 +1,4 @@
-import type { BoardPosition } from '../../board/domain/BoardPosition.js';
+import type { CubePosition } from '../../board/domain/CubePosition.js';
 import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
 import type { LegalRoute } from './Reachability.js';
 
@@ -7,8 +7,8 @@ export interface PendingMove {
   readonly turnToken: number;
   readonly moveId: number;
   readonly shipIdentity: ShipIdentity;
-  readonly origin: BoardPosition;
-  readonly destination: BoardPosition;
-  readonly otherShipPosition: BoardPosition;
+  readonly origin: CubePosition;
+  readonly destination: CubePosition;
+  readonly otherShipPosition: CubePosition;
   readonly route: LegalRoute;
 }

@@ -1,4 +1,4 @@
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
 import type { PlayerIdentity } from '../../ship-movement/domain/MovementGame.js';
 import { Reachability, type ReachabilityResult } from '../../ship-movement/domain/Reachability.js';
@@ -171,12 +171,12 @@ export class BattleSession {
   selectDestination(
     gameRevision: number,
     turnToken: number,
-    position: BoardPosition,
+    position: CubePosition,
   ): PendingMove | null {
     if (
       this.currentPhase !== 'movement-ready' ||
       !this.matchesTurn(gameRevision, turnToken) ||
-      !(position instanceof BoardPosition)
+      !(position instanceof CubePosition)
     ) {
       return null;
     }

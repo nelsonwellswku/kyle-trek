@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { Vector3 } from 'three';
+import { Color, Vector3 } from 'three';
 import '../../../../app/styles.css';
 import { CubeOrientation } from '../../../board/domain/CubeOrientation.js';
 import { CubePosition } from '../../../board/domain/CubePosition.js';
@@ -31,6 +31,15 @@ interface CubeBrowserFixture {
     readonly oneThreeCanvas: boolean;
     readonly canvasBoundsAligned: boolean;
   }>;
+  verifySixAxisMovement(): Promise<{
+    readonly checked: number;
+    readonly failed: readonly string[];
+    readonly movementTimesMs: readonly number[];
+    readonly everyMarkerPicked: boolean;
+    readonly everyDestinationHighlighted: boolean;
+    readonly everyPositionCommitted: boolean;
+    readonly turnsAdvancedOnce: boolean;
+  }>;
 }
 
 declare global {
@@ -46,6 +55,9 @@ interface CombatPreset {
   readonly defenderHitPoints: number;
   readonly attackDie: number;
   readonly damageDie?: number;
+  readonly attackerDepth?: number;
+  readonly defenderDepth?: number;
+  readonly agilityScore?: number;
 }
 
 const presets: Readonly<Record<string, CombatPreset>> = {
@@ -154,6 +166,16 @@ const presets: Readonly<Record<string, CombatPreset>> = {
     attackDie: 12,
     damageDie: 4,
   },
+  'six-axis-movement': {
+    attackerPosition: [5, 5],
+    defenderPosition: [10, 10],
+    attackerDepth: 5,
+    defenderDepth: 10,
+    agilityScore: 20,
+    strengthScore: 10,
+    defenderHitPoints: 10,
+    attackDie: 1,
+  },
 };
 
 class PresetRandomSource implements RandomSource {
@@ -196,6 +218,7 @@ const controlsHost = requiredElement<HTMLElement>('#combat-controls');
 const presetSelect = requiredElement<HTMLSelectElement>('#combat-preset');
 const resetButton = requiredElement<HTMLButtonElement>('#reset-battle');
 const verifyCubeButton = requiredElement<HTMLButtonElement>('#verify-cube-picks');
+const verifyMovementButton = requiredElement<HTMLButtonElement>('#verify-six-axis-movement');
 const clearButton = requiredElement<HTMLButtonElement>('#clear-observations');
 const status = requiredElement<HTMLElement>('#fixture-status');
 const eventLog = requiredElement<HTMLElement>('#event-log');
@@ -221,6 +244,7 @@ function currentPreset(): CombatPreset {
 function makeShip(
   identity: CombatShip['identity'],
   position: CubePosition,
+  agilityScore: number,
   strengthScore: number,
   hitPoints: number,
 ): CombatShip {
@@ -230,7 +254,7 @@ function makeShip(
     position,
     orientation:
       identity === 'ship-1' ? CubeOrientation.ship1Default() : CubeOrientation.ship2Default(),
-    agility: new AgilityStat(8),
+    agility: new AgilityStat(agilityScore),
     strength: new AbilityStat(strengthScore),
     constitution: new AbilityStat(10),
     armorClass: 12,
@@ -243,13 +267,23 @@ function makeGame(preset: CombatPreset): CombatGame {
   return new CombatGame(
     makeShip(
       'ship-1',
-      new CubePosition(preset.attackerPosition[1], preset.attackerPosition[0], 5),
+      new CubePosition(
+        preset.attackerPosition[1],
+        preset.attackerPosition[0],
+        preset.attackerDepth ?? 5,
+      ),
+      preset.agilityScore ?? 8,
       preset.strengthScore,
       10,
     ),
     makeShip(
       'ship-2',
-      new CubePosition(preset.defenderPosition[1], preset.defenderPosition[0], 5),
+      new CubePosition(
+        preset.defenderPosition[1],
+        preset.defenderPosition[0],
+        preset.defenderDepth ?? 5,
+      ),
+      preset.agilityScore ?? 8,
       10,
       preset.defenderHitPoints,
     ),
@@ -325,6 +359,7 @@ function onDrawn(revision: number): void {
   const view = scene.cubeViewForFixture;
   if (view) {
     verifyCubeButton.disabled = false;
+    verifyMovementButton.disabled = false;
     window.cubeFixture = {
       markerCount: view.markerCount,
       positions: view.cellPositions,
@@ -414,8 +449,204 @@ function onDrawn(revision: number): void {
             phaserBounds.height === bounds.height,
         };
       },
+      verifySixAxisMovement: async () => {
+        resetButton.disabled = true;
+        presetSelect.value = 'six-axis-movement';
+        randomSource.replace(attackSamples(presets['six-axis-movement']!));
+        const revision = session.newGame(makeGame(presets['six-axis-movement']!));
+        scene.updateGame(revision);
+        const ready = await waitUntil(
+          () => session.snapshot.phase === 'movement-ready' && !resetButton.disabled,
+          3_000,
+        );
+        if (!ready) throw new Error('The deterministic movement preset did not become ready.');
+
+        const moves = [
+          { ship: 'ship-1', destination: new CubePosition(6, 5, 5) },
+          { ship: 'ship-2', destination: new CubePosition(9, 10, 10) },
+          { ship: 'ship-1', destination: new CubePosition(5, 5, 5) },
+          { ship: 'ship-2', destination: new CubePosition(10, 10, 10) },
+          { ship: 'ship-1', destination: new CubePosition(5, 6, 5) },
+          { ship: 'ship-2', destination: new CubePosition(10, 9, 10) },
+          { ship: 'ship-1', destination: new CubePosition(5, 5, 5) },
+          { ship: 'ship-2', destination: new CubePosition(10, 10, 10) },
+          { ship: 'ship-1', destination: new CubePosition(5, 5, 6) },
+          { ship: 'ship-2', destination: new CubePosition(10, 10, 9) },
+          { ship: 'ship-1', destination: new CubePosition(5, 5, 5) },
+          { ship: 'ship-2', destination: new CubePosition(10, 10, 10) },
+        ] as const;
+        const failed: string[] = [];
+        const movementTimesMs: number[] = [];
+        let everyMarkerPicked = true;
+        let everyDestinationHighlighted = true;
+        let everyPositionCommitted = true;
+        let turnsAdvancedOnce = true;
+        const inputCanvas = phaserGame?.canvas;
+        if (!inputCanvas) throw new Error('The Phaser input canvas is unavailable.');
+
+        for (const [index, step] of moves.entries()) {
+          const before = session.snapshot;
+          if (before.phase !== 'movement-ready' || before.activeShip !== step.ship) {
+            failed.push(`move ${index + 1}: wrong active movement phase`);
+            break;
+          }
+          const color = new Color();
+          view.markerMesh.getColorAt(step.destination.presentationIndex, color);
+          if (color.getHex() !== 0xffe679) everyDestinationHighlighted = false;
+
+          const clientPoint = findCellPoint(view, step.destination);
+          if (!clientPoint) {
+            everyMarkerPicked = false;
+            failed.push(
+              `move ${index + 1}: no camera pose picked ${step.destination.x},${step.destination.y},${step.destination.z}`,
+            );
+            break;
+          }
+          const picked = view.pickAt(clientPoint.x, clientPoint.y);
+          if (picked?.type !== 'cell' || !picked.position.equals(step.destination)) {
+            everyMarkerPicked = false;
+            failed.push(`move ${index + 1}: ray picked the wrong marker`);
+            break;
+          }
+
+          const moveStartedAt = performance.now();
+          inputCanvas.dispatchEvent(
+            new PointerEvent('pointerdown', {
+              button: 0,
+              buttons: 1,
+              pointerId: 91,
+              clientX: clientPoint.x,
+              clientY: clientPoint.y,
+              bubbles: true,
+            }),
+          );
+          inputCanvas.dispatchEvent(
+            new PointerEvent('pointerup', {
+              button: 0,
+              buttons: 0,
+              pointerId: 91,
+              clientX: clientPoint.x,
+              clientY: clientPoint.y,
+              bubbles: true,
+            }),
+          );
+          const moving = await waitUntil(() => session.snapshot.phase === 'moving', 500);
+          if (!moving) {
+            everyPositionCommitted = false;
+            failed.push(`move ${index + 1}: pointer release did not start a move`);
+            break;
+          }
+          const arrived = await waitUntil(() => {
+            const current = session.snapshot;
+            return (
+              current.phase === 'attack-ready' &&
+              (step.ship === 'ship-1' ? current.game.ship1 : current.game.ship2).position.equals(
+                step.destination,
+              )
+            );
+          }, 1_500);
+          movementTimesMs.push(Number((performance.now() - moveStartedAt).toFixed(1)));
+          if (!arrived) {
+            everyPositionCommitted = false;
+            failed.push(
+              `move ${index + 1}: ship did not arrive at ${step.destination.x},${step.destination.y},${step.destination.z} within 1.5 s`,
+            );
+            break;
+          }
+
+          const attackReady = session.snapshot;
+          if (attackReady.phase !== 'attack-ready' || attackReady.turnToken !== before.turnToken) {
+            turnsAdvancedOnce = false;
+            failed.push(`move ${index + 1}: movement did not preserve the active turn`);
+            break;
+          }
+          if (index === moves.length - 1) continue;
+          const endTurnButton = controlsHost.querySelector<HTMLButtonElement>('.end-turn-button');
+          if (!endTurnButton || endTurnButton.disabled) {
+            turnsAdvancedOnce = false;
+            failed.push(`turn ${index + 1}: native End turn control was unavailable`);
+            break;
+          }
+          endTurnButton.click();
+          const handedOff = await waitUntil(() => {
+            const current = session.snapshot;
+            return (
+              current.phase === 'movement-ready' &&
+              current.activeShip !== step.ship &&
+              current.turnToken === before.turnToken + 1
+            );
+          }, 1_000);
+          if (!handedOff) {
+            turnsAdvancedOnce = false;
+            failed.push(`turn ${index + 1}: End turn did not hand off exactly once`);
+            break;
+          }
+        }
+
+        return {
+          checked: movementTimesMs.length,
+          failed,
+          movementTimesMs,
+          everyMarkerPicked,
+          everyDestinationHighlighted,
+          everyPositionCommitted,
+          turnsAdvancedOnce,
+        };
+      },
     };
   }
+}
+
+function findCellPoint(
+  view: NonNullable<typeof scene.cubeViewForFixture>,
+  position: CubePosition,
+): { readonly x: number; readonly y: number } | null {
+  const bounds = view.canvas.getBoundingClientRect();
+  const world = new Vector3(position.x - 5.5, position.y - 5.5, position.z - 5.5);
+  for (const elevation of [0.22, 0.5, 0.85, 1.2, 1.57, 1.9, 2.35, 2.75]) {
+    for (let azimuthIndex = 0; azimuthIndex < 16; azimuthIndex += 1) {
+      const azimuth = (azimuthIndex / 16) * Math.PI * 2;
+      const radius = 17;
+      view.camera.position.set(
+        radius * Math.sin(elevation) * Math.cos(azimuth),
+        radius * Math.sin(elevation) * Math.sin(azimuth),
+        radius * Math.cos(elevation),
+      );
+      view.camera.up.set(0, 0, 1);
+      view.camera.lookAt(0, 0, 0);
+      view.camera.updateMatrixWorld(true);
+      const projected = world.clone().project(view.camera);
+      if (
+        projected.x < -1 ||
+        projected.x > 1 ||
+        projected.y < -1 ||
+        projected.y > 1 ||
+        projected.z < -1 ||
+        projected.z > 1
+      ) {
+        continue;
+      }
+      const point = {
+        x: bounds.left + ((projected.x + 1) / 2) * bounds.width,
+        y: bounds.top + ((1 - projected.y) / 2) * bounds.height,
+      };
+      const target = view.pickAt(point.x, point.y);
+      if (target?.type === 'cell' && target.position.equals(position)) {
+        view.renderCurrentPose();
+        return point;
+      }
+    }
+  }
+  return null;
+}
+
+async function waitUntil(predicate: () => boolean, timeoutMs: number): Promise<boolean> {
+  const startedAt = performance.now();
+  while (performance.now() - startedAt <= timeoutMs) {
+    if (predicate()) return true;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  }
+  return predicate();
 }
 
 function showError(message: string): void {
@@ -493,9 +724,29 @@ async function verifyCubePicks(): Promise<void> {
   }
 }
 
+async function verifySixAxisMovement(): Promise<void> {
+  const fixture = window.cubeFixture;
+  if (!fixture) return;
+  verifyMovementButton.disabled = true;
+  status.textContent = 'Picking legal WebGL2 markers and timing six-axis movement…';
+  try {
+    const result = await fixture.verifySixAxisMovement();
+    status.textContent = `Six-axis movement: ${result.checked} moves · picks ${result.everyMarkerPicked ? 'pass' : 'fail'} · highlights ${result.everyDestinationHighlighted ? 'pass' : 'fail'} · arrival ${result.everyPositionCommitted ? 'pass' : 'fail'} · turn handoff ${result.turnsAdvancedOnce ? 'pass' : 'fail'} · max ${Math.max(0, ...result.movementTimesMs).toFixed(1)} ms.`;
+    eventLog.textContent = JSON.stringify(result, null, 2);
+  } catch (error) {
+    status.textContent =
+      error instanceof Error ? error.message : 'Six-axis movement verification failed.';
+  } finally {
+    verifyMovementButton.disabled = false;
+  }
+}
+
 resetButton.disabled = true;
+verifyCubeButton.disabled = true;
+verifyMovementButton.disabled = true;
 resetButton.addEventListener('click', resetBattle);
 verifyCubeButton.addEventListener('click', verifyCubePicks);
+verifyMovementButton.addEventListener('click', verifySixAxisMovement);
 clearButton.addEventListener('click', clearObservations);
 
 try {
@@ -526,6 +777,7 @@ requestAnimationFrame(observeRenderedFrames);
 function disposeFixture(): void {
   resetButton.removeEventListener('click', resetBattle);
   verifyCubeButton.removeEventListener('click', verifyCubePicks);
+  verifyMovementButton.removeEventListener('click', verifySixAxisMovement);
   clearButton.removeEventListener('click', clearObservations);
   session.dispose();
   scene.dispose();

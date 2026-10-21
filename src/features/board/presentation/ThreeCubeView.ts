@@ -77,6 +77,7 @@ export interface ThreeCubeViewOptions {
   readonly orbitControlsDriverFactory?: OrbitControlsDriverFactory;
   readonly resizeObserverFactory?: (callback: () => void) => CubeResizeObserverPort;
   readonly pixelRatio?: number;
+  readonly onSelect?: (target: CubePickTarget | null) => void;
 }
 
 export type CubeInspectionHandler = (target: CubePickTarget | null) => void;
@@ -99,6 +100,7 @@ export class ThreeCubeView {
   readonly markerMesh!: InstancedMesh;
   readonly shipModels = new Map<ShipIdentity, Group>();
   private readonly cubeLabels: HTMLElement;
+  private highlightedCellIndexes = new Set<number>();
   private readonly orbitControls!: CubeOrbitControlsPort;
   private readonly picker!: CubePickerPort;
   private readonly resizeObserver!: CubeResizeObserverPort | null;
@@ -171,7 +173,7 @@ export class ThreeCubeView {
       )(
         this.camera,
         inputElement,
-        (clientX, clientY) => this.inspectAt(clientX, clientY),
+        (clientX, clientY) => this.selectAt(clientX, clientY, options.onSelect),
         (clientX, clientY) => this.hoverAt(clientX, clientY),
         () => this.renderFrame(),
       );
@@ -209,6 +211,44 @@ export class ThreeCubeView {
     this.scene.updateMatrixWorld(true);
     this.camera.updateMatrixWorld(true);
     return this.picker.pick(clientX, clientY);
+  }
+
+  setHighlights(destinations: readonly CubePosition[]): void {
+    if (this.isDisposed) return;
+    const next = new Set<number>();
+    for (const position of destinations) {
+      if (position instanceof CubePosition) next.add(position.presentationIndex);
+    }
+    const affected = new Set([...this.highlightedCellIndexes, ...next]);
+    for (const index of affected) {
+      this.markerMesh.setColorAt(index, new Color(next.has(index) ? 0xffe679 : 0x9fe8ff));
+    }
+    this.markerMesh.instanceColor!.needsUpdate = true;
+    this.highlightedCellIndexes = next;
+    this.renderFrame();
+  }
+
+  setShipPosition(identity: ShipIdentity, position: CubePosition): void {
+    if (this.isDisposed || !(position instanceof CubePosition)) return;
+    const model = this.shipModels.get(identity);
+    model?.position.copy(ThreeCubeView.worldPosition(position));
+    this.renderFrame();
+  }
+
+  setShipVisualPosition(
+    identity: ShipIdentity,
+    point: { readonly x: number; readonly y: number; readonly z: number },
+  ): void {
+    if (
+      this.isDisposed ||
+      !Number.isFinite(point.x) ||
+      !Number.isFinite(point.y) ||
+      !Number.isFinite(point.z)
+    ) {
+      return;
+    }
+    this.shipModels.get(identity)?.position.set(point.x, point.y, point.z);
+    this.renderFrame();
   }
 
   renderCurrentPose(): void {
@@ -259,6 +299,17 @@ export class ThreeCubeView {
     if (!this.isDisposed) this.onInspection(this.picker.pick(clientX, clientY));
   }
 
+  private selectAt(
+    clientX: number,
+    clientY: number,
+    onSelect: ThreeCubeViewOptions['onSelect'],
+  ): void {
+    if (this.isDisposed) return;
+    const target = this.picker.pick(clientX, clientY);
+    this.onInspection(target);
+    onSelect?.(target);
+  }
+
   private hoverAt(clientX: number, clientY: number): void {
     if (!this.isDisposed) this.onInspection(this.picker.pick(clientX, clientY));
   }
@@ -302,6 +353,7 @@ export class ThreeCubeView {
     for (const [index, position] of positions.entries()) {
       transform.makeTranslation(...ThreeCubeView.worldPosition(position).toArray());
       markers.setMatrixAt(index, transform);
+      markers.setColorAt(index, new Color(0x9fe8ff));
     }
     markers.instanceMatrix.needsUpdate = true;
     markers.frustumCulled = false;

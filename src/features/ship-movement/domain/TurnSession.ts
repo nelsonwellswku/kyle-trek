@@ -1,4 +1,4 @@
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
 import { Reachability, type ReachabilityResult } from './Reachability.js';
 import { MovementGame, type PlayerIdentity } from './MovementGame.js';
@@ -122,11 +122,11 @@ export class TurnSession {
     });
   }
 
-  selectDestination(turnToken: number, position: BoardPosition): PendingMove | null {
+  selectDestination(turnToken: number, position: CubePosition): PendingMove | null {
     if (
       this.currentPhase !== 'ready' ||
       turnToken !== this.currentTurnToken ||
-      !(position instanceof BoardPosition)
+      !(position instanceof CubePosition)
     ) {
       return null;
     }

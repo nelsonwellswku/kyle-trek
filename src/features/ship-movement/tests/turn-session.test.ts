@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 import { AgilityStat } from '../domain/AgilityStat.js';
 import { MovementGame } from '../domain/MovementGame.js';
 import { TurnSession } from '../domain/TurnSession.js';
@@ -9,13 +9,13 @@ function game(score1 = 20, score2 = 20): MovementGame {
     {
       identity: 'ship-1',
       owner: 'player-1',
-      position: new BoardPosition(5, 5),
+      position: new CubePosition(5, 5, 5),
       agility: new AgilityStat(score1),
     },
     {
       identity: 'ship-2',
       owner: 'player-2',
-      position: new BoardPosition(10, 10),
+      position: new CubePosition(10, 10, 10),
       agility: new AgilityStat(score2),
     },
   );
@@ -45,14 +45,14 @@ describe('TurnSession', () => {
       throw new Error('Expected a playable initial turn.');
     }
     const origin = ready.game.ship1.position;
-    expect(session.selectDestination(ready.turnToken + 1, new BoardPosition(5, 6))).toBeNull();
+    expect(session.selectDestination(ready.turnToken + 1, new CubePosition(5, 5, 6))).toBeNull();
     expect(session.selectDestination(ready.turnToken, origin)).toBeNull();
-    expect(session.selectDestination(ready.turnToken, new BoardPosition(10, 10))).toBeNull();
+    expect(session.selectDestination(ready.turnToken, new CubePosition(10, 10, 10))).toBeNull();
     expect(session.snapshot.phase).toBe('ready');
-    const pending = session.selectDestination(ready.turnToken, new BoardPosition(5, 6));
+    const pending = session.selectDestination(ready.turnToken, new CubePosition(5, 5, 6));
 
     expect(pending?.route.stepCount).toBe(1);
-    expect(pending?.otherShipPosition).toEqual(new BoardPosition(10, 10));
+    expect(pending?.otherShipPosition).toEqual(new CubePosition(10, 10, 10));
     const moving = session.snapshot;
     expect(moving.phase).toBe('moving');
     if (moving.phase !== 'moving') {
@@ -61,7 +61,7 @@ describe('TurnSession', () => {
     expect(Object.isFrozen(moving.pendingMove)).toBe(true);
     expect(Object.isFrozen(moving.pendingMove.route.positions)).toBe(true);
     expect(moving.game.ship1.position).toEqual(origin);
-    expect(session.selectDestination(ready.turnToken, new BoardPosition(5, 7))).toBeNull();
+    expect(session.selectDestination(ready.turnToken, new CubePosition(5, 5, 7))).toBeNull();
     expect(
       session.completeMove(ready.gameRevision, ready.turnToken + 1, pending?.moveId ?? 0),
     ).toBe(false);
@@ -76,7 +76,7 @@ describe('TurnSession', () => {
     }
     expect(next.activePlayer).toBe('player-2');
     expect(next.activeShip).toBe('ship-2');
-    expect(next.game.ship1.position).toEqual(new BoardPosition(5, 6));
+    expect(next.game.ship1.position).toEqual(new CubePosition(5, 5, 6));
     expect(next.game.ship1.agility.score).toBe(18);
     expect(session.completeMove(ready.gameRevision, ready.turnToken, pending?.moveId ?? 0)).toBe(
       false,
@@ -92,7 +92,7 @@ describe('TurnSession', () => {
       throw new Error('Expected a pass-required initial turn.');
     }
     expect(awaiting.reachability.destinations).toEqual([]);
-    expect(session.selectDestination(awaiting.turnToken, new BoardPosition(5, 6))).toBeNull();
+    expect(session.selectDestination(awaiting.turnToken, new CubePosition(5, 5, 6))).toBeNull();
     expect(session.snapshot).toMatchObject({
       phase: 'awaiting-pass',
       turnToken: awaiting.turnToken,
@@ -146,14 +146,14 @@ describe('TurnSession', () => {
     const moveOverflow = new TurnSession(game(), undefined, { moveId: Number.MAX_SAFE_INTEGER });
     const moveReady = moveOverflow.snapshot;
     expect(() =>
-      moveOverflow.selectDestination(moveReady.turnToken, new BoardPosition(5, 6)),
+      moveOverflow.selectDestination(moveReady.turnToken, new CubePosition(5, 5, 6)),
     ).toThrow(RangeError);
 
     const turnOverflow = new TurnSession(game(), undefined, {
       turnToken: Number.MAX_SAFE_INTEGER,
     });
     const turnReady = turnOverflow.snapshot;
-    const pending = turnOverflow.selectDestination(turnReady.turnToken, new BoardPosition(5, 6));
+    const pending = turnOverflow.selectDestination(turnReady.turnToken, new CubePosition(5, 5, 6));
     expect(pending).not.toBeNull();
     expect(() =>
       turnOverflow.completeMove(turnReady.gameRevision, turnReady.turnToken, pending?.moveId ?? 0),
@@ -163,7 +163,7 @@ describe('TurnSession', () => {
     if (stillMoving.phase !== 'moving') {
       throw new Error('Counter overflow must preserve the pending movement.');
     }
-    expect(stillMoving.game.ship1.position).toEqual(new BoardPosition(5, 5));
+    expect(stillMoving.game.ship1.position).toEqual(new CubePosition(5, 5, 5));
 
     const revisionOverflow = new TurnSession(game(), undefined, {
       gameRevision: Number.MAX_SAFE_INTEGER,
@@ -177,9 +177,40 @@ describe('TurnSession', () => {
     session.dispose();
 
     expect(session.snapshot.phase).toBe('disposed');
-    expect(session.selectDestination(ready.turnToken, new BoardPosition(5, 6))).toBeNull();
+    expect(session.selectDestination(ready.turnToken, new CubePosition(5, 5, 6))).toBeNull();
     expect(session.completeMove(ready.gameRevision, ready.turnToken, 1)).toBe(false);
     expect(session.acknowledgePass(ready.gameRevision, ready.turnToken)).toBe(false);
     expect(() => session.newGame(game())).toThrow(Error);
+  });
+
+  it('retains the blocker-free 3D route in the pending move', () => {
+    const blockedStart = new MovementGame(
+      {
+        identity: 'ship-1',
+        owner: 'player-1',
+        position: new CubePosition(5, 5, 5),
+        agility: new AgilityStat(18),
+      },
+      {
+        identity: 'ship-2',
+        owner: 'player-2',
+        position: new CubePosition(6, 5, 5),
+        agility: new AgilityStat(18),
+      },
+    );
+    const session = new TurnSession(blockedStart);
+    const ready = session.snapshot;
+    if (ready.phase !== 'ready') throw new Error('Expected an affordable 3D detour.');
+
+    const pending = session.selectDestination(ready.turnToken, new CubePosition(7, 5, 5));
+    expect(pending?.route.stepCount).toBe(4);
+    expect(pending?.route.positions).toEqual([
+      new CubePosition(5, 5, 5),
+      new CubePosition(5, 4, 5),
+      new CubePosition(6, 4, 5),
+      new CubePosition(7, 4, 5),
+      new CubePosition(7, 5, 5),
+    ]);
+    expect(pending?.route.positions).not.toContainEqual(new CubePosition(6, 5, 5));
   });
 });

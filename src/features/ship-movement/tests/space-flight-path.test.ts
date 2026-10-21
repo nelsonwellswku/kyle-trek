@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 import { BoardGeometry, type BoardPoint } from '../../board/presentation/BoardGeometry.js';
 import { SpaceFlightPath, type SpaceArcSegment } from '../presentation/SpaceFlightPath.js';
 
@@ -11,9 +11,9 @@ function createPath(
   obstacle: readonly [number, number],
 ): SpaceFlightPath {
   return new SpaceFlightPath(
-    new BoardPosition(...origin),
-    new BoardPosition(...destination),
-    new BoardPosition(...obstacle),
+    new CubePosition(origin[1], origin[0], 5),
+    new CubePosition(destination[1], destination[0], 5),
+    new CubePosition(obstacle[1], obstacle[0], 5),
     geometry,
   );
 }

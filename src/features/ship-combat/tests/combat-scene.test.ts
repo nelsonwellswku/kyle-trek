@@ -26,6 +26,10 @@ const sceneHarness = vi.hoisted(() => ({
     renderCount: number;
     disposeCount: number;
     inspect: (target: unknown) => void;
+    select: (target: unknown) => void;
+    setHighlights: (destinations: readonly unknown[]) => void;
+    setShipPosition: (identity: unknown, position: unknown) => void;
+    setShipVisualPosition: (identity: unknown, point: unknown) => void;
   }>,
   failCubeView: false,
 }));
@@ -118,14 +122,39 @@ vi.mock('../../board/presentation/ThreeCubeView.js', () => ({
   ThreeCubeView: class {
     private readonly record: (typeof sceneHarness.cubeViews)[number];
 
-    constructor(host: unknown, onInspection: (target: unknown) => void) {
+    constructor(
+      host: unknown,
+      onInspection: (target: unknown) => void,
+      options?: { readonly onSelect?: (target: unknown) => void },
+    ) {
       if (sceneHarness.failCubeView) throw new Error('WebGL2 unavailable');
-      this.record = { host, renderCount: 0, disposeCount: 0, inspect: onInspection };
+      this.record = {
+        host,
+        renderCount: 0,
+        disposeCount: 0,
+        inspect: onInspection,
+        select: (target) => options?.onSelect?.(target),
+        setHighlights: vi.fn(),
+        setShipPosition: vi.fn(),
+        setShipVisualPosition: vi.fn(),
+      };
       sceneHarness.cubeViews.push(this.record);
     }
 
     render(): void {
       this.record.renderCount += 1;
+    }
+
+    setHighlights(destinations: readonly unknown[]): void {
+      this.record.setHighlights(destinations);
+    }
+
+    setShipPosition(identity: unknown, position: unknown): void {
+      this.record.setShipPosition(identity, position);
+    }
+
+    setShipVisualPosition(identity: unknown, point: unknown): void {
+      this.record.setShipVisualPosition(identity, point);
     }
 
     dispose(): void {
@@ -271,9 +300,7 @@ describe('CombatScene lifecycle', () => {
     };
     phaser.input.emit('pointerdown', { button: 0, worldX: worldPoint.x, worldY: worldPoint.y });
     expect(flights.startedFlights).toHaveLength(1);
-    expect(flights.startedFlights[0]?.move.destination).toEqual(
-      geometry.positionAt(geometry.cellCenter(destination)),
-    );
+    expect(flights.startedFlights[0]?.move.destination).toEqual(destination);
   });
 
   it('invalidates readiness and cancels movement across replacement until the new board renders', () => {
@@ -386,6 +413,27 @@ describe('CombatScene lifecycle', () => {
     scene.dispose();
     scene.dispose();
     expect(view.disposeCount).toBe(1);
+  });
+
+  it('dispatches click-on-release cube picks to the production movement controller', () => {
+    sceneHarness.cubeViews.length = 0;
+    sceneHarness.failCubeView = false;
+    const { session, flights, scene, phaser } = harness(14, true);
+    scene.create();
+    phaser.game.events.emit('postrender');
+    const view = sceneHarness.cubeViews[0];
+    if (!view) throw new Error('Expected the production cube view.');
+
+    view.select({ type: 'cell', position: new CubePosition(3, 2, 2) });
+    expect(session.snapshot.phase).toBe('moving');
+    expect(flights.startedFlights).toHaveLength(1);
+    view.select({ type: 'cell', position: new CubePosition(4, 2, 2) });
+    expect(flights.startedFlights).toHaveLength(1);
+    flights.startedFlights[0]?.complete();
+    const arrived = session.snapshot;
+    if (arrived.phase === 'disposed') throw new Error('The battle was disposed.');
+    expect(arrived.game.ship1.position).toEqual(new CubePosition(3, 2, 2));
+    scene.dispose();
   });
 
   it('forwards an unreadable cube renderer failure and leaves no active scene input', () => {

@@ -1,4 +1,3 @@
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
 import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
 import { CubePosition } from '../../board/domain/CubePosition.js';
 import { CubeSnapshot } from '../../board/domain/CubeSnapshot.js';
@@ -42,19 +41,13 @@ export class CombatGame extends CubeSnapshot {
     Object.freeze(this);
   }
 
-  /** BoardPosition is accepted temporarily for the standalone legacy 2D session. */
-  withPosition(identity: ShipIdentity, position: CubePosition | BoardPosition): CombatGame {
-    if (!(position instanceof BoardPosition)) {
+  withPosition(identity: ShipIdentity, position: CubePosition): CombatGame {
+    if (!(position instanceof CubePosition)) {
       throw new RangeError('A combat position must be a valid CubePosition.');
     }
-    const current = identity === 'ship-1' ? this.ship1 : this.ship2;
-    const cubePosition =
-      position instanceof CubePosition
-        ? position
-        : new CubePosition(position.column, position.row, current.position.z);
     return new CombatGame(
-      identity === 'ship-1' ? { ...this.ship1, position: cubePosition } : this.ship1,
-      identity === 'ship-2' ? { ...this.ship2, position: cubePosition } : this.ship2,
+      identity === 'ship-1' ? { ...this.ship1, position } : this.ship1,
+      identity === 'ship-2' ? { ...this.ship2, position } : this.ship2,
     );
   }
 

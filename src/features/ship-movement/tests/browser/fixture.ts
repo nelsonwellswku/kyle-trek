@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import '../../../../app/styles.css';
-import { BoardPosition } from '../../../board/domain/BoardPosition.js';
+import { CubePosition } from '../../../board/domain/CubePosition.js';
 import { BoardGeometry } from '../../../board/presentation/BoardGeometry.js';
 import { GameSetupControls } from '../../../game-setup/presentation/GameSetupControls.js';
 import { AgilityStat } from '../../domain/AgilityStat.js';
@@ -54,13 +54,13 @@ function createPreset(name: PresetName): MovementGame {
     {
       identity: 'ship-1',
       owner: 'player-1',
-      position: new BoardPosition(ship1Row, ship1Column),
+      position: new CubePosition(ship1Column, ship1Row, 5),
       agility: new AgilityStat(ship1Score),
     },
     {
       identity: 'ship-2',
       owner: 'player-2',
-      position: new BoardPosition(ship2Row, ship2Column),
+      position: new CubePosition(ship2Column, ship2Row, 5),
       agility: new AgilityStat(ship2Score),
     },
   );

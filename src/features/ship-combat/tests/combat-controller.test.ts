@@ -11,7 +11,7 @@ import { BattleSession, type BattleSnapshot } from '../domain/BattleSession.js';
 import { CombatGame, type CombatShip } from '../domain/CombatGame.js';
 import type { AttackOutcome, AttackResolution } from '../domain/AttackResolver.js';
 import { ControlledTorpedoAnimator } from './fixtures/ControlledTorpedoAnimator.js';
-import { CombatController } from '../presentation/CombatController.js';
+import { CombatController, type CombatCubeViewPort } from '../presentation/CombatController.js';
 import type { CombatControls } from '../presentation/CombatControls.js';
 import type {
   FlightAnimator,
@@ -48,6 +48,7 @@ interface HarnessOptions {
   readonly flightAnimator?: FlightAnimator;
   readonly torpedoAnimator?: TorpedoAnimator;
   readonly attackResolution?: AttackResolution;
+  readonly cubeView?: CombatCubeViewPort;
 }
 
 function harness(agilityScore = 14, options: HarnessOptions = {}) {
@@ -91,6 +92,7 @@ function harness(agilityScore = 14, options: HarnessOptions = {}) {
     onMovementError,
     onAttackError,
     onBoardChanged,
+    options.cubeView,
   );
   return {
     game,
@@ -152,7 +154,7 @@ class CallbackFlightAnimator implements FlightAnimator {
     return handle;
   }
 
-  update(point: { readonly x: number; readonly y: number }): void {
+  update(point: { readonly x: number; readonly y: number; readonly z: number }): void {
     this.onProgress?.(point);
   }
 
@@ -265,6 +267,40 @@ describe('CombatController', () => {
     expect(live(session).phase).toBe('attack-ready');
 
     controller.handlePointerDown(clickAt(geometry, ready.game.ship2.position));
+    expect(torpedoes.startedAttacks).toHaveLength(1);
+  });
+
+  it('dispatches typed cube picks through BattleSession and updates the 3D view after arrival', () => {
+    const cubeView: CombatCubeViewPort = {
+      setHighlights: vi.fn(),
+      setShipPosition: vi.fn(),
+      setShipVisualPosition: vi.fn(),
+    };
+    const { session, flights, torpedoes, onBoardChanged, controller } = harness(14, { cubeView });
+    const initial = live(session);
+    if (initial.phase !== 'movement-ready') throw new Error('Expected a movement-ready cube.');
+    const destination = new CubePosition(3, 2, 2);
+    controller.markReady(initial.gameRevision);
+
+    controller.handlePickTarget({ type: 'cell', position: destination });
+    expect(live(session).phase).toBe('moving');
+    expect(flights.startedFlights).toHaveLength(1);
+    controller.handlePickTarget({ type: 'cell', position: new CubePosition(2, 3, 2) });
+    expect(flights.startedFlights).toHaveLength(1);
+    expect(cubeView.setHighlights).toHaveBeenLastCalledWith([]);
+
+    flights.startedFlights[0]?.complete();
+    const arrived = live(session);
+    expect(arrived.phase).toBe('attack-ready');
+    expect(arrived.activePlayer).toBe('player-1');
+    expect(arrived.game.ship1.position).toEqual(destination);
+    expect(cubeView.setShipPosition).toHaveBeenCalledWith('ship-1', destination);
+    expect(onBoardChanged).toHaveBeenCalledWith(arrived.game);
+
+    controller.handlePickTarget({ type: 'cell', position: arrived.game.ship2.position });
+    expect(torpedoes.startedAttacks).toHaveLength(0);
+    controller.handlePickTarget({ type: 'ship', identity: 'ship-2' });
+    expect(live(session).phase).toBe('attacking');
     expect(torpedoes.startedAttacks).toHaveLength(1);
   });
 

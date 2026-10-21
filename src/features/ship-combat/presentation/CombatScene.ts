@@ -13,6 +13,7 @@ import { BoardView } from '../../board/presentation/BoardView.js';
 import { CombatController } from './CombatController.js';
 import { ThreeCubeView } from '../../board/presentation/ThreeCubeView.js';
 import type { CubePickTarget } from '../../board/presentation/CubePicker.js';
+import { ThreeFlightAnimator } from '../../ship-movement/presentation/ThreeFlightAnimator.js';
 
 export type CombatSceneReadyHandler = (revision: number) => void;
 
@@ -61,10 +62,14 @@ export class CombatScene extends Phaser.Scene {
     this.boardView = new BoardView(this, this.geometry);
     if (this.cubeHost) {
       try {
-        this.cubeView = new ThreeCubeView(this.cubeHost, (target) => {
-          const current = this.session.snapshot;
-          if (current.phase !== 'disposed') this.onCubeInspection(target, current.game);
-        });
+        this.cubeView = new ThreeCubeView(
+          this.cubeHost,
+          (target) => {
+            const current = this.session.snapshot;
+            if (current.phase !== 'disposed') this.onCubeInspection(target, current.game);
+          },
+          { onSelect: (target) => this.controller?.handlePickTarget(target) },
+        );
       } catch (error) {
         this.onRendererError(
           error instanceof Error ? error.message : 'WebGL2 could not initialize the 3D cube view.',
@@ -77,7 +82,8 @@ export class CombatScene extends Phaser.Scene {
       this.session,
       this.geometry,
       this.boardView,
-      this.flightAnimator ?? new PhaserFlightAnimator(this, this.geometry),
+      this.flightAnimator ??
+        (this.cubeView ? new ThreeFlightAnimator() : new PhaserFlightAnimator(this, this.geometry)),
       this.torpedoAnimator ??
         new PhaserTorpedoAnimator(
           this,
@@ -89,6 +95,7 @@ export class CombatScene extends Phaser.Scene {
       this.onMovementError,
       this.onAttackError,
       this.onBoardChanged,
+      this.cubeView ?? undefined,
     );
     if (!this.cubeView) {
       this.input.on('pointerdown', this.handlePointerDown, this);

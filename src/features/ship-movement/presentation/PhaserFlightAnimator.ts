@@ -108,7 +108,7 @@ export class PhaserFlightAnimator implements FlightAnimator {
             return;
           }
 
-          onProgress({ x: point.x, y: point.y });
+          onProgress(PhaserFlightAnimator.toCubeWorldPoint(point, move.origin.z, this.geometry));
         },
         onComplete: () => {
           if (settled) {
@@ -116,7 +116,9 @@ export class PhaserFlightAnimator implements FlightAnimator {
           }
 
           const destination = this.geometry.cellCenter(move.destination);
-          onProgress(destination);
+          onProgress(
+            PhaserFlightAnimator.toCubeWorldPoint(destination, move.destination.z, this.geometry),
+          );
           settled = true;
           onComplete(identity);
         },
@@ -126,5 +128,17 @@ export class PhaserFlightAnimator implements FlightAnimator {
     }
 
     return handle;
+  }
+
+  private static toCubeWorldPoint(
+    point: { readonly x: number; readonly y: number },
+    z: number,
+    geometry: BoardGeometry,
+  ): { readonly x: number; readonly y: number; readonly z: number } {
+    return Object.freeze({
+      x: (point.x / geometry.logicalSize) * 10 - 5.5,
+      y: (point.y / geometry.logicalSize) * 10 - 5.5,
+      z: z - 5.5,
+    });
   }
 }

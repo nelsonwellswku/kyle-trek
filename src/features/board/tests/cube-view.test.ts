@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   ArrowHelper,
+  Color,
   Group,
   InstancedMesh,
   LineSegments,
@@ -120,6 +121,7 @@ describe('ThreeCubeView', () => {
     let renderer: CubeRendererPort | undefined;
     const resizeDisconnect = vi.fn();
     const onInspection = vi.fn();
+    const onSelect = vi.fn();
     const view = new ThreeCubeView(host as unknown as HTMLElement, onInspection, {
       inputElement: input as unknown as HTMLElement,
       rendererFactory: (canvas) => {
@@ -137,6 +139,7 @@ describe('ThreeCubeView', () => {
       }),
       resizeObserverFactory: () => ({ observe: vi.fn(), disconnect: resizeDisconnect }),
       pixelRatio: 1.5,
+      onSelect,
     });
 
     expect(view.markerCount).toBe(1_000);
@@ -164,6 +167,10 @@ describe('ThreeCubeView', () => {
       position: new CubePosition(4, 6, 8),
     });
     expect(onInspection).toHaveBeenNthCalledWith(2, null);
+    expect(onSelect).toHaveBeenCalledWith({
+      type: 'cell',
+      position: new CubePosition(4, 6, 8),
+    });
 
     host.setBounds(800, 400);
     view.resize();
@@ -181,6 +188,19 @@ describe('ThreeCubeView', () => {
       view.shipModels.get('ship-1')?.quaternion.equals(view.shipModels.get('ship-2')!.quaternion),
     ).toBe(false);
     expect(renderer?.render).toHaveBeenCalled();
+
+    const highlighted = new Color();
+    const cell = new CubePosition(4, 6, 8);
+    view.setHighlights([cell]);
+    view.markerMesh.getColorAt(cell.presentationIndex, highlighted);
+    expect(highlighted.getHex()).toBe(0xffe679);
+    view.setShipVisualPosition('ship-1', { x: 1, y: 2, z: 3 });
+    expect(view.shipModels.get('ship-1')?.position.toArray()).toEqual([1, 2, 3]);
+    view.setShipPosition('ship-1', new CubePosition(4, 5, 6));
+    expect(view.shipModels.get('ship-1')?.position.toArray()).toEqual([-1.5, -0.5, 0.5]);
+    view.setHighlights([]);
+    view.markerMesh.getColorAt(cell.presentationIndex, highlighted);
+    expect(highlighted.getHex()).toBe(0x9fe8ff);
 
     view.dispose();
     view.dispose();

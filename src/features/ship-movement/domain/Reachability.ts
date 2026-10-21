@@ -1,24 +1,25 @@
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
-import type { BoardSnapshot, ShipIdentity } from '../../board/domain/BoardSnapshot.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
+import type { CubeSnapshot } from '../../board/domain/CubeSnapshot.js';
+import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
 
 export interface LegalRoute {
-  readonly positions: readonly BoardPosition[];
+  readonly positions: readonly CubePosition[];
   readonly stepCount: number;
 }
 
 export interface ReachableDestination {
-  readonly position: BoardPosition;
+  readonly position: CubePosition;
   readonly distance: number;
   readonly route: LegalRoute;
 }
 
 export class ReachabilityResult {
-  readonly blockers: readonly BoardPosition[];
+  readonly blockers: readonly CubePosition[];
   readonly destinations: readonly ReachableDestination[];
 
   constructor(
-    readonly origin: BoardPosition,
-    blockers: readonly BoardPosition[],
+    readonly origin: CubePosition,
+    blockers: readonly CubePosition[],
     readonly allowance: number,
     destinations: readonly ReachableDestination[],
   ) {
@@ -38,7 +39,7 @@ export class ReachabilityResult {
     Object.freeze(this);
   }
 
-  routeTo(position: BoardPosition): LegalRoute | null {
+  routeTo(position: CubePosition): LegalRoute | null {
     return (
       this.destinations.find((destination) => destination.position.equals(position))?.route ?? null
     );
@@ -47,17 +48,19 @@ export class ReachabilityResult {
 
 export class Reachability {
   private static readonly directions = [
-    [-1, 0],
-    [0, 1],
-    [1, 0],
-    [0, -1],
+    [-1, 0, 0],
+    [1, 0, 0],
+    [0, -1, 0],
+    [0, 1, 0],
+    [0, 0, -1],
+    [0, 0, 1],
   ] as const;
 
   find(
-    snapshot: BoardSnapshot,
+    snapshot: CubeSnapshot,
     activeShip: ShipIdentity,
     allowance: number,
-    fixtureBlockers: readonly BoardPosition[] = [],
+    fixtureBlockers: readonly CubePosition[] = [],
   ): ReachabilityResult {
     if (!Number.isFinite(allowance)) {
       throw new RangeError('Movement allowance must be finite.');
@@ -67,42 +70,37 @@ export class Reachability {
     const blocker = activeShip === 'ship-1' ? snapshot.ship2 : snapshot.ship1;
     const effectiveAllowance = Math.min(5, Math.max(0, Math.floor(allowance)));
     const origin = active.position;
-    // Extra fixture blockers cover route-finder states unavailable in a two-ship game.
-    const blockersByKey = new Map<string, BoardPosition>([
+    const blockersByKey = new Map<string, CubePosition>([
       [Reachability.positionKey(blocker.position), blocker.position],
     ]);
     for (const fixtureBlocker of fixtureBlockers) {
+      if (!(fixtureBlocker instanceof CubePosition)) {
+        throw new RangeError('Route blockers must be valid CubePosition values.');
+      }
       blockersByKey.set(Reachability.positionKey(fixtureBlocker), fixtureBlocker);
     }
     const blockerKeys = new Set(blockersByKey.keys());
     const distanceByPosition = new Map<string, number>([[Reachability.positionKey(origin), 0]]);
-    const predecessorByPosition = new Map<string, BoardPosition>();
-    const queue: BoardPosition[] = [origin];
+    const predecessorByPosition = new Map<string, CubePosition>();
+    const queue: CubePosition[] = [origin];
     const destinations: ReachableDestination[] = [];
 
     for (let cursor = 0; cursor < queue.length; cursor += 1) {
       const current = queue[cursor];
-      if (!current) {
-        continue;
-      }
+      if (!current) continue;
 
       const currentDistance = distanceByPosition.get(Reachability.positionKey(current));
-      if (currentDistance === undefined || currentDistance >= effectiveAllowance) {
-        continue;
-      }
+      if (currentDistance === undefined || currentDistance >= effectiveAllowance) continue;
 
-      for (const [rowDelta, columnDelta] of Reachability.directions) {
-        const row = current.row + rowDelta;
-        const column = current.column + columnDelta;
-        if (row < 1 || row > 10 || column < 1 || column > 10) {
-          continue;
-        }
+      for (const [xDelta, yDelta, zDelta] of Reachability.directions) {
+        const x = current.x + xDelta;
+        const y = current.y + yDelta;
+        const z = current.z + zDelta;
+        if (x < 1 || x > 10 || y < 1 || y > 10 || z < 1 || z > 10) continue;
 
-        const next = new BoardPosition(row, column);
+        const next = new CubePosition(x, y, z);
         const nextKey = Reachability.positionKey(next);
-        if (blockerKeys.has(nextKey) || distanceByPosition.has(nextKey)) {
-          continue;
-        }
+        if (blockerKeys.has(nextKey) || distanceByPosition.has(nextKey)) continue;
 
         const distance = currentDistance + 1;
         distanceByPosition.set(nextKey, distance);
@@ -125,11 +123,11 @@ export class Reachability {
   }
 
   private static createRoute(
-    origin: BoardPosition,
-    destination: BoardPosition,
-    predecessorByPosition: ReadonlyMap<string, BoardPosition>,
+    origin: CubePosition,
+    destination: CubePosition,
+    predecessorByPosition: ReadonlyMap<string, CubePosition>,
   ): LegalRoute {
-    const positions: BoardPosition[] = [destination];
+    const positions: CubePosition[] = [destination];
     let current = destination;
 
     while (!current.equals(origin)) {
@@ -137,7 +135,6 @@ export class Reachability {
       if (!predecessor) {
         throw new Error('A reachable destination must have a predecessor route to its origin.');
       }
-
       positions.push(predecessor);
       current = predecessor;
     }
@@ -149,7 +146,7 @@ export class Reachability {
     });
   }
 
-  private static positionKey(position: BoardPosition): string {
-    return `${position.row}:${position.column}`;
+  private static positionKey(position: CubePosition): string {
+    return `${position.x}:${position.y}:${position.z}`;
   }
 }

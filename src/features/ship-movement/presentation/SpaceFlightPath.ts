@@ -1,5 +1,5 @@
 import type { BoardGeometry, BoardPoint } from '../../board/presentation/BoardGeometry.js';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 
 export interface SpaceLineSegment {
   readonly kind: 'line';
@@ -25,9 +25,9 @@ export class SpaceFlightPath {
   readonly pathLength: number;
 
   constructor(
-    origin: BoardPosition,
-    destination: BoardPosition,
-    obstacle: BoardPosition,
+    origin: CubePosition,
+    destination: CubePosition,
+    obstacle: CubePosition,
     geometry: BoardGeometry,
   ) {
     const start = geometry.cellCenter(origin);
