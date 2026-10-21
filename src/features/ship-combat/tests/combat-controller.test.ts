@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { BoardPosition } from '../../board/domain/BoardPosition.js';
+import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 import { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
 import type { BoardView } from '../../board/presentation/BoardView.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
@@ -23,10 +25,12 @@ import type { PendingMove } from '../../ship-movement/domain/PendingMove.js';
 import type { TorpedoAnimator } from '../presentation/TorpedoAnimator.js';
 
 function combatGame(agilityScore = 14): CombatGame {
-  const ship = (identity: 'ship-1' | 'ship-2', position: BoardPosition): CombatShip => ({
+  const ship = (identity: 'ship-1' | 'ship-2', position: CubePosition): CombatShip => ({
     identity,
     owner: identity === 'ship-1' ? 'player-1' : 'player-2',
     position,
+    orientation:
+      identity === 'ship-1' ? CubeOrientation.ship1Default() : CubeOrientation.ship2Default(),
     agility: new AgilityStat(agilityScore),
     strength: new AbilityStat(10),
     constitution: new AbilityStat(12),
@@ -35,8 +39,8 @@ function combatGame(agilityScore = 14): CombatGame {
     hitPoints: 10,
   });
   return new CombatGame(
-    ship('ship-1', new BoardPosition(2, 2)),
-    ship('ship-2', new BoardPosition(9, 9)),
+    ship('ship-1', new CubePosition(2, 2, 2)),
+    ship('ship-2', new CubePosition(9, 9, 9)),
   );
 }
 
@@ -284,7 +288,7 @@ describe('CombatController', () => {
     oldMove.complete();
     oldMove.fail(new Error('late movement error'));
     expect(live(session).gameRevision).toBe(replacementRevision);
-    expect(live(session).game.ship1.position).toEqual(new BoardPosition(2, 2));
+    expect(live(session).game.ship1.position).toEqual(new CubePosition(2, 2, 2));
 
     const replacement = live(session);
     if (replacement.phase !== 'movement-ready') throw new Error('Expected replacement ready.');

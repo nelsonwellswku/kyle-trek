@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { BoardPosition } from '../../board/domain/BoardPosition.js';
+import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 import { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
 import { ControlledFlightAnimator } from '../../ship-movement/tests/fixtures/ControlledFlightAnimator.js';
@@ -19,6 +21,13 @@ interface EventEmitterPort {
 const sceneHarness = vi.hoisted(() => ({
   gameEvents: null as null | EventEmitterPort,
   input: null as null | EventEmitterPort,
+  cubeViews: [] as Array<{
+    host: unknown;
+    renderCount: number;
+    disposeCount: number;
+    inspect: (target: unknown) => void;
+  }>,
+  failCubeView: false,
 }));
 
 vi.mock('phaser', () => {
@@ -105,11 +114,33 @@ vi.mock('phaser', () => {
   };
 });
 
+vi.mock('../../board/presentation/ThreeCubeView.js', () => ({
+  ThreeCubeView: class {
+    private readonly record: (typeof sceneHarness.cubeViews)[number];
+
+    constructor(host: unknown, onInspection: (target: unknown) => void) {
+      if (sceneHarness.failCubeView) throw new Error('WebGL2 unavailable');
+      this.record = { host, renderCount: 0, disposeCount: 0, inspect: onInspection };
+      sceneHarness.cubeViews.push(this.record);
+    }
+
+    render(): void {
+      this.record.renderCount += 1;
+    }
+
+    dispose(): void {
+      this.record.disposeCount += 1;
+    }
+  },
+}));
+
 function combatGame(agilityScore = 14): CombatGame {
-  const ship = (identity: 'ship-1' | 'ship-2', position: BoardPosition): CombatShip => ({
+  const ship = (identity: 'ship-1' | 'ship-2', position: CubePosition): CombatShip => ({
     identity,
     owner: identity === 'ship-1' ? 'player-1' : 'player-2',
     position,
+    orientation:
+      identity === 'ship-1' ? CubeOrientation.ship1Default() : CubeOrientation.ship2Default(),
     agility: new AgilityStat(agilityScore),
     strength: new AbilityStat(10),
     constitution: new AbilityStat(12),
@@ -118,8 +149,8 @@ function combatGame(agilityScore = 14): CombatGame {
     hitPoints: 10,
   });
   return new CombatGame(
-    ship('ship-1', new BoardPosition(2, 2)),
-    ship('ship-2', new BoardPosition(9, 9)),
+    ship('ship-1', new CubePosition(2, 2, 2)),
+    ship('ship-2', new CubePosition(9, 9, 9)),
   );
 }
 
@@ -151,7 +182,7 @@ class ControlsSpy {
   }
 }
 
-function harness(agilityScore = 14) {
+function harness(agilityScore = 14, useCubeView = false) {
   const session = new BattleSession(combatGame(agilityScore), missResolution());
   const geometry = new BoardGeometry(600);
   const controls = new ControlsSpy();
@@ -161,6 +192,9 @@ function harness(agilityScore = 14) {
   const onMovementError = vi.fn();
   const onAttackError = vi.fn();
   const onBoardChanged = vi.fn();
+  const onCubeInspection = vi.fn();
+  const onRendererError = vi.fn();
+  const cubeHost = useCubeView ? ({} as HTMLElement) : undefined;
   const scene = new CombatScene(
     session,
     geometry,
@@ -171,6 +205,11 @@ function harness(agilityScore = 14) {
     torpedoes,
     flights,
     onBoardChanged,
+    undefined,
+    undefined,
+    cubeHost,
+    onCubeInspection,
+    onRendererError,
   );
   const phaser = scene as unknown as {
     readonly input: EventEmitterPort;
@@ -187,6 +226,9 @@ function harness(agilityScore = 14) {
     onMovementError,
     onAttackError,
     onBoardChanged,
+    onCubeInspection,
+    onRendererError,
+    cubeHost,
     scene,
     phaser,
     gameEvents: sceneHarness.gameEvents,
@@ -311,5 +353,51 @@ describe('CombatScene lifecycle', () => {
     expect(phaser.game.events.listenerCount('postrender')).toBe(0);
     phaser.game.events.emit('postrender');
     expect(onDrawn).not.toHaveBeenCalled();
+  });
+
+  it('owns one cube view across game replacement and keeps inspection presentation-only', () => {
+    sceneHarness.cubeViews.length = 0;
+    sceneHarness.failCubeView = false;
+    const { session, onDrawn, onCubeInspection, cubeHost, scene, phaser } = harness(14, true);
+    scene.create();
+    const view = sceneHarness.cubeViews[0];
+    if (!view) throw new Error('Expected the cube view to be composed.');
+    expect(view.host).toBe(cubeHost);
+    expect(view.renderCount).toBe(1);
+
+    const before = session.snapshot;
+    if (before.phase === 'disposed') throw new Error('Expected the battle to remain live.');
+    view.inspect({ type: 'cell', position: new CubePosition(3, 4, 5) });
+    expect(onCubeInspection).toHaveBeenCalledWith(
+      { type: 'cell', position: new CubePosition(3, 4, 5) },
+      before.game,
+    );
+    const afterInspection = session.snapshot;
+    if (afterInspection.phase === 'disposed') throw new Error('Inspection disposed the battle.');
+    expect(afterInspection.game).toBe(before.game);
+    expect(afterInspection.phase).toBe(before.phase);
+
+    const revision = session.newGame(combatGame());
+    scene.updateGame(revision);
+    expect(sceneHarness.cubeViews).toHaveLength(1);
+    expect(view.renderCount).toBe(2);
+    phaser.game.events.emit('postrender');
+    expect(onDrawn).toHaveBeenCalledWith(revision);
+    scene.dispose();
+    scene.dispose();
+    expect(view.disposeCount).toBe(1);
+  });
+
+  it('forwards an unreadable cube renderer failure and leaves no active scene input', () => {
+    sceneHarness.failCubeView = true;
+    const { onRendererError, scene, phaser } = harness(14, true);
+
+    scene.create();
+
+    expect(onRendererError).toHaveBeenCalledWith(expect.stringContaining('WebGL2 unavailable'));
+    expect(phaser.input.listenerCount('pointerdown')).toBe(0);
+    expect(phaser.game.events.listenerCount('postrender')).toBe(0);
+    scene.dispose();
+    sceneHarness.failCubeView = false;
   });
 });

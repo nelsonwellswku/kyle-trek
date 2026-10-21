@@ -1,5 +1,6 @@
 import type { RandomSource } from '../../game-setup/domain/RandomSource.js';
 import { GameSetupFactory } from '../../game-setup/domain/GameSetupFactory.js';
+import { BoardPosition } from '../../board/domain/BoardPosition.js';
 import { AgilityStat } from './AgilityStat.js';
 import { MovementGame } from './MovementGame.js';
 
@@ -15,13 +16,13 @@ export class MovementGameFactory {
       {
         identity: 'ship-1',
         owner: 'player-1',
-        position: setup.ship1.position,
+        position: new BoardPosition(setup.ship1.position.y, setup.ship1.position.x),
         agility: ship1Agility,
       },
       {
         identity: 'ship-2',
         owner: 'player-2',
-        position: setup.ship2.position,
+        position: new BoardPosition(setup.ship2.position.y, setup.ship2.position.x),
         agility: ship2Agility,
       },
     );

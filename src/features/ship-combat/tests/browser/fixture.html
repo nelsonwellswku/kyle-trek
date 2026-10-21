@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#081523" />
-    <title>Ship Torpedo Combat — Deterministic Fixture</title>
+    <title>Ship Combat Cube — Deterministic Fixture</title>
   </head>
   <body>
     <main class="game-shell">
       <header class="page-header">
         <p class="eyebrow">TEST-ONLY ENTRY</p>
-        <h1>Ship torpedo combat</h1>
+        <h1>Ship combat cube</h1>
         <p>
           Deterministic scenarios use the production battle session, Phaser scene, and animators.
         </p>
@@ -34,14 +34,18 @@
           <option value="immobility">Both ships immobile</option>
         </select>
         <button id="reset-battle" class="new-game-button" type="button">Reset battle</button>
+        <button id="verify-cube-picks" type="button" disabled>Verify all 1,000 marker picks</button>
         <button id="clear-observations" type="button">Clear observations</button>
       </section>
       <section class="game-layout" aria-label="Combat board">
         <div class="board-copy">
-          <h2>10 × 10 battle grid</h2>
+          <h2>10 × 10 × 10 battle cube</h2>
           <p>
-            Both ships are immobile in this fixture. Choose Skip movement, then click the opposing
-            ship.
+            Drag to orbit and click a marker to inspect its coordinate and occupancy. Orbiting and
+            inspection never change the battle state; the reset control reuses the same 3D view.
+          </p>
+          <p id="cube-fixture-inspection" class="cube-inspection" role="status" aria-live="polite">
+            Hover or click a marker to inspect its X/Y/Z coordinate and occupancy.
           </p>
         </div>
         <div id="combat-board" class="board-host" aria-label="Combat board"></div>

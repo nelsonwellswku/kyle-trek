@@ -11,9 +11,11 @@ interface TestGame {
 
 interface TestScene {
   readonly session: unknown;
+  readonly cubeHost: unknown;
   readonly updateCalls: number[];
   disposeCount: number;
   reportDrawn(revision: number): void;
+  reportRendererError(message: string): void;
   updateGame(revision: number): void;
 }
 
@@ -66,12 +68,15 @@ function sceneMock() {
     readonly updateCalls: number[] = [];
     disposeCount = 0;
     private readonly onDrawn: (revision: number) => void;
+    private readonly onRendererError: (message: string) => void;
 
     constructor(
       readonly session: unknown,
       ...rest: unknown[]
     ) {
       this.onDrawn = rest[2] as (revision: number) => void;
+      this.onRendererError = rest[12] as (message: string) => void;
+      (this as unknown as TestScene & { cubeHost: unknown }).cubeHost = rest[10];
       runtime.scenes.push(this as unknown as TestScene);
     }
 
@@ -85,6 +90,10 @@ function sceneMock() {
 
     reportDrawn(revision: number): void {
       this.onDrawn(revision);
+    }
+
+    reportRendererError(message: string): void {
+      this.onRendererError(message);
     }
   };
 }
@@ -139,6 +148,7 @@ describe('GameApplication combat composition', () => {
     expect(runtime.games).toHaveLength(1);
     expect(runtime.gameConfigs).toHaveLength(1);
     expect(runtime.scenes).toHaveLength(1);
+    expect(scene.cubeHost).toBe(root.element('#game-board'));
     expect(battleSession(scene).snapshot).toMatchObject({
       phase: 'movement-ready',
       activePlayer: 'player-1',
@@ -152,13 +162,32 @@ describe('GameApplication combat composition', () => {
     expect(root.element('[role="status"]').textContent).toBe('Game 1 ready');
     expect(runtime.combatBoardReadiness).toEqual([false, true]);
     expect(runtime.games[0]?.canvas.getAttribute('aria-label')).toBe(
-      'Two-player spaceship combat board',
+      'Orbitable 10 by 10 by 10 spaceship combat cube',
     );
     expect(root.element('button.new-game-button').disabled).toBe(false);
 
     application.dispose();
     expect(runtime.games[0]?.destroyCount).toBe(1);
     expect(scene.disposeCount).toBe(1);
+  });
+
+  it('surfaces a readable Three.js WebGL2 startup failure and disposes the incomplete app', () => {
+    const root = new FakeRoot();
+    const application = new GameApplication(
+      root as unknown as HTMLElement,
+      new ScriptedRandomSource(battleDraws()),
+    );
+    const scene = runtime.scenes[0];
+    if (!scene) throw new Error('Expected the combat scene to be composed.');
+
+    scene.reportRendererError('Unable to initialize the 3D cube view: WebGL2 unavailable.');
+
+    expect(root.element('[role="alert"]').textContent).toContain('3D board could not start');
+    expect(root.element('[role="alert"]').textContent).toContain('WebGL2 unavailable');
+    expect(root.element('[role="alert"]').hidden).toBe(false);
+    expect(root.element('button.new-game-button').disabled).toBe(true);
+    expect(runtime.games[0]?.destroyCount).toBe(1);
+    application.dispose();
   });
 
   it('keeps the current battle intact when replacement generation fails', () => {

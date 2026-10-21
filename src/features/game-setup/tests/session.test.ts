@@ -11,7 +11,7 @@ describe('GameSession', () => {
     expect(session.revision).toBe(1);
     expect(source.consumedDraws).toBe(2);
     expect(session.currentSetup.ship1.position).toMatchObject({ row: 1, column: 1 });
-    expect(session.currentSetup.ship2.position).toMatchObject({ row: 9, column: 5 });
+    expect(session.currentSetup.ship2.position).toMatchObject({ row: 9, column: 3, z: 3 });
 
     const initialSetup = session.currentSetup;
     for (let observation = 0; observation < 20; observation += 1) {
@@ -25,8 +25,8 @@ describe('GameSession', () => {
     expect(session.currentSetup).toBe(replacement);
     expect(session.revision).toBe(2);
     expect(source.consumedDraws).toBe(4);
-    expect(replacement.ship1.position).toMatchObject({ row: 2, column: 3 });
-    expect(replacement.ship2.position).toMatchObject({ row: 10, column: 9 });
+    expect(replacement.ship1.position).toMatchObject({ row: 1, column: 7, z: 3 });
+    expect(replacement.ship2.position).toMatchObject({ row: 9, column: 10, z: 3 });
   });
 
   it('increments the revision for identical consecutive layouts', () => {
@@ -57,8 +57,8 @@ describe('GameSession', () => {
 
     expect(session.currentSetup).toBe(recoveredSetup);
     expect(session.revision).toBe(revisionBeforeFailure + 1);
-    expect(recoveredSetup.ship1.position).toMatchObject({ row: 2, column: 10 });
-    expect(recoveredSetup.ship2.position).toMatchObject({ row: 10, column: 10 });
+    expect(recoveredSetup.ship1.position).toMatchObject({ row: 2, column: 10, z: 9 });
+    expect(recoveredSetup.ship2.position).toMatchObject({ row: 10, column: 10, z: 9 });
     expect(source.consumedDraws).toBe(8);
   });
 });

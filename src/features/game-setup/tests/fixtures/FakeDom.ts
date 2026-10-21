@@ -86,6 +86,7 @@ export class FakeRoot extends FakeElement {
   readonly elements = new Map<string, FakeElement>([
     ['#ship-1-position', new FakeElement()],
     ['#ship-2-position', new FakeElement()],
+    ['#cube-inspection', new FakeElement()],
     ['[role="status"]', new FakeElement()],
     ['[role="alert"]', new FakeElement()],
     ['#movement-error', new FakeElement()],

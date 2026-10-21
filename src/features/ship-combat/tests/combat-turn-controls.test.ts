@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
+import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
 import { AbilityStat } from '../../ship-stats/domain/AbilityStat.js';
 import { BattleSession, type BattleSnapshot } from '../domain/BattleSession.js';
@@ -12,7 +13,9 @@ function combatGame(agilityScore: number): CombatGame {
   const ship = (identity: 'ship-1' | 'ship-2', row: number): CombatShip => ({
     identity,
     owner: identity === 'ship-1' ? 'player-1' : 'player-2',
-    position: new BoardPosition(row, 4),
+    position: new CubePosition(4, row, 1),
+    orientation:
+      identity === 'ship-1' ? CubeOrientation.ship1Default() : CubeOrientation.ship2Default(),
     agility: new AgilityStat(agilityScore),
     strength: new AbilityStat(12),
     constitution: new AbilityStat(12),

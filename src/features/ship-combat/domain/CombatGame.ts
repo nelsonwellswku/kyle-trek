@@ -1,5 +1,8 @@
 import { BoardPosition } from '../../board/domain/BoardPosition.js';
-import type { BoardSnapshot, ShipIdentity } from '../../board/domain/BoardSnapshot.js';
+import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
+import { CubeSnapshot } from '../../board/domain/CubeSnapshot.js';
+import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
 import { AbilityStat } from '../../ship-stats/domain/AbilityStat.js';
 import type { PlayerIdentity } from '../../ship-movement/domain/MovementGame.js';
@@ -7,7 +10,8 @@ import type { PlayerIdentity } from '../../ship-movement/domain/MovementGame.js'
 export interface CombatShip {
   readonly identity: ShipIdentity;
   readonly owner: PlayerIdentity;
-  readonly position: BoardPosition;
+  readonly position: CubePosition;
+  readonly orientation: CubeOrientation;
   readonly agility: AgilityStat;
   readonly strength: AbilityStat;
   readonly constitution: AbilityStat;
@@ -16,25 +20,21 @@ export interface CombatShip {
   readonly hitPoints: number;
 }
 
-export class CombatGame implements BoardSnapshot {
-  readonly rows = 10 as const;
-  readonly columns = 10 as const;
-  readonly ship1: CombatShip;
-  readonly ship2: CombatShip;
+/** Complete immutable battle snapshot retaining combat data alongside cube state. */
+export class CombatGame extends CubeSnapshot {
+  declare readonly ship1: CombatShip;
+  declare readonly ship2: CombatShip;
 
   constructor(ship1: CombatShip, ship2: CombatShip) {
+    super(
+      { identity: ship1.identity, position: ship1.position },
+      { identity: ship2.identity, position: ship2.position },
+    );
     if (ship1.identity !== 'ship-1' || ship2.identity !== 'ship-2') {
       throw new RangeError('CombatGame requires ship-1 followed by ship-2.');
     }
     if (ship1.owner !== 'player-1' || ship2.owner !== 'player-2') {
       throw new RangeError('Each combat ship must belong to its matching player.');
-    }
-    if (
-      !(ship1.position instanceof BoardPosition) ||
-      !(ship2.position instanceof BoardPosition) ||
-      ship1.position.equals(ship2.position)
-    ) {
-      throw new RangeError('Combat ships require distinct valid board positions.');
     }
 
     this.ship1 = CombatGame.freezeShip(ship1);
@@ -42,13 +42,19 @@ export class CombatGame implements BoardSnapshot {
     Object.freeze(this);
   }
 
-  withPosition(identity: ShipIdentity, position: BoardPosition): CombatGame {
+  /** BoardPosition is accepted temporarily for the standalone legacy 2D session. */
+  withPosition(identity: ShipIdentity, position: CubePosition | BoardPosition): CombatGame {
     if (!(position instanceof BoardPosition)) {
-      throw new RangeError('A combat position must be a valid BoardPosition.');
+      throw new RangeError('A combat position must be a valid CubePosition.');
     }
+    const current = identity === 'ship-1' ? this.ship1 : this.ship2;
+    const cubePosition =
+      position instanceof CubePosition
+        ? position
+        : new CubePosition(position.column, position.row, current.position.z);
     return new CombatGame(
-      identity === 'ship-1' ? { ...this.ship1, position } : this.ship1,
-      identity === 'ship-2' ? { ...this.ship2, position } : this.ship2,
+      identity === 'ship-1' ? { ...this.ship1, position: cubePosition } : this.ship1,
+      identity === 'ship-2' ? { ...this.ship2, position: cubePosition } : this.ship2,
     );
   }
 
@@ -66,11 +72,15 @@ export class CombatGame implements BoardSnapshot {
 
   private static freezeShip(ship: CombatShip): CombatShip {
     if (
+      !(ship.position instanceof CubePosition) ||
+      !(ship.orientation instanceof CubeOrientation) ||
       !(ship.agility instanceof AgilityStat) ||
       !(ship.strength instanceof AbilityStat) ||
       !(ship.constitution instanceof AbilityStat)
     ) {
-      throw new RangeError('Combat ships require validated ability values.');
+      throw new RangeError(
+        'Combat ships require validated cube positions, orientations, and abilities.',
+      );
     }
     if (
       ship.armorClass !== 12 ||
@@ -87,6 +97,7 @@ export class CombatGame implements BoardSnapshot {
       identity: ship.identity,
       owner: ship.owner,
       position: ship.position,
+      orientation: ship.orientation,
       agility: ship.agility,
       strength: ship.strength,
       constitution: ship.constitution,

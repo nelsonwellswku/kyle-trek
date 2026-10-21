@@ -6,7 +6,7 @@ describe('CombatGameFactory', () => {
   it('draws positions first, then four independent values per ship in documented order', () => {
     const random = new ScriptedRandomSource([
       0,
-      0.5, // ship-1 (1,1), ship-2 (9,1)
+      0.5, // ship-1 (1,1,1), ship-2 (6,9,1)
       0,
       0.5,
       0.75,
@@ -20,7 +20,11 @@ describe('CombatGameFactory', () => {
     const battle = new CombatGameFactory(random).create();
     expect(random.consumedDraws).toBe(10);
     expect(battle.ship1.position.row).toBe(1);
-    expect(battle.ship2.position.row).toBe(10);
+    expect(battle.ship2.position.row).toBe(9);
+    expect(battle.ship1.orientation.forward).toEqual({ axis: 'y', sign: 1 });
+    expect(battle.ship2.orientation.forward).toEqual({ axis: 'y', sign: -1 });
+    expect(battle.ship1.orientation.up).toEqual({ axis: 'z', sign: 1 });
+    expect(battle.ship2.orientation.up).toEqual({ axis: 'z', sign: 1 });
     expect(battle.ship1.agility.score).toBe(8);
     expect(battle.ship1.strength.score).toBe(14);
     expect(battle.ship1.constitution.score).toBe(17);

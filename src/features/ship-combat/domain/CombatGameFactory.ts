@@ -2,6 +2,8 @@ import type { RandomSource } from '../../game-setup/domain/RandomSource.js';
 import { GameSetupFactory } from '../../game-setup/domain/GameSetupFactory.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
 import { AbilityStat } from '../../ship-stats/domain/AbilityStat.js';
+import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
+import type { CubePosition } from '../../board/domain/CubePosition.js';
 import { DiceRoller } from './DiceRoller.js';
 import { CombatGame, type CombatShip } from './CombatGame.js';
 
@@ -16,15 +18,26 @@ export class CombatGameFactory {
 
   create(): CombatGame {
     const setup = this.setupFactory.create();
-    const ship1 = this.createShip('ship-1', 'player-1', setup.ship1.position);
-    const ship2 = this.createShip('ship-2', 'player-2', setup.ship2.position);
+    const ship1 = this.createShip(
+      'ship-1',
+      'player-1',
+      setup.ship1.position,
+      CubeOrientation.ship1Default(),
+    );
+    const ship2 = this.createShip(
+      'ship-2',
+      'player-2',
+      setup.ship2.position,
+      CubeOrientation.ship2Default(),
+    );
     return new CombatGame(ship1, ship2);
   }
 
   private createShip(
     identity: CombatShip['identity'],
     owner: CombatShip['owner'],
-    position: CombatShip['position'],
+    position: CubePosition,
+    orientation: CubeOrientation,
   ): CombatShip {
     const agility = new AgilityStat(this.diceRoller.rollInclusive(8, 20));
     const strength = new AbilityStat(this.diceRoller.rollInclusive(8, 20));
@@ -35,6 +48,7 @@ export class CombatGameFactory {
       identity,
       owner,
       position,
+      orientation,
       agility,
       strength,
       constitution,

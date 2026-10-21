@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
+import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
 import { AbilityStat } from '../../ship-stats/domain/AbilityStat.js';
@@ -20,7 +21,7 @@ function game(
 ): CombatGame {
   const ship = (
     identity: ShipIdentity,
-    position: BoardPosition,
+    position: CubePosition,
     agilityScore: number,
     strengthScore: number,
     hitPoints: number,
@@ -28,6 +29,8 @@ function game(
     identity,
     owner: identity === 'ship-1' ? 'player-1' : 'player-2',
     position,
+    orientation:
+      identity === 'ship-1' ? CubeOrientation.ship1Default() : CubeOrientation.ship2Default(),
     agility: new AgilityStat(agilityScore),
     strength: new AbilityStat(strengthScore),
     constitution: new AbilityStat(10),
@@ -39,14 +42,14 @@ function game(
   return new CombatGame(
     ship(
       'ship-1',
-      new BoardPosition(1, 1),
+      new CubePosition(1, 1, 1),
       options.agility1 ?? 14,
       options.strength1 ?? 10,
       options.hitPoints1 ?? 10,
     ),
     ship(
       'ship-2',
-      new BoardPosition(10, 10),
+      new CubePosition(10, 10, 10),
       options.agility2 ?? 14,
       options.strength2 ?? 10,
       options.hitPoints2 ?? 10,
@@ -128,14 +131,16 @@ describe('BattleSession', () => {
     const move = moveOneCell(session);
     expect(snapshot(session)).toMatchObject({ phase: 'moving', activePlayer: 'player-1' });
     expect(snapshot(session).turnToken).toBe(initial.turnToken);
-    expect(snapshot(session).game.ship1.position).toEqual(new BoardPosition(1, 1));
+    expect(snapshot(session).game.ship1.position).toEqual(new CubePosition(1, 1, 1));
     arrive(session, move);
 
     const arrived = snapshot(session);
     expect(arrived.phase).toBe('attack-ready');
     expect(arrived.activePlayer).toBe('player-1');
     expect(arrived.turnToken).toBe(initial.turnToken);
-    expect(arrived.game.ship1.position).toEqual(move.destination);
+    expect(arrived.game.ship1.position).toEqual(
+      new CubePosition(move.destination.column, move.destination.row, 1),
+    );
   });
 
   it('requires explicit movement skip when immobile and only ends an attack-ready turn', () => {

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BoardGeometry } from '../features/board/presentation/BoardGeometry.js';
+import type { CubePickTarget } from '../features/board/presentation/CubePicker.js';
 import type { BoardSnapshot } from '../features/board/domain/BoardSnapshot.js';
 import { MathRandomSource } from '../features/game-setup/adapters/MathRandomSource.js';
 import type { RandomSource } from '../features/game-setup/domain/RandomSource.js';
@@ -59,6 +60,11 @@ export class GameApplication {
       undefined,
       undefined,
       this.handleBoardChanged,
+      undefined,
+      undefined,
+      this.controls.gameCanvasHost,
+      this.handleCubeInspection,
+      this.handleCubeRendererError,
     );
     this.scene = scene;
 
@@ -183,6 +189,27 @@ export class GameApplication {
     this.controls.clearMovementError();
   };
 
+  private readonly handleCubeInspection = (
+    target: CubePickTarget | null,
+    game: CombatGame,
+  ): void => {
+    if (!target) {
+      this.controls.updateInspection(null);
+      return;
+    }
+    const position =
+      target.type === 'cell'
+        ? target.position
+        : target.identity === 'ship-1'
+          ? game.ship1.position
+          : game.ship2.position;
+    this.controls.updateInspection(position, game.occupantAt(position));
+  };
+
+  private readonly handleCubeRendererError = (message: string): void => {
+    this.showStartupError(`The 3D board could not start. ${message}`);
+  };
+
   private processQueuedNewGame(): void {
     if (this.queuedNewGames === 0 || this.isDisposed) return;
     this.queuedNewGames -= 1;
@@ -195,11 +222,11 @@ export class GameApplication {
     this.showStartupError();
   };
 
-  private showStartupError(): void {
+  private showStartupError(message = STARTUP_ERROR): void {
     if (this.isReady || this.isDisposed) return;
 
     window.removeEventListener('error', this.handleStartupError);
-    this.controls.showStartupError(STARTUP_ERROR);
+    this.controls.showStartupError(message);
     this.session?.dispose();
     this.scene?.dispose();
     this.scene = null;

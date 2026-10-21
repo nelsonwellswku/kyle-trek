@@ -28,6 +28,8 @@ export class BoardSnapshot {
 
     this.ship1 = Object.freeze({ identity: 'ship-1', position: ship1.position });
     this.ship2 = Object.freeze({ identity: 'ship-2', position: ship2.position });
-    Object.freeze(this);
+    if (new.target === BoardSnapshot) {
+      Object.freeze(this);
+    }
   }
 }

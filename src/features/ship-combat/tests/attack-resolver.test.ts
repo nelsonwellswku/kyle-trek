@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
+import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
 import { AbilityStat } from '../../ship-stats/domain/AbilityStat.js';
 import { CombatGame, type CombatShip } from '../domain/CombatGame.js';
@@ -17,7 +18,9 @@ function ship(
   return {
     identity,
     owner: identity === 'ship-1' ? 'player-1' : 'player-2',
-    position: new BoardPosition(row, 2),
+    position: new CubePosition(2, row, 1),
+    orientation:
+      identity === 'ship-1' ? CubeOrientation.ship1Default() : CubeOrientation.ship2Default(),
     agility: new AgilityStat(14),
     strength: new AbilityStat(strengthScore),
     constitution: new AbilityStat(12),

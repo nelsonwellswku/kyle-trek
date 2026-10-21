@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
+import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 import type { BoardSnapshot } from '../../board/domain/BoardSnapshot.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
 import { AbilityStat } from '../../ship-stats/domain/AbilityStat.js';
@@ -9,7 +10,9 @@ function ship(identity: 'ship-1' | 'ship-2', row: number): CombatShip {
   return {
     identity,
     owner: identity === 'ship-1' ? 'player-1' : 'player-2',
-    position: new BoardPosition(row, 2),
+    position: new CubePosition(2, row, 1),
+    orientation:
+      identity === 'ship-1' ? CubeOrientation.ship1Default() : CubeOrientation.ship2Default(),
     agility: new AgilityStat(14),
     strength: new AbilityStat(16),
     constitution: new AbilityStat(12),
@@ -33,6 +36,10 @@ describe('CombatGame', () => {
     expect(value.ship1.owner).toBe('player-1');
     expect(value.ship2.identity).toBe('ship-2');
     expect(value.ship2.owner).toBe('player-2');
+    expect(value.ship1.orientation.forward).toEqual({ axis: 'y', sign: 1 });
+    expect(value.ship2.orientation.forward).toEqual({ axis: 'y', sign: -1 });
+    expect(value.ship1.orientation.up).toEqual({ axis: 'z', sign: 1 });
+    expect(value.ship2.orientation.up).toEqual({ axis: 'z', sign: 1 });
     expect(value.ship1.armorClass).toBe(12);
     expect(Object.isFrozen(value)).toBe(true);
     expect(Object.isFrozen(value.ship1)).toBe(true);
@@ -68,19 +75,21 @@ describe('CombatGame', () => {
 
   it('returns complete immutable snapshots for position and damage updates', () => {
     const original = game();
-    const moved = original.withPosition('ship-1', new BoardPosition(2, 3));
+    const moved = original.withPosition('ship-1', new CubePosition(3, 2, 4));
     const damaged = moved.withDamage('ship-2', 5);
 
-    expect(original.ship1.position).toEqual(new BoardPosition(1, 2));
-    expect(moved.ship1.position).toEqual(new BoardPosition(2, 3));
-    expect(moved.ship1).toEqual({ ...original.ship1, position: new BoardPosition(2, 3) });
+    expect(original.ship1.position).toEqual(new CubePosition(2, 1, 1));
+    expect(moved.ship1.position).toEqual(new CubePosition(3, 2, 4));
+    expect(moved.ship1).toEqual({ ...original.ship1, position: new CubePosition(3, 2, 4) });
     expect(moved.ship1.strength).toBe(original.ship1.strength);
     expect(moved.ship1.constitution).toBe(original.ship1.constitution);
+    expect(moved.ship1.orientation).toBe(original.ship1.orientation);
     expect(moved.ship1.hitPoints).toBe(12);
     expect(damaged.ship2.hitPoints).toBe(7);
     expect(damaged.ship2).toEqual({ ...moved.ship2, hitPoints: 7 });
     expect(damaged.ship2.startingHitPoints).toBe(12);
     expect(damaged.ship2.agility).toBe(original.ship2.agility);
+    expect(damaged.ship2.orientation).toBe(original.ship2.orientation);
     expect(damaged.ship1).toEqual(moved.ship1);
     expect(Object.isFrozen(damaged.ship2)).toBe(true);
   });

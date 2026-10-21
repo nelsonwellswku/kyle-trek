@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
+import { Vector3 } from 'three';
 import '../../../../app/styles.css';
-import { BoardPosition } from '../../../board/domain/BoardPosition.js';
+import { CubeOrientation } from '../../../board/domain/CubeOrientation.js';
+import { CubePosition } from '../../../board/domain/CubePosition.js';
+import type { CubePickTarget } from '../../../board/presentation/CubePicker.js';
 import { BoardGeometry } from '../../../board/presentation/BoardGeometry.js';
 import { AgilityStat } from '../../../ship-movement/domain/AgilityStat.js';
 import { AbilityStat } from '../../../ship-stats/domain/AbilityStat.js';
@@ -15,6 +18,26 @@ import type { TorpedoIdentity } from '../../presentation/TorpedoAnimator.js';
 import type { TorpedoVisualEvent } from '../../presentation/PhaserTorpedoAnimator.js';
 
 const BOARD_SIZE = 600;
+
+interface CubeBrowserFixture {
+  readonly markerCount: number;
+  readonly positions: readonly CubePosition[];
+  readonly canvas: HTMLCanvasElement;
+  pickAt(clientX: number, clientY: number): CubePickTarget | null;
+  verifyAllCellPicks(): Promise<{
+    readonly checked: number;
+    readonly failed: readonly string[];
+    readonly stateUnchanged: boolean;
+    readonly oneThreeCanvas: boolean;
+    readonly canvasBoundsAligned: boolean;
+  }>;
+}
+
+declare global {
+  interface Window {
+    cubeFixture?: CubeBrowserFixture;
+  }
+}
 
 interface CombatPreset {
   readonly attackerPosition: readonly [row: number, column: number];
@@ -172,9 +195,11 @@ const boardHost = requiredElement<HTMLElement>('#combat-board');
 const controlsHost = requiredElement<HTMLElement>('#combat-controls');
 const presetSelect = requiredElement<HTMLSelectElement>('#combat-preset');
 const resetButton = requiredElement<HTMLButtonElement>('#reset-battle');
+const verifyCubeButton = requiredElement<HTMLButtonElement>('#verify-cube-picks');
 const clearButton = requiredElement<HTMLButtonElement>('#clear-observations');
 const status = requiredElement<HTMLElement>('#fixture-status');
 const eventLog = requiredElement<HTMLElement>('#event-log');
+const cubeInspection = requiredElement<HTMLElement>('#cube-fixture-inspection');
 
 const geometry = new BoardGeometry(BOARD_SIZE);
 const controls = new CombatControls(controlsHost);
@@ -195,7 +220,7 @@ function currentPreset(): CombatPreset {
 
 function makeShip(
   identity: CombatShip['identity'],
-  position: BoardPosition,
+  position: CubePosition,
   strengthScore: number,
   hitPoints: number,
 ): CombatShip {
@@ -203,6 +228,8 @@ function makeShip(
     identity,
     owner: identity === 'ship-1' ? 'player-1' : 'player-2',
     position,
+    orientation:
+      identity === 'ship-1' ? CubeOrientation.ship1Default() : CubeOrientation.ship2Default(),
     agility: new AgilityStat(8),
     strength: new AbilityStat(strengthScore),
     constitution: new AbilityStat(10),
@@ -214,8 +241,18 @@ function makeShip(
 
 function makeGame(preset: CombatPreset): CombatGame {
   return new CombatGame(
-    makeShip('ship-1', new BoardPosition(...preset.attackerPosition), preset.strengthScore, 10),
-    makeShip('ship-2', new BoardPosition(...preset.defenderPosition), 10, preset.defenderHitPoints),
+    makeShip(
+      'ship-1',
+      new CubePosition(preset.attackerPosition[1], preset.attackerPosition[0], 5),
+      preset.strengthScore,
+      10,
+    ),
+    makeShip(
+      'ship-2',
+      new CubePosition(preset.defenderPosition[1], preset.defenderPosition[0], 5),
+      10,
+      preset.defenderHitPoints,
+    ),
   );
 }
 
@@ -283,8 +320,102 @@ function observeRenderedFrames(): void {
 
 function onDrawn(revision: number): void {
   if (revision !== session.snapshot.gameRevision) return;
-  status.textContent = `Battle revision ${revision} ready · Skip movement, then select the opposing ship.`;
+  status.textContent = `Battle revision ${revision} ready · drag to orbit; inspect any marker.`;
   resetButton.disabled = false;
+  const view = scene.cubeViewForFixture;
+  if (view) {
+    verifyCubeButton.disabled = false;
+    window.cubeFixture = {
+      markerCount: view.markerCount,
+      positions: view.cellPositions,
+      canvas: view.canvas,
+      pickAt: (clientX, clientY) => view.pickAt(clientX, clientY),
+      verifyAllCellPicks: async () => {
+        const initial = session.snapshot;
+        if (initial.phase === 'disposed') throw new Error('The fixture battle was disposed.');
+        const initialCameraPosition = view.camera.position.clone();
+        const initialCameraQuaternion = view.camera.quaternion.clone();
+        const bounds = view.canvas.getBoundingClientRect();
+        const failures: string[] = [];
+        const elevations = [0.22, 0.5, 0.85, 1.2, 1.57, 1.9, 2.35, 2.75];
+        const azimuthSteps = 16;
+
+        for (const [index, position] of view.cellPositions.entries()) {
+          const world = new Vector3(position.x - 5.5, position.y - 5.5, position.z - 5.5);
+          let found = false;
+          for (const elevation of elevations) {
+            for (let azimuthIndex = 0; azimuthIndex < azimuthSteps; azimuthIndex += 1) {
+              const azimuth = (azimuthIndex / azimuthSteps) * Math.PI * 2;
+              const radius = 17;
+              view.camera.position.set(
+                radius * Math.sin(elevation) * Math.cos(azimuth),
+                radius * Math.sin(elevation) * Math.sin(azimuth),
+                radius * Math.cos(elevation),
+              );
+              view.camera.up.set(0, 0, 1);
+              view.camera.lookAt(0, 0, 0);
+              view.camera.updateMatrixWorld(true);
+              const projected = world.clone().project(view.camera);
+              if (
+                projected.x < -1 ||
+                projected.x > 1 ||
+                projected.y < -1 ||
+                projected.y > 1 ||
+                projected.z < -1 ||
+                projected.z > 1
+              ) {
+                continue;
+              }
+              const clientX = bounds.left + ((projected.x + 1) / 2) * bounds.width;
+              const clientY = bounds.top + ((1 - projected.y) / 2) * bounds.height;
+              const target = view.pickAt(clientX, clientY);
+              if (target?.type === 'cell' && target.position.equals(position)) {
+                found = true;
+                break;
+              }
+            }
+            if (found) break;
+          }
+          if (!found) failures.push(`${position.x},${position.y},${position.z}`);
+          if (index % 25 === 0) {
+            status.textContent = `Checking cube marker picks: ${index + 1} / 1,000`;
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+          }
+        }
+
+        view.camera.position.copy(initialCameraPosition);
+        view.camera.quaternion.copy(initialCameraQuaternion);
+        view.camera.updateMatrixWorld(true);
+        view.renderCurrentPose();
+        const final = session.snapshot;
+        const stateUnchanged =
+          final.phase !== 'disposed' &&
+          final.game === initial.game &&
+          final.gameRevision === initial.gameRevision &&
+          final.turnToken === initial.turnToken &&
+          final.phase === initial.phase;
+        const hostBounds = boardHost.getBoundingClientRect();
+        const phaserCanvas = boardHost.querySelector('canvas:not(.three-cube-canvas)');
+        const phaserBounds = phaserCanvas?.getBoundingClientRect();
+        return {
+          checked: view.cellPositions.length,
+          failed: failures,
+          stateUnchanged,
+          oneThreeCanvas: boardHost.querySelectorAll('.three-cube-canvas').length === 1,
+          canvasBoundsAligned:
+            !!phaserBounds &&
+            bounds.left === hostBounds.left &&
+            bounds.top === hostBounds.top &&
+            bounds.width === hostBounds.width &&
+            bounds.height === hostBounds.height &&
+            phaserBounds.left === bounds.left &&
+            phaserBounds.top === bounds.top &&
+            phaserBounds.width === bounds.width &&
+            phaserBounds.height === bounds.height,
+        };
+      },
+    };
+  }
 }
 
 function showError(message: string): void {
@@ -303,6 +434,23 @@ const scene = new CombatScene(
   undefined,
   observeTorpedo,
   new FixedTorpedoPathRandomSource(),
+  boardHost,
+  (target: CubePickTarget | null, game: CombatGame) => {
+    if (!target) {
+      cubeInspection.textContent =
+        'Hover or click a marker to inspect its X/Y/Z coordinate and occupancy.';
+      return;
+    }
+    const position =
+      target.type === 'cell'
+        ? target.position
+        : target.identity === 'ship-1'
+          ? game.ship1.position
+          : game.ship2.position;
+    const occupant = game.occupantAt(position);
+    cubeInspection.textContent = `X ${position.x}, Y ${position.y}, Z ${position.z} — ${occupant ?? 'empty'}.`;
+  },
+  (message) => showError(`3D cube renderer startup failed: ${message}`),
 );
 
 function attackSamples(preset: CombatPreset): readonly number[] {
@@ -328,8 +476,26 @@ function clearObservations(): void {
   eventLog.textContent = '';
 }
 
+async function verifyCubePicks(): Promise<void> {
+  const fixture = window.cubeFixture;
+  if (!fixture) return;
+  verifyCubeButton.disabled = true;
+  status.textContent = 'Sweeping orbit poses and ray-picking all cube markers…';
+  try {
+    const result = await fixture.verifyAllCellPicks();
+    status.textContent = `Marker sweep: ${result.checked} checked, ${result.failed.length} missed · state ${result.stateUnchanged ? 'unchanged' : 'changed'} · one canvas ${result.oneThreeCanvas ? 'yes' : 'no'} · aligned ${result.canvasBoundsAligned ? 'yes' : 'no'}.`;
+    eventLog.textContent = JSON.stringify(result, null, 2);
+  } catch (error) {
+    status.textContent =
+      error instanceof Error ? error.message : 'Marker-pick verification failed.';
+  } finally {
+    verifyCubeButton.disabled = false;
+  }
+}
+
 resetButton.disabled = true;
 resetButton.addEventListener('click', resetBattle);
+verifyCubeButton.addEventListener('click', verifyCubePicks);
 clearButton.addEventListener('click', clearObservations);
 
 try {
@@ -359,6 +525,7 @@ requestAnimationFrame(observeRenderedFrames);
 
 function disposeFixture(): void {
   resetButton.removeEventListener('click', resetBattle);
+  verifyCubeButton.removeEventListener('click', verifyCubePicks);
   clearButton.removeEventListener('click', clearObservations);
   session.dispose();
   scene.dispose();

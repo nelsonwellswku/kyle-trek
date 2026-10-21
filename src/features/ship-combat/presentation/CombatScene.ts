@@ -11,12 +11,15 @@ import { PhaserTorpedoAnimator, type TorpedoVisualObserver } from './PhaserTorpe
 import type { CombatControls } from './CombatControls.js';
 import { BoardView } from '../../board/presentation/BoardView.js';
 import { CombatController } from './CombatController.js';
+import { ThreeCubeView } from '../../board/presentation/ThreeCubeView.js';
+import type { CubePickTarget } from '../../board/presentation/CubePicker.js';
 
 export type CombatSceneReadyHandler = (revision: number) => void;
 
 /** Phaser requires Scene inheritance for lifecycle/input; combat behavior remains composed. */
 export class CombatScene extends Phaser.Scene {
   private boardView: BoardView | null = null;
+  private cubeView: ThreeCubeView | null = null;
   private controller: CombatController | null = null;
   private isListeningForPointer = false;
   private isCreated = false;
@@ -34,8 +37,18 @@ export class CombatScene extends Phaser.Scene {
     private readonly onBoardChanged: (game: CombatGame) => void = () => {},
     private readonly onTorpedoEvent: TorpedoVisualObserver = () => {},
     private readonly torpedoPathRandomSource?: RandomSource,
+    private readonly cubeHost?: HTMLElement,
+    private readonly onCubeInspection: (
+      target: CubePickTarget | null,
+      game: CombatGame,
+    ) => void = () => {},
+    private readonly onRendererError: (message: string) => void = () => {},
   ) {
     super({ key: 'ship-combat' });
+  }
+
+  get cubeViewForFixture(): ThreeCubeView | null {
+    return this.cubeView;
   }
 
   create(): void {
@@ -46,6 +59,20 @@ export class CombatScene extends Phaser.Scene {
 
     this.isCreated = true;
     this.boardView = new BoardView(this, this.geometry);
+    if (this.cubeHost) {
+      try {
+        this.cubeView = new ThreeCubeView(this.cubeHost, (target) => {
+          const current = this.session.snapshot;
+          if (current.phase !== 'disposed') this.onCubeInspection(target, current.game);
+        });
+      } catch (error) {
+        this.onRendererError(
+          error instanceof Error ? error.message : 'WebGL2 could not initialize the 3D cube view.',
+        );
+        this.dispose();
+        return;
+      }
+    }
     this.controller = new CombatController(
       this.session,
       this.geometry,
@@ -63,8 +90,10 @@ export class CombatScene extends Phaser.Scene {
       this.onAttackError,
       this.onBoardChanged,
     );
-    this.input.on('pointerdown', this.handlePointerDown, this);
-    this.isListeningForPointer = true;
+    if (!this.cubeView) {
+      this.input.on('pointerdown', this.handlePointerDown, this);
+      this.isListeningForPointer = true;
+    }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.dispose, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.dispose, this);
     this.drawSnapshot(snapshot);
@@ -92,6 +121,8 @@ export class CombatScene extends Phaser.Scene {
     }
     this.controller?.dispose();
     this.controller = null;
+    this.cubeView?.dispose();
+    this.cubeView = null;
     this.boardView?.dispose();
     this.boardView = null;
     this.controls.dispose();
@@ -100,6 +131,7 @@ export class CombatScene extends Phaser.Scene {
   private drawSnapshot(snapshot: Exclude<BattleSnapshot, { phase: 'disposed' }>): void {
     const boardView = this.boardView;
     if (!boardView) throw new Error('The combat board is not initialized.');
+    this.cubeView?.render(snapshot.game);
     boardView.draw(snapshot.game, snapshot.gameRevision, (renderedRevision) => {
       if (this.isDisposed) return;
       const current = this.session.snapshot;

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
+import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 import { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
 import type { BoardView } from '../../board/presentation/BoardView.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
@@ -18,12 +19,14 @@ import { ScriptedRandomSource } from './fixtures/ScriptedRandomSource.js';
 function combatGame(defenderHitPoints = 10): CombatGame {
   const ship = (
     identity: 'ship-1' | 'ship-2',
-    position: BoardPosition,
+    position: CubePosition,
     hitPoints: number,
   ): CombatShip => ({
     identity,
     owner: identity === 'ship-1' ? 'player-1' : 'player-2',
     position,
+    orientation:
+      identity === 'ship-1' ? CubeOrientation.ship1Default() : CubeOrientation.ship2Default(),
     agility: new AgilityStat(8),
     strength: new AbilityStat(10),
     constitution: new AbilityStat(10),
@@ -33,8 +36,8 @@ function combatGame(defenderHitPoints = 10): CombatGame {
   });
 
   return new CombatGame(
-    ship('ship-1', new BoardPosition(1, 1), 10),
-    ship('ship-2', new BoardPosition(10, 10), defenderHitPoints),
+    ship('ship-1', new CubePosition(1, 1, 1), 10),
+    ship('ship-2', new CubePosition(10, 10, 10), defenderHitPoints),
   );
 }
 

@@ -8,7 +8,9 @@ export class BoardPosition {
 
     this.row = row;
     this.column = column;
-    Object.freeze(this);
+    if (new.target === BoardPosition) {
+      Object.freeze(this);
+    }
   }
 
   equals(other: BoardPosition): boolean {
