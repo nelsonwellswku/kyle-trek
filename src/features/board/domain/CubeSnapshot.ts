@@ -1,5 +1,6 @@
-import { BoardSnapshot, type ShipIdentity } from './BoardSnapshot.js';
 import { CubePosition } from './CubePosition.js';
+
+export type ShipIdentity = 'ship-1' | 'ship-2';
 
 export interface CubeShipPlacement {
   readonly identity: ShipIdentity;
@@ -7,17 +8,23 @@ export interface CubeShipPlacement {
 }
 
 /** Immutable fixed-size cube state; occupancy is derived from the two placements. */
-export class CubeSnapshot extends BoardSnapshot {
+export class CubeSnapshot {
   readonly width = 10 as const;
   readonly height = 10 as const;
   readonly depth = 10 as const;
-  declare readonly ship1: CubeShipPlacement;
-  declare readonly ship2: CubeShipPlacement;
+  readonly ship1: CubeShipPlacement;
+  readonly ship2: CubeShipPlacement;
 
   constructor(ship1: CubeShipPlacement, ship2: CubeShipPlacement) {
-    super(ship1, ship2);
-    if (!(ship1.position instanceof CubePosition) || !(ship2.position instanceof CubePosition)) {
-      throw new RangeError('Each cube placement must contain a valid CubePosition.');
+    if (ship1.identity !== 'ship-1' || ship2.identity !== 'ship-2') {
+      throw new RangeError('CubeSnapshot requires ship-1 followed by ship-2.');
+    }
+    if (
+      !(ship1.position instanceof CubePosition) ||
+      !(ship2.position instanceof CubePosition) ||
+      ship1.position.equals(ship2.position)
+    ) {
+      throw new RangeError('A cube snapshot requires two distinct valid CubePositions.');
     }
     this.ship1 = Object.freeze({ identity: 'ship-1', position: ship1.position });
     this.ship2 = Object.freeze({ identity: 'ship-2', position: ship2.position });

@@ -1,4 +1,4 @@
-import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
+import type { ShipIdentity } from '../../board/domain/CubeSnapshot.js';
 import type { DiceRoller } from './DiceRoller.js';
 import type { CombatShip } from './CombatGame.js';
 

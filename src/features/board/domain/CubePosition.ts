@@ -1,7 +1,5 @@
-import { BoardPosition } from './BoardPosition.js';
-
 /** Immutable one-based coordinate in the 10 × 10 × 10 battle cube. */
-export class CubePosition extends BoardPosition {
+export class CubePosition {
   readonly x: number;
   readonly y: number;
   readonly z: number;
@@ -10,19 +8,19 @@ export class CubePosition extends BoardPosition {
     CubePosition.validateCubeCoordinate(x, 'x');
     CubePosition.validateCubeCoordinate(y, 'y');
     CubePosition.validateCubeCoordinate(z, 'z');
-    // The legacy planar contracts remain available to the standalone 2D movement scenario.
-    super(y, x);
     this.x = x;
     this.y = y;
     this.z = z;
     Object.freeze(this);
   }
 
-  override equals(other: BoardPosition): boolean {
-    if (other instanceof CubePosition) {
-      return this.x === other.x && this.y === other.y && this.z === other.z;
-    }
-    return super.equals(other);
+  equals(other: CubePosition): boolean {
+    return (
+      other instanceof CubePosition &&
+      this.x === other.x &&
+      this.y === other.y &&
+      this.z === other.z
+    );
   }
 
   get presentationIndex(): number {

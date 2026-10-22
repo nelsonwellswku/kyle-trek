@@ -1,5 +1,5 @@
 import type { CubePosition } from '../../board/domain/CubePosition.js';
-import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
+import type { ShipIdentity } from '../../board/domain/CubeSnapshot.js';
 import type { LegalRoute } from './Reachability.js';
 
 export interface PendingMove {

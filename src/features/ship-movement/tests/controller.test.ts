@@ -1,12 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
 import { CubePosition } from '../../board/domain/CubePosition.js';
-import { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
+import { CubeScreenGeometry } from '../../board/presentation/CubeScreenGeometry.js';
 import { AgilityStat } from '../domain/AgilityStat.js';
 import { MovementGame } from '../domain/MovementGame.js';
 import { TurnSession, type TurnSnapshot } from '../domain/TurnSession.js';
 import { MovementController } from '../presentation/MovementController.js';
-import type { BoardView } from '../../board/presentation/BoardView.js';
+import type { PhaserCubeProjectionView } from '../../board/presentation/PhaserCubeProjectionView.js';
 import type { TurnControls } from '../presentation/TurnControls.js';
 import type {
   FlightAnimator,
@@ -105,8 +104,8 @@ function controllerHarness<TAnimator extends FlightAnimator = ControlledFlightAn
   const onMovementError = vi.fn();
   const controller = new MovementController(
     session,
-    new BoardGeometry(600),
-    boardView as unknown as BoardView,
+    new CubeScreenGeometry(600),
+    boardView as unknown as PhaserCubeProjectionView,
     activeAnimator,
     controls as unknown as TurnControls,
     onMovementError,
@@ -153,7 +152,7 @@ describe('MovementController', () => {
     expect(arrived.game.ship1.position).toEqual(new CubePosition(6, 5, 5));
     expect(boardView.setShipPosition).toHaveBeenCalledWith('ship-1', new CubePosition(6, 5, 5));
     expect(boardView.setHighlights).toHaveBeenLastCalledWith(
-      expect.arrayContaining([expect.any(BoardPosition)]),
+      expect.arrayContaining([expect.any(CubePosition)]),
     );
     animator.startedFlights[0]?.complete();
     expect(liveSnapshot(session).activePlayer).toBe('player-2');
@@ -238,8 +237,8 @@ describe('MovementController', () => {
     };
     const immobileController = new MovementController(
       immobileSession,
-      new BoardGeometry(600),
-      view as unknown as BoardView,
+      new CubeScreenGeometry(600),
+      view as unknown as PhaserCubeProjectionView,
       new ControlledFlightAnimator(),
       controls as unknown as TurnControls,
     );

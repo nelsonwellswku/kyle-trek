@@ -1,6 +1,6 @@
 import { CubePosition } from '../../board/domain/CubePosition.js';
 import type { CubeSnapshot } from '../../board/domain/CubeSnapshot.js';
-import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
+import type { ShipIdentity } from '../../board/domain/CubeSnapshot.js';
 
 export interface LegalRoute {
   readonly positions: readonly CubePosition[];

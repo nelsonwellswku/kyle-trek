@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
-import { BoardGeometry, type BoardPoint } from '../../board/presentation/BoardGeometry.js';
-import { TorpedoPath } from '../presentation/TorpedoPath.js';
+import {
+  CubeScreenGeometry,
+  type ScreenPoint,
+} from '../../board/presentation/CubeScreenGeometry.js';
+import { CubeTorpedoPath, TorpedoPath } from '../presentation/TorpedoPath.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
 
 type Coordinates = readonly [row: number, column: number];
 
@@ -13,7 +16,7 @@ interface NearMissCase {
 
 interface ClosestApproach {
   readonly parameter: number;
-  readonly point: BoardPoint;
+  readonly point: ScreenPoint;
   readonly distance: number;
 }
 
@@ -24,11 +27,15 @@ interface PathClosestApproach extends ClosestApproach {
 const projectileRadiusAtSixtyPixelCells = 13;
 const clearanceAtSixtyPixelCells = 1;
 
-function position(coordinates: Coordinates): BoardPosition {
-  return new BoardPosition(...coordinates);
+function position([row, column]: Coordinates): CubePosition {
+  return new CubePosition(column, row, 5);
 }
 
-function closestApproach(start: BoardPoint, end: BoardPoint, target: BoardPoint): ClosestApproach {
+function closestApproach(
+  start: ScreenPoint,
+  end: ScreenPoint,
+  target: ScreenPoint,
+): ClosestApproach {
   const dx = end.x - start.x;
   const dy = end.y - start.y;
   const lengthSquared = dx * dx + dy * dy;
@@ -45,7 +52,7 @@ function closestApproach(start: BoardPoint, end: BoardPoint, target: BoardPoint)
   };
 }
 
-function closestApproachOnPath(path: TorpedoPath, target: BoardPoint): PathClosestApproach {
+function closestApproachOnPath(path: TorpedoPath, target: ScreenPoint): PathClosestApproach {
   let closest: PathClosestApproach | null = null;
   for (let segmentIndex = 0; segmentIndex < path.waypoints.length - 1; segmentIndex += 1) {
     const start = path.waypoints[segmentIndex];
@@ -63,7 +70,7 @@ function closestApproachOnPath(path: TorpedoPath, target: BoardPoint): PathClose
 function expectAnalyticalNearMiss(
   attackerCoordinates: Coordinates,
   defenderCoordinates: Coordinates,
-  geometry: BoardGeometry,
+  geometry: CubeScreenGeometry,
   missPathChoice = 0,
 ): void {
   const attacker = position(attackerCoordinates);
@@ -71,7 +78,7 @@ function expectAnalyticalNearMiss(
   const path = new TorpedoPath(attacker, defender, 'miss', geometry, missPathChoice);
   const start = geometry.cellCenter(attacker);
   const defenderCenter = geometry.cellCenter(defender);
-  const endpoint: BoardPoint = path.end;
+  const endpoint: ScreenPoint = path.end;
   const closest = closestApproachOnPath(path, defenderCenter);
   const cellSize = geometry.logicalSize / 10;
   const scale = cellSize / 60;
@@ -125,10 +132,33 @@ function expectAnalyticalNearMiss(
       endpoint.y > geometry.logicalSize + exitMargin,
   ).toBe(true);
   expect(path.pointAt(1)).toEqual(endpoint);
-  expect(endpoint).not.toBeInstanceOf(BoardPosition);
+  expect(endpoint).not.toBeInstanceOf(CubePosition);
 }
 
 describe('TorpedoPath', () => {
+  it('uses current cube ship positions as exact hit and miss endpoints in 3D', () => {
+    const attacker = new CubePosition(2, 4, 6);
+    const defender = new CubePosition(8, 7, 3);
+    const hit = new CubeTorpedoPath(attacker, defender, 'hit');
+    const miss = new CubeTorpedoPath(attacker, defender, 'miss', 17);
+    const worldStart = { x: -3.5, y: -1.5, z: 0.5 };
+    const worldEnd = { x: 2.5, y: 1.5, z: -2.5 };
+
+    expect(hit.start).toEqual(worldStart);
+    expect(hit.end).toEqual(worldEnd);
+    expect(hit.pointAt(0)).toEqual(worldStart);
+    expect(hit.pointAt(1)).toEqual(worldEnd);
+    expect(miss.start).toEqual(worldStart);
+    expect(miss.end).toEqual(worldEnd);
+    expect(miss.targetPosition).toBe(defender);
+    expect(miss.waypoints).toHaveLength(3);
+    expect(miss.pointAt(0.5)).not.toEqual({
+      x: (worldStart.x + worldEnd.x) / 2,
+      y: (worldStart.y + worldEnd.y) / 2,
+      z: (worldStart.z + worldEnd.z) / 2,
+    });
+  });
+
   it.each([
     { attacker: [5, 5], defender: [5, 6] },
     { attacker: [1, 10], defender: [10, 1] },
@@ -136,7 +166,7 @@ describe('TorpedoPath', () => {
   ] as const)(
     'uses exact cell-center endpoints for a hit from $attacker to $defender',
     ({ attacker: attackerCoordinates, defender: defenderCoordinates }) => {
-      const geometry = new BoardGeometry(600);
+      const geometry = new CubeScreenGeometry(600);
       const attacker = position(attackerCoordinates);
       const defender = position(defenderCoordinates);
       const path = new TorpedoPath(attacker, defender, 'hit', geometry);
@@ -170,14 +200,14 @@ describe('TorpedoPath', () => {
   for (const { name, attacker, defender } of nearMissCases) {
     it(`clears the defender and fully exits for ${name}`, () => {
       for (let missPathChoice = 0; missPathChoice < 52; missPathChoice += 1) {
-        expectAnalyticalNearMiss(attacker, defender, new BoardGeometry(600), missPathChoice);
+        expectAnalyticalNearMiss(attacker, defender, new CubeScreenGeometry(600), missPathChoice);
       }
     });
   }
 
   it('scales safe miss clearance and the fully off-board endpoint with cell size', () => {
-    const smallGeometry = new BoardGeometry(600);
-    const largeGeometry = new BoardGeometry(900);
+    const smallGeometry = new CubeScreenGeometry(600);
+    const largeGeometry = new CubeScreenGeometry(900);
     const attacker = position([5, 5]);
     const defender = position([5, 6]);
     const smallPath = new TorpedoPath(attacker, defender, 'miss', smallGeometry);
@@ -195,7 +225,7 @@ describe('TorpedoPath', () => {
   });
 
   it('curves adjacent misses within the launch-angle cap on both sides', () => {
-    const geometry = new BoardGeometry(600);
+    const geometry = new CubeScreenGeometry(600);
     const attacker = position([5, 5]);
     const defender = position([5, 6]);
     const firstPath = new TorpedoPath(attacker, defender, 'miss', geometry, 19);
@@ -221,7 +251,7 @@ describe('TorpedoPath', () => {
   });
 
   it('selects miss angles from 10 to 35 degrees in both directions for a long shot', () => {
-    const geometry = new BoardGeometry(600);
+    const geometry = new CubeScreenGeometry(600);
     const attacker = position([5, 2]);
     const defender = position([5, 9]);
     const angles = new Set<number>();

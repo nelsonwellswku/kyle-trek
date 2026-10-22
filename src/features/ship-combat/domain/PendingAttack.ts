@@ -1,6 +1,6 @@
-import type { BoardPosition } from '../../board/domain/BoardPosition.js';
+import type { CubePosition } from '../../board/domain/CubePosition.js';
 import type { AttackOutcome } from './AttackResolver.js';
-import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
+import type { ShipIdentity } from '../../board/domain/CubeSnapshot.js';
 
 export interface PendingAttack {
   readonly gameRevision: number;
@@ -8,7 +8,7 @@ export interface PendingAttack {
   readonly attackId: number;
   readonly attackerIdentity: ShipIdentity;
   readonly defenderIdentity: ShipIdentity;
-  readonly attackerPosition: BoardPosition;
-  readonly defenderPosition: BoardPosition;
+  readonly attackerPosition: CubePosition;
+  readonly defenderPosition: CubePosition;
   readonly outcome: AttackOutcome;
 }

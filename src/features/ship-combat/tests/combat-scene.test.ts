@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
 import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
 import { CubePosition } from '../../board/domain/CubePosition.js';
-import { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
+import { CubeScreenGeometry } from '../../board/presentation/CubeScreenGeometry.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
 import { ControlledFlightAnimator } from '../../ship-movement/tests/fixtures/ControlledFlightAnimator.js';
 import { AbilityStat } from '../../ship-stats/domain/AbilityStat.js';
@@ -25,11 +24,18 @@ const sceneHarness = vi.hoisted(() => ({
     host: unknown;
     renderCount: number;
     disposeCount: number;
+    rotations: Array<{
+      rotation: unknown;
+      complete: () => void;
+      fail: (error: Error) => void;
+      cancel: ReturnType<typeof vi.fn>;
+    }>;
     inspect: (target: unknown) => void;
     select: (target: unknown) => void;
     setHighlights: (destinations: readonly unknown[]) => void;
     setShipPosition: (identity: unknown, position: unknown) => void;
     setShipVisualPosition: (identity: unknown, point: unknown) => void;
+    setShipOrientation: (identity: unknown, orientation: unknown) => void;
   }>,
   failCubeView: false,
 }));
@@ -132,11 +138,13 @@ vi.mock('../../board/presentation/ThreeCubeView.js', () => ({
         host,
         renderCount: 0,
         disposeCount: 0,
+        rotations: [],
         inspect: onInspection,
         select: (target) => options?.onSelect?.(target),
         setHighlights: vi.fn(),
         setShipPosition: vi.fn(),
         setShipVisualPosition: vi.fn(),
+        setShipOrientation: vi.fn(),
       };
       sceneHarness.cubeViews.push(this.record);
     }
@@ -155,6 +163,21 @@ vi.mock('../../board/presentation/ThreeCubeView.js', () => ({
 
     setShipVisualPosition(identity: unknown, point: unknown): void {
       this.record.setShipVisualPosition(identity, point);
+    }
+
+    setShipOrientation(identity: unknown, orientation: unknown): void {
+      this.record.setShipOrientation(identity, orientation);
+    }
+
+    animateShipOrientation(
+      identity: unknown,
+      orientation: unknown,
+      complete: () => void,
+      fail: (error: Error) => void,
+    ) {
+      const cancel = vi.fn();
+      this.record.rotations.push({ rotation: { identity, orientation }, complete, fail, cancel });
+      return { cancel };
     }
 
     dispose(): void {
@@ -204,16 +227,28 @@ class ControlsSpy {
   readonly dispose = vi.fn();
   skipHandler: BattleActionHandler = () => {};
   endHandler: BattleActionHandler = () => {};
+  rotationHandler: (
+    gameRevision: number,
+    turnToken: number,
+    shipIdentity: 'ship-1' | 'ship-2',
+    axis: 'x' | 'y' | 'z',
+    direction: -1 | 1,
+  ) => void = () => {};
 
-  setActionHandlers(skip: BattleActionHandler, end: BattleActionHandler): void {
+  setActionHandlers(
+    skip: BattleActionHandler,
+    end: BattleActionHandler,
+    rotate?: typeof this.rotationHandler,
+  ): void {
     this.skipHandler = skip;
     this.endHandler = end;
+    this.rotationHandler = rotate ?? (() => {});
   }
 }
 
 function harness(agilityScore = 14, useCubeView = false) {
   const session = new BattleSession(combatGame(agilityScore), missResolution());
-  const geometry = new BoardGeometry(600);
+  const geometry = new CubeScreenGeometry(600);
   const controls = new ControlsSpy();
   const flights = new ControlledFlightAnimator();
   const torpedoes = new ControlledTorpedoAnimator();
@@ -265,12 +300,61 @@ function harness(agilityScore = 14, useCubeView = false) {
   };
 }
 
-function clickAt(geometry: BoardGeometry, position: BoardPosition) {
+function clickAt(geometry: CubeScreenGeometry, position: CubePosition) {
   const point = geometry.cellCenter(position);
   return { button: 0, worldX: point.x, worldY: point.y };
 }
 
 describe('CombatScene lifecycle', () => {
+  it('owns rotation animation through the cube view and rejects its callback after New Game', () => {
+    sceneHarness.cubeViews.length = 0;
+    sceneHarness.failCubeView = false;
+    const { session, controls, scene, phaser } = harness(14, true);
+    scene.create();
+    phaser.game.events.emit('postrender');
+    const view = sceneHarness.cubeViews[0];
+    if (!view) throw new Error('Expected the production cube view.');
+    const before = session.snapshot;
+    if (before.phase !== 'movement-ready') throw new Error('Expected movement-ready.');
+
+    const rotateCommand = vi.spyOn(session, 'rotateShip');
+    controls.rotationHandler(before.gameRevision, before.turnToken, 'ship-1', 'z', -1);
+    expect(rotateCommand).toHaveBeenCalledWith(
+      before.gameRevision,
+      before.turnToken,
+      'ship-1',
+      'z',
+      -1,
+    );
+    expect(session.snapshot.phase).toBe('rotating');
+    expect(view.rotations).toHaveLength(1);
+    view.rotations[0]?.complete();
+    const rotated = session.snapshot;
+    expect(rotated.phase).toBe('movement-ready');
+    if (rotated.phase === 'disposed') throw new Error('Expected live battle after rotation.');
+    expect(rotated.game.ship1.orientation).toEqual(CubeOrientation.ship1Default().rotate('z', -1));
+    expect(view.setShipOrientation).toHaveBeenCalledWith(
+      'ship-1',
+      CubeOrientation.ship1Default().rotate('z', -1),
+    );
+
+    controls.rotationHandler(rotated.gameRevision, rotated.turnToken, 'ship-1', 'x', 1);
+    const staleAnimation = view.rotations[1];
+    if (!staleAnimation) throw new Error('Expected a replacement rotation animation.');
+    const revision = session.newGame(combatGame());
+    scene.updateGame(revision);
+    expect(staleAnimation.cancel).toHaveBeenCalledTimes(1);
+    staleAnimation.complete();
+    staleAnimation.fail(new Error('late renderer failure'));
+    const replacement = session.snapshot;
+    if (replacement.phase === 'disposed') throw new Error('Expected a replacement battle.');
+    expect(replacement.game.ship1.orientation).toEqual(CubeOrientation.ship1Default());
+    expect(replacement.game.ship2.orientation).toEqual(CubeOrientation.ship2Default());
+    expect(replacement.activePlayer).toBe('player-1');
+    expect(replacement.gameRevision).toBe(revision);
+    scene.dispose();
+  });
+
   it('gates input on matching postrender and routes resized-viewport world coordinates through board geometry', () => {
     const { session, geometry, flights, onDrawn, scene, phaser } = harness();
     scene.create();

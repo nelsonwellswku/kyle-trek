@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { CubePosition } from '../../board/domain/CubePosition.js';
-import { BoardGeometry, type BoardPoint } from '../../board/presentation/BoardGeometry.js';
+import {
+  CubeScreenGeometry,
+  type ScreenPoint,
+} from '../../board/presentation/CubeScreenGeometry.js';
 import { SpaceFlightPath, type SpaceArcSegment } from '../presentation/SpaceFlightPath.js';
 
-const geometry = new BoardGeometry(600);
+const geometry = new CubeScreenGeometry(600);
 
 function createPath(
   origin: readonly [number, number],
@@ -33,7 +36,7 @@ function containsAngle(arc: SpaceArcSegment, angle: number): boolean {
 function expectPathWithinBoard(path: SpaceFlightPath, radius: number): void {
   const minimum = radius;
   const maximum = geometry.logicalSize - radius;
-  const check = (point: BoardPoint): void => {
+  const check = (point: ScreenPoint): void => {
     expect(point.x).toBeGreaterThanOrEqual(minimum - 1e-8);
     expect(point.x).toBeLessThanOrEqual(maximum + 1e-8);
     expect(point.y).toBeGreaterThanOrEqual(minimum - 1e-8);

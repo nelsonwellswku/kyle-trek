@@ -1,7 +1,7 @@
 import type { GameSetup } from '../domain/GameSetup.js';
-import type { BoardSnapshot } from '../../board/domain/BoardSnapshot.js';
+import type { CubeSnapshot } from '../../board/domain/CubeSnapshot.js';
 import { CubePosition } from '../../board/domain/CubePosition.js';
-import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
+import type { ShipIdentity } from '../../board/domain/CubeSnapshot.js';
 
 export type NewGameHandler = () => void;
 
@@ -102,9 +102,9 @@ export class GameSetupControls {
     this.showPreparing();
   }
 
-  updateBoard(snapshot: BoardSnapshot): void {
-    const ship1 = GameSetupControls.cubePosition(snapshot.ship1.position);
-    const ship2 = GameSetupControls.cubePosition(snapshot.ship2.position);
+  updateBoard(snapshot: CubeSnapshot): void {
+    const ship1 = snapshot.ship1.position;
+    const ship2 = snapshot.ship2.position;
     this.ship1Summary.textContent = `Ship 1 — X ${ship1.x}, Y ${ship1.y}, Z ${ship1.z} (occupied)`;
     this.ship2Summary.textContent = `Ship 2 — X ${ship2.x}, Y ${ship2.y}, Z ${ship2.z} (occupied)`;
   }
@@ -167,10 +167,5 @@ export class GameSetupControls {
     if (this.newGameHandler) {
       this.newGameButton.removeEventListener('click', this.newGameHandler);
     }
-  }
-
-  private static cubePosition(position: BoardSnapshot['ship1']['position']): CubePosition {
-    if (position instanceof CubePosition) return position;
-    return new CubePosition(position.column, position.row, 1);
   }
 }

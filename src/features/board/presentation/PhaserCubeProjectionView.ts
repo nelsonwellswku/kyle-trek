@@ -1,33 +1,34 @@
 import type Phaser from 'phaser';
-import type { BoardSnapshot, ShipIdentity } from '../domain/BoardSnapshot.js';
-import type { BoardGeometry, BoardPoint } from './BoardGeometry.js';
-import { BoardPosition } from '../domain/BoardPosition.js';
+import type { CubeSnapshot, CubeShipPlacement, ShipIdentity } from '../domain/CubeSnapshot.js';
+import type { CubeScreenGeometry, ScreenPoint } from './CubeScreenGeometry.js';
+import { CubePosition } from '../domain/CubePosition.js';
 
 export type RenderedRevisionHandler = (revision: number) => void;
 
-export class BoardView {
+/** Flat Phaser projection retained for standalone compatibility fixtures; identities stay 3D. */
+export class PhaserCubeProjectionView {
   private graphics: Phaser.GameObjects.Graphics | null = null;
   private highlightGraphics: Phaser.GameObjects.Graphics | null = null;
   private readonly labels: Phaser.GameObjects.Text[] = [];
   private readonly shipGraphics: Phaser.GameObjects.Graphics[] = [];
   private readonly shipContainers = new Map<ShipIdentity, Phaser.GameObjects.Container>();
   private readonly pendingReadiness = new Set<() => void>();
-  private currentHighlights: readonly BoardPosition[] = [];
+  private currentHighlights: readonly CubePosition[] = [];
   private isDisposed = false;
 
   constructor(
     private readonly scene: Phaser.Scene,
-    private readonly geometry: BoardGeometry,
+    private readonly geometry: CubeScreenGeometry,
   ) {}
 
   draw(
-    snapshot: BoardSnapshot,
+    snapshot: CubeSnapshot,
     revision: number,
     onDrawn: RenderedRevisionHandler,
-    highlights?: readonly BoardPosition[],
+    highlights?: readonly CubePosition[],
   ): void {
     if (this.isDisposed) {
-      throw new Error('A disposed BoardView cannot draw another revision.');
+      throw new Error('A disposed cube projection cannot draw another revision.');
     }
 
     const graphics = this.graphics ?? this.scene.add.graphics();
@@ -65,7 +66,7 @@ export class BoardView {
     this.scene.game.events.once('postrender', onPostRender);
   }
 
-  setHighlights(destinations: readonly BoardPosition[]): void {
+  setHighlights(destinations: readonly CubePosition[]): void {
     if (this.isDisposed) {
       return;
     }
@@ -94,11 +95,11 @@ export class BoardView {
     }
   }
 
-  setShipPosition(identity: ShipIdentity, position: BoardPosition): void {
+  setShipPosition(identity: ShipIdentity, position: CubePosition): void {
     this.setShipVisualPosition(identity, this.geometry.cellCenter(position));
   }
 
-  setShipVisualPosition(identity: ShipIdentity, point: BoardPoint): void {
+  setShipVisualPosition(identity: ShipIdentity, point: ScreenPoint): void {
     if (this.isDisposed || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
       return;
     }
@@ -125,7 +126,7 @@ export class BoardView {
     this.destroyShipGroups();
   }
 
-  private drawShip(placement: BoardSnapshot['ship1'], label: string, color: number): void {
+  private drawShip(placement: CubeShipPlacement, label: string, color: number): void {
     const center = this.geometry.cellCenter(placement.position);
     const bounds = this.geometry.markerBounds(placement.position);
     const radius = Math.min(

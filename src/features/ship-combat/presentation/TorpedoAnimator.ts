@@ -20,4 +20,5 @@ export interface TorpedoAnimator {
     onComplete: TorpedoCompletionHandler,
     onFailure: TorpedoFailureHandler,
   ): TorpedoHandle;
+  dispose?(): void;
 }

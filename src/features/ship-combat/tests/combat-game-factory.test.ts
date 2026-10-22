@@ -19,8 +19,8 @@ describe('CombatGameFactory', () => {
 
     const battle = new CombatGameFactory(random).create();
     expect(random.consumedDraws).toBe(10);
-    expect(battle.ship1.position.row).toBe(1);
-    expect(battle.ship2.position.row).toBe(9);
+    expect(battle.ship1.position.y).toBe(1);
+    expect(battle.ship2.position.y).toBe(9);
     expect(battle.ship1.orientation.forward).toEqual({ axis: 'y', sign: 1 });
     expect(battle.ship2.orientation.forward).toEqual({ axis: 'y', sign: -1 });
     expect(battle.ship1.orientation.up).toEqual({ axis: 'z', sign: 1 });
@@ -56,8 +56,8 @@ describe('CombatGameFactory', () => {
     const factory = new CombatGameFactory(source);
     const first = factory.create();
     const second = factory.create();
-    expect(first.ship1.position.row).toBeLessThanOrEqual(2);
-    expect(first.ship2.position.row).toBeGreaterThanOrEqual(9);
+    expect(first.ship1.position.y).toBeLessThanOrEqual(2);
+    expect(first.ship2.position.y).toBeGreaterThanOrEqual(9);
     expect(second.ship1.position.equals(first.ship1.position)).toBe(true);
     expect(source.consumedDraws).toBe(20);
   });

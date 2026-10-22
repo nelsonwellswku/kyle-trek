@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
-import { BoardGeometry } from '../features/board/presentation/BoardGeometry.js';
+import { CubeScreenGeometry } from '../features/board/presentation/CubeScreenGeometry.js';
 import type { CubePickTarget } from '../features/board/presentation/CubePicker.js';
-import type { BoardSnapshot } from '../features/board/domain/BoardSnapshot.js';
+import type { CubeSnapshot } from '../features/board/domain/CubeSnapshot.js';
 import { MathRandomSource } from '../features/game-setup/adapters/MathRandomSource.js';
 import type { RandomSource } from '../features/game-setup/domain/RandomSource.js';
 import { GameSetupControls } from '../features/game-setup/presentation/GameSetupControls.js';
@@ -52,7 +52,7 @@ export class GameApplication {
 
     const scene = new CombatScene(
       this.session,
-      new BoardGeometry(BOARD_SIZE),
+      new CubeScreenGeometry(BOARD_SIZE),
       this.combatControls,
       this.handleDrawn,
       this.handleMovementError,
@@ -183,7 +183,7 @@ export class GameApplication {
     if (!this.isDisposed) this.controls.showMovementError(message);
   };
 
-  private readonly handleBoardChanged = (snapshot: BoardSnapshot): void => {
+  private readonly handleBoardChanged = (snapshot: CubeSnapshot): void => {
     if (this.isDisposed) return;
     this.controls.updateBoard(snapshot);
     this.controls.clearMovementError();

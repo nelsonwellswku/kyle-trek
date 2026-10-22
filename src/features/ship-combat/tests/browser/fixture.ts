@@ -4,7 +4,7 @@ import '../../../../app/styles.css';
 import { CubeOrientation } from '../../../board/domain/CubeOrientation.js';
 import { CubePosition } from '../../../board/domain/CubePosition.js';
 import type { CubePickTarget } from '../../../board/presentation/CubePicker.js';
-import { BoardGeometry } from '../../../board/presentation/BoardGeometry.js';
+import { CubeScreenGeometry } from '../../../board/presentation/CubeScreenGeometry.js';
 import { AgilityStat } from '../../../ship-movement/domain/AgilityStat.js';
 import { AbilityStat } from '../../../ship-stats/domain/AbilityStat.js';
 import type { RandomSource } from '../../../game-setup/domain/RandomSource.js';
@@ -18,6 +18,17 @@ import type { TorpedoIdentity } from '../../presentation/TorpedoAnimator.js';
 import type { TorpedoVisualEvent } from '../../presentation/PhaserTorpedoAnimator.js';
 
 const BOARD_SIZE = 600;
+
+interface ShipRotationAcceptance {
+  readonly checkedDirections: number;
+  readonly failed: readonly string[];
+  readonly turnAndCombatStatePreserved: boolean;
+  readonly cameraOrbitIndependent: boolean;
+  readonly torpedoUsedCurrentPositions: boolean;
+  readonly attackOutcomeUnchanged: boolean;
+  readonly newGameResetBothOrientations: boolean;
+  readonly staleRotationIgnored: boolean;
+}
 
 interface CubeBrowserFixture {
   readonly markerCount: number;
@@ -40,6 +51,7 @@ interface CubeBrowserFixture {
     readonly everyPositionCommitted: boolean;
     readonly turnsAdvancedOnce: boolean;
   }>;
+  verifyShipRotations(): Promise<ShipRotationAcceptance>;
 }
 
 declare global {
@@ -219,12 +231,13 @@ const presetSelect = requiredElement<HTMLSelectElement>('#combat-preset');
 const resetButton = requiredElement<HTMLButtonElement>('#reset-battle');
 const verifyCubeButton = requiredElement<HTMLButtonElement>('#verify-cube-picks');
 const verifyMovementButton = requiredElement<HTMLButtonElement>('#verify-six-axis-movement');
+const verifyRotationsButton = requiredElement<HTMLButtonElement>('#verify-ship-rotations');
 const clearButton = requiredElement<HTMLButtonElement>('#clear-observations');
 const status = requiredElement<HTMLElement>('#fixture-status');
 const eventLog = requiredElement<HTMLElement>('#event-log');
 const cubeInspection = requiredElement<HTMLElement>('#cube-fixture-inspection');
 
-const geometry = new BoardGeometry(BOARD_SIZE);
+const geometry = new CubeScreenGeometry(BOARD_SIZE);
 const controls = new CombatControls(controlsHost);
 const randomSource = new PresetRandomSource();
 const resolver = new AttackResolver(new DiceRoller(randomSource));
@@ -360,6 +373,7 @@ function onDrawn(revision: number): void {
   if (view) {
     verifyCubeButton.disabled = false;
     verifyMovementButton.disabled = false;
+    verifyRotationsButton.disabled = false;
     window.cubeFixture = {
       markerCount: view.markerCount,
       positions: view.cellPositions,
@@ -593,8 +607,292 @@ function onDrawn(revision: number): void {
           turnsAdvancedOnce,
         };
       },
+      verifyShipRotations,
     };
   }
+}
+
+async function verifyShipRotations(): Promise<ShipRotationAcceptance> {
+  const fixture = window.cubeFixture;
+  const view = scene.cubeViewForFixture;
+  if (!fixture || !view)
+    throw new Error('The production cube view is not ready for rotation checks.');
+  verifyRotationsButton.disabled = true;
+  status.textContent =
+    'Verifying signed ship rotations, current-position torpedo, and New Game reset…';
+  const failed: string[] = [];
+  let checkedDirections = 0;
+  let turnAndCombatStatePreserved = true;
+  let cameraOrbitIndependent = true;
+  let torpedoUsedCurrentPositions = false;
+  let attackOutcomeUnchanged = false;
+  let newGameResetBothOrientations = false;
+  let staleRotationIgnored = false;
+  try {
+    presetSelect.value = 'threshold-hit';
+    randomSource.replace(attackSamples(presets['threshold-hit']!));
+    const initialRevision = session.newGame(makeGame(presets['threshold-hit']!));
+    scene.updateGame(initialRevision);
+    const initialized = await waitUntil(
+      () => session.snapshot.gameRevision === initialRevision && !resetButton.disabled,
+      3_000,
+    );
+    if (!initialized) throw new Error('The deterministic rotation preset did not become ready.');
+
+    const rotationActions = [
+      { axis: 'x', direction: 1, button: 'rotate-x-positive' },
+      { axis: 'x', direction: -1, button: 'rotate-x-negative' },
+      { axis: 'y', direction: 1, button: 'rotate-y-positive' },
+      { axis: 'y', direction: -1, button: 'rotate-y-negative' },
+      { axis: 'z', direction: 1, button: 'rotate-z-positive' },
+      { axis: 'z', direction: -1, button: 'rotate-z-negative' },
+    ] as const;
+
+    const rotateCurrentShip = async (shipIdentity: 'ship-1' | 'ship-2'): Promise<void> => {
+      for (const action of rotationActions) {
+        const before = session.snapshot;
+        if (
+          before.phase === 'disposed' ||
+          before.activeShip !== shipIdentity ||
+          !['movement-ready', 'awaiting-movement-skip', 'attack-ready'].includes(before.phase)
+        ) {
+          failed.push(
+            `${shipIdentity} ${action.axis}${action.direction}: not in a ready turn phase`,
+          );
+          turnAndCombatStatePreserved = false;
+          return;
+        }
+        const originalShip = shipIdentity === 'ship-1' ? before.game.ship1 : before.game.ship2;
+        const opposingShip = shipIdentity === 'ship-1' ? before.game.ship2 : before.game.ship1;
+        const model = view.shipModels.get(shipIdentity);
+        if (!model) throw new Error(`The ${shipIdentity} 3D model is missing.`);
+        const oldQuaternion = model.quaternion.clone();
+        const button = controlsHost.querySelector<HTMLButtonElement>(`button.${action.button}`);
+        if (!button || button.disabled || button.hidden) {
+          failed.push(`${shipIdentity} ${action.axis}${action.direction}: control unavailable`);
+          turnAndCombatStatePreserved = false;
+          return;
+        }
+        button.click();
+        const started = await waitUntil(() => session.snapshot.phase === 'rotating', 500);
+        if (!started) {
+          failed.push(`${shipIdentity} ${action.axis}${action.direction}: rotation did not start`);
+          turnAndCombatStatePreserved = false;
+          return;
+        }
+        const rotating = session.snapshot;
+        if (rotating.phase !== 'rotating') return;
+        const targetOrientation = originalShip.orientation.rotate(action.axis, action.direction);
+        const orientationBeforeCommit =
+          shipIdentity === 'ship-1'
+            ? rotating.game.ship1.orientation
+            : rotating.game.ship2.orientation;
+        if (!orientationBeforeCommit.equals(originalShip.orientation)) {
+          turnAndCombatStatePreserved = false;
+        }
+        const completed = await waitUntil(() => {
+          const current = session.snapshot;
+          return (
+            current.phase === rotating.pendingRotation.resumePhase &&
+            (shipIdentity === 'ship-1'
+              ? current.game.ship1.orientation
+              : current.game.ship2.orientation
+            ).equals(targetOrientation)
+          );
+        }, 1_200);
+        if (!completed) {
+          failed.push(
+            `${shipIdentity} ${action.axis}${action.direction}: animation did not commit`,
+          );
+          turnAndCombatStatePreserved = false;
+          return;
+        }
+        const after = session.snapshot;
+        if (after.phase === 'disposed') return;
+        const rotatedShip = shipIdentity === 'ship-1' ? after.game.ship1 : after.game.ship2;
+        const unchangedOpponent = shipIdentity === 'ship-1' ? after.game.ship2 : after.game.ship1;
+        const preserved =
+          after.turnToken === before.turnToken &&
+          rotatedShip.position.equals(originalShip.position) &&
+          rotatedShip.agility === originalShip.agility &&
+          rotatedShip.strength === originalShip.strength &&
+          rotatedShip.constitution === originalShip.constitution &&
+          rotatedShip.armorClass === originalShip.armorClass &&
+          rotatedShip.startingHitPoints === originalShip.startingHitPoints &&
+          rotatedShip.hitPoints === originalShip.hitPoints &&
+          unchangedOpponent.position.equals(opposingShip.position) &&
+          unchangedOpponent.orientation.equals(opposingShip.orientation) &&
+          unchangedOpponent.hitPoints === opposingShip.hitPoints;
+        if (!preserved) {
+          turnAndCombatStatePreserved = false;
+          failed.push(`${shipIdentity} ${action.axis}${action.direction}: battle state changed`);
+        }
+        if (model.quaternion.angleTo(oldQuaternion) <= 1e-4) {
+          failed.push(`${shipIdentity} ${action.axis}${action.direction}: model did not turn`);
+        }
+        checkedDirections += 1;
+      }
+    };
+
+    await rotateCurrentShip('ship-1');
+    const shipOneState = session.snapshot;
+    if (shipOneState.phase === 'disposed')
+      throw new Error('The battle was disposed during rotation.');
+    const shipOneModel = view.shipModels.get('ship-1');
+    if (!shipOneModel) throw new Error('The ship-1 model is missing.');
+    const shipOneQuaternion = shipOneModel.quaternion.clone();
+    const oldCamera = view.camera.position.clone();
+    view.camera.position.applyAxisAngle(new Vector3(0, 0, 1), 0.61);
+    view.camera.lookAt(0, 0, 0);
+    view.camera.updateMatrixWorld(true);
+    view.renderCurrentPose();
+    cameraOrbitIndependent =
+      session.snapshot.phase !== 'disposed' &&
+      session.snapshot.game.ship1.orientation.equals(shipOneState.game.ship1.orientation) &&
+      shipOneModel.quaternion.angleTo(shipOneQuaternion) < 1e-5;
+    view.camera.position.copy(oldCamera);
+    view.camera.lookAt(0, 0, 0);
+    view.camera.updateMatrixWorld(true);
+    view.renderCurrentPose();
+
+    let state = session.snapshot;
+    if (state.phase === 'awaiting-movement-skip') {
+      controlsHost.querySelector<HTMLButtonElement>('.skip-movement-button')?.click();
+      await waitUntil(() => session.snapshot.phase === 'attack-ready', 500);
+      state = session.snapshot;
+    }
+    if (state.phase !== 'attack-ready') throw new Error('Ship 1 did not reach attack-ready.');
+    const targetPoint = findShipPoint(view, 'ship-2');
+    const inputCanvas = phaserGame?.canvas;
+    if (!targetPoint || !inputCanvas) throw new Error('The target ship ray could not be prepared.');
+    inputCanvas.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        button: 0,
+        buttons: 1,
+        pointerId: 93,
+        clientX: targetPoint.x,
+        clientY: targetPoint.y,
+        bubbles: true,
+      }),
+    );
+    inputCanvas.dispatchEvent(
+      new PointerEvent('pointerup', {
+        button: 0,
+        buttons: 0,
+        pointerId: 93,
+        clientX: targetPoint.x,
+        clientY: targetPoint.y,
+        bubbles: true,
+      }),
+    );
+    const attackStarted = await waitUntil(() => session.snapshot.phase === 'attacking', 750);
+    if (!attackStarted) throw new Error('The deterministic attack did not start.');
+    const attacking = session.snapshot;
+    if (attacking.phase !== 'attacking') throw new Error('Expected a pending attack.');
+    const torpedo = view.scene.children.find((object) => object.userData['torpedoEffect']);
+    const effectStart = torpedo?.userData['startPosition'];
+    const effectTarget = torpedo?.userData['targetPosition'];
+    torpedoUsedCurrentPositions =
+      effectStart instanceof CubePosition &&
+      effectTarget instanceof CubePosition &&
+      effectStart.equals(attacking.pendingAttack.attackerPosition) &&
+      effectTarget.equals(attacking.pendingAttack.defenderPosition);
+    const expectedOutcome = attacking.pendingAttack.outcome;
+    const finishedAttack = await waitUntil(() => session.snapshot.phase !== 'attacking', 1_500);
+    const afterAttack = session.snapshot;
+    attackOutcomeUnchanged =
+      finishedAttack &&
+      afterAttack.phase !== 'disposed' &&
+      afterAttack.lastCompletedAttack === expectedOutcome &&
+      expectedOutcome.kind === 'hit';
+
+    await rotateCurrentShip('ship-2');
+    const beforeInterruptedRotation = session.snapshot;
+    if (beforeInterruptedRotation.phase === 'disposed') {
+      throw new Error('The battle was disposed before New Game reset verification.');
+    }
+    controlsHost.querySelector<HTMLButtonElement>('button.rotate-x-positive')?.click();
+    const rotationStarted = await waitUntil(() => session.snapshot.phase === 'rotating', 500);
+    if (!rotationStarted) throw new Error('The reset-interruption rotation did not start.');
+    const oldRevision = session.snapshot.gameRevision;
+    resetButton.click();
+    const resetReady = await waitUntil(
+      () =>
+        session.snapshot.gameRevision > oldRevision &&
+        session.snapshot.phase !== 'disposed' &&
+        !resetButton.disabled,
+      3_000,
+    );
+    const replacement = session.snapshot;
+    newGameResetBothOrientations =
+      resetReady &&
+      replacement.phase !== 'disposed' &&
+      replacement.activePlayer === 'player-1' &&
+      replacement.game.ship1.orientation.equals(CubeOrientation.ship1Default()) &&
+      replacement.game.ship2.orientation.equals(CubeOrientation.ship2Default());
+    await new Promise<void>((resolve) => setTimeout(resolve, 350));
+    const afterStaleWindow = session.snapshot;
+    staleRotationIgnored =
+      afterStaleWindow.phase !== 'disposed' &&
+      afterStaleWindow.gameRevision > oldRevision &&
+      afterStaleWindow.game.ship1.orientation.equals(CubeOrientation.ship1Default()) &&
+      afterStaleWindow.game.ship2.orientation.equals(CubeOrientation.ship2Default());
+  } catch (error) {
+    failed.push(error instanceof Error ? error.message : 'Rotation acceptance failed.');
+  } finally {
+    verifyRotationsButton.disabled = false;
+  }
+
+  const result = {
+    checkedDirections,
+    failed,
+    turnAndCombatStatePreserved,
+    cameraOrbitIndependent,
+    torpedoUsedCurrentPositions,
+    attackOutcomeUnchanged,
+    newGameResetBothOrientations,
+    staleRotationIgnored,
+  };
+  status.textContent = `Rotation acceptance: ${checkedDirections} signed turns · state ${turnAndCombatStatePreserved ? 'pass' : 'fail'} · orbit ${cameraOrbitIndependent ? 'pass' : 'fail'} · torpedo positions ${torpedoUsedCurrentPositions ? 'pass' : 'fail'} · outcome ${attackOutcomeUnchanged ? 'pass' : 'fail'} · reset ${newGameResetBothOrientations ? 'pass' : 'fail'} · stale callback ${staleRotationIgnored ? 'ignored' : 'fail'}.`;
+  eventLog.textContent = JSON.stringify(result, null, 2);
+  return result;
+}
+
+function findShipPoint(
+  view: NonNullable<typeof scene.cubeViewForFixture>,
+  identity: 'ship-1' | 'ship-2',
+): { readonly x: number; readonly y: number } | null {
+  const model = view.shipModels.get(identity);
+  if (!model) return null;
+  model.updateWorldMatrix(true, true);
+  const world = new Vector3();
+  model.getWorldPosition(world);
+  const bounds = view.canvas.getBoundingClientRect();
+  for (const elevation of [0.22, 0.5, 0.85, 1.2, 1.57, 1.9, 2.35, 2.75]) {
+    for (let azimuthIndex = 0; azimuthIndex < 16; azimuthIndex += 1) {
+      const azimuth = (azimuthIndex / 16) * Math.PI * 2;
+      view.camera.position.set(
+        17 * Math.sin(elevation) * Math.cos(azimuth),
+        17 * Math.sin(elevation) * Math.sin(azimuth),
+        17 * Math.cos(elevation),
+      );
+      view.camera.up.set(0, 0, 1);
+      view.camera.lookAt(0, 0, 0);
+      view.camera.updateMatrixWorld(true);
+      const projected = world.clone().project(view.camera);
+      if (projected.x < -1 || projected.x > 1 || projected.y < -1 || projected.y > 1) continue;
+      const point = {
+        x: bounds.left + ((projected.x + 1) / 2) * bounds.width,
+        y: bounds.top + ((1 - projected.y) / 2) * bounds.height,
+      };
+      const target = view.pickAt(point.x, point.y);
+      if (target?.type === 'ship' && target.identity === identity) {
+        view.renderCurrentPose();
+        return point;
+      }
+    }
+  }
+  return null;
 }
 
 function findCellPoint(
@@ -741,12 +1039,27 @@ async function verifySixAxisMovement(): Promise<void> {
   }
 }
 
+async function verifyRotationAcceptance(): Promise<void> {
+  const fixture = window.cubeFixture;
+  if (!fixture) return;
+  verifyRotationsButton.disabled = true;
+  try {
+    await fixture.verifyShipRotations();
+  } catch (error) {
+    status.textContent = error instanceof Error ? error.message : 'Rotation acceptance failed.';
+  } finally {
+    verifyRotationsButton.disabled = false;
+  }
+}
+
 resetButton.disabled = true;
 verifyCubeButton.disabled = true;
 verifyMovementButton.disabled = true;
+verifyRotationsButton.disabled = true;
 resetButton.addEventListener('click', resetBattle);
 verifyCubeButton.addEventListener('click', verifyCubePicks);
 verifyMovementButton.addEventListener('click', verifySixAxisMovement);
+verifyRotationsButton.addEventListener('click', verifyRotationAcceptance);
 clearButton.addEventListener('click', clearObservations);
 
 try {
@@ -778,6 +1091,7 @@ function disposeFixture(): void {
   resetButton.removeEventListener('click', resetBattle);
   verifyCubeButton.removeEventListener('click', verifyCubePicks);
   verifyMovementButton.removeEventListener('click', verifySixAxisMovement);
+  verifyRotationsButton.removeEventListener('click', verifyRotationAcceptance);
   clearButton.removeEventListener('click', clearObservations);
   session.dispose();
   scene.dispose();

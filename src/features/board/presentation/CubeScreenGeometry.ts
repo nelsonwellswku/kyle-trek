@@ -1,37 +1,38 @@
-import { BoardPosition } from '../domain/BoardPosition.js';
+import { CubePosition } from '../domain/CubePosition.js';
 
-export interface BoardRectangle {
+export interface ScreenRectangle {
   readonly x: number;
   readonly y: number;
   readonly width: number;
   readonly height: number;
 }
 
-export interface BoardPoint {
+export interface ScreenPoint {
   readonly x: number;
   readonly y: number;
 }
 
-export class BoardGeometry {
+/** Two-dimensional Phaser fallback projection for cube-typed compatibility scenes. */
+export class CubeScreenGeometry {
   constructor(readonly logicalSize: number) {
     if (!Number.isFinite(logicalSize) || logicalSize <= 0) {
-      throw new RangeError('The logical board size must be a finite positive number.');
+      throw new RangeError('The logical screen projection size must be finite and positive.');
     }
   }
 
-  cellBounds(position: BoardPosition): BoardRectangle {
-    BoardGeometry.validatePosition(position);
+  cellBounds(position: CubePosition): ScreenRectangle {
+    CubeScreenGeometry.validatePosition(position);
     const cellSize = this.logicalSize / 10;
 
     return Object.freeze({
-      x: (position.column - 1) * cellSize,
-      y: (position.row - 1) * cellSize,
+      x: (position.x - 1) * cellSize,
+      y: (position.y - 1) * cellSize,
       width: cellSize,
       height: cellSize,
     });
   }
 
-  cellCenter(position: BoardPosition): BoardPoint {
+  cellCenter(position: CubePosition): ScreenPoint {
     const cell = this.cellBounds(position);
 
     return Object.freeze({
@@ -40,7 +41,7 @@ export class BoardGeometry {
     });
   }
 
-  positionAt(point: BoardPoint): BoardPosition | null {
+  positionAt(point: ScreenPoint, depth = 1): CubePosition | null {
     if (
       !Number.isFinite(point.x) ||
       !Number.isFinite(point.y) ||
@@ -53,13 +54,18 @@ export class BoardGeometry {
     }
 
     const cellSize = this.logicalSize / 10;
-    return new BoardPosition(
-      Math.floor(point.y / cellSize) + 1,
-      Math.floor(point.x / cellSize) + 1,
-    );
+    try {
+      return new CubePosition(
+        Math.floor(point.x / cellSize) + 1,
+        Math.floor(point.y / cellSize) + 1,
+        depth,
+      );
+    } catch {
+      return null;
+    }
   }
 
-  markerBounds(position: BoardPosition): BoardRectangle {
+  markerBounds(position: CubePosition): ScreenRectangle {
     const cell = this.cellBounds(position);
     const markerSize = Math.min(
       cell.width * 0.7,
@@ -79,17 +85,9 @@ export class BoardGeometry {
     return (this.logicalSize / 10) * 0.4;
   }
 
-  private static validatePosition(position: BoardPosition): void {
-    if (
-      !(position instanceof BoardPosition) ||
-      !Number.isInteger(position.row) ||
-      !Number.isInteger(position.column) ||
-      position.row < 1 ||
-      position.row > 10 ||
-      position.column < 1 ||
-      position.column > 10
-    ) {
-      throw new RangeError('Board geometry requires a valid one-based board position.');
+  private static validatePosition(position: CubePosition): void {
+    if (!(position instanceof CubePosition)) {
+      throw new RangeError('Screen projection requires a valid CubePosition.');
     }
   }
 }

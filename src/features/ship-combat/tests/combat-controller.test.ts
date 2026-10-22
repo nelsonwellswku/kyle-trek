@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
 import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
 import { CubePosition } from '../../board/domain/CubePosition.js';
-import { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
-import type { BoardView } from '../../board/presentation/BoardView.js';
+import { CubeScreenGeometry } from '../../board/presentation/CubeScreenGeometry.js';
+import type { PhaserCubeProjectionView } from '../../board/presentation/PhaserCubeProjectionView.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
 import { ControlledFlightAnimator } from '../../ship-movement/tests/fixtures/ControlledFlightAnimator.js';
 import { AbilityStat } from '../../ship-stats/domain/AbilityStat.js';
@@ -67,7 +66,7 @@ function harness(agilityScore = 14, options: HarnessOptions = {}) {
     })),
   };
   const session = new BattleSession(game, resolution);
-  const geometry = new BoardGeometry(600);
+  const geometry = new CubeScreenGeometry(600);
   const boardView = {
     setHighlights: vi.fn(),
     setShipPosition: vi.fn(),
@@ -85,7 +84,7 @@ function harness(agilityScore = 14, options: HarnessOptions = {}) {
   const controller = new CombatController(
     session,
     geometry,
-    boardView as unknown as BoardView,
+    boardView as unknown as PhaserCubeProjectionView,
     options.flightAnimator ?? flights,
     options.torpedoAnimator ?? torpedoes,
     controls as unknown as CombatControls,
@@ -177,12 +176,80 @@ function live(session: BattleSession): Exclude<BattleSnapshot, { phase: 'dispose
   return snapshot;
 }
 
-function clickAt(geometry: BoardGeometry, position: BoardPosition, button = 0) {
+function clickAt(geometry: CubeScreenGeometry, position: CubePosition, button = 0) {
   const point = geometry.cellCenter(position);
   return { button, worldX: point.x, worldY: point.y };
 }
 
 describe('CombatController', () => {
+  it('animates signed rotations once, locks gameplay input, restores failures, and cancels on New Game', () => {
+    const callbacks: Array<{
+      readonly complete: () => void;
+      readonly fail: (error: Error) => void;
+      readonly cancel: ReturnType<typeof vi.fn>;
+    }> = [];
+    const cubeView: CombatCubeViewPort = {
+      setHighlights: vi.fn(),
+      setShipPosition: vi.fn(),
+      setShipVisualPosition: vi.fn(),
+      setShipOrientation: vi.fn(),
+      animateShipRotation: vi.fn((_rotation, complete, fail) => {
+        const cancel = vi.fn();
+        callbacks.push({ complete, fail, cancel });
+        return { identity: _rotation.identity, cancel };
+      }),
+    };
+    const { session, flights, torpedoes, controller } = harness(14, { cubeView });
+    const initial = live(session);
+    if (initial.phase !== 'movement-ready') throw new Error('Expected a ready battle.');
+    controller.markReady(initial.gameRevision);
+
+    expect(controller.rotateShip(initial.gameRevision, initial.turnToken, 'ship-1', 'x', 1)).toBe(
+      true,
+    );
+    expect(live(session).phase).toBe('rotating');
+    expect(cubeView.animateShipRotation).toHaveBeenCalledTimes(1);
+    controller.handlePickTarget({ type: 'cell', position: new CubePosition(3, 2, 2) });
+    controller.handlePickTarget({ type: 'ship', identity: 'ship-2' });
+    expect(flights.startedFlights).toHaveLength(0);
+    expect(torpedoes.startedAttacks).toHaveLength(0);
+
+    callbacks[0]?.complete();
+    callbacks[0]?.complete();
+    const completed = live(session);
+    expect(completed.phase).toBe('movement-ready');
+    expect(completed.game.ship1.orientation).toEqual(CubeOrientation.ship1Default().rotate('x', 1));
+    expect(cubeView.setShipOrientation).toHaveBeenCalledWith(
+      'ship-1',
+      CubeOrientation.ship1Default().rotate('x', 1),
+    );
+    expect(
+      controller.rotateShip(completed.gameRevision, completed.turnToken, 'ship-1', 'y', -1),
+    ).toBe(true);
+    callbacks[1]?.fail(new Error('renderer interruption'));
+    callbacks[1]?.fail(new Error('duplicate failure'));
+    expect(live(session).phase).toBe('movement-ready');
+    expect(live(session).game.ship1.orientation).toEqual(
+      CubeOrientation.ship1Default().rotate('x', 1),
+    );
+
+    expect(
+      controller.rotateShip(completed.gameRevision, completed.turnToken, 'ship-1', 'z', -1),
+    ).toBe(true);
+    const stale = callbacks[2];
+    const replacementRevision = session.newGame(combatGame());
+    controller.prepareForReplacement();
+    controller.markReady(replacementRevision);
+    expect(stale?.cancel).toHaveBeenCalledTimes(1);
+    stale?.complete();
+    stale?.fail(new Error('late rotation callback'));
+    const replacement = live(session);
+    expect(replacement.game.ship1.orientation).toEqual(CubeOrientation.ship1Default());
+    expect(replacement.game.ship2.orientation).toEqual(CubeOrientation.ship2Default());
+    expect(replacement.activePlayer).toBe('player-1');
+    expect(replacement.phase).toBe('movement-ready');
+  });
+
   it('routes movement then optional opponent attack and holds the turn through both animations', () => {
     const {
       session,
@@ -210,7 +277,7 @@ describe('CombatController', () => {
     expect(live(session).phase).toBe('moving');
     expect(flights.startedFlights).toHaveLength(1);
     expect(boardView.setHighlights).toHaveBeenLastCalledWith([]);
-    controller.handlePointerDown(clickAt(geometry, new BoardPosition(3, 3)));
+    controller.handlePointerDown(clickAt(geometry, new CubePosition(3, 3, 2)));
     expect(flights.startedFlights).toHaveLength(1);
 
     const token = live(session).turnToken;
@@ -237,7 +304,7 @@ describe('CombatController', () => {
     expect(next.turnToken).toBe(token + 1);
     expect(next.game.ship2.hitPoints).toBe(10);
     expect(boardView.setHighlights).toHaveBeenLastCalledWith(
-      expect.arrayContaining([expect.any(BoardPosition)]),
+      expect.arrayContaining([expect.any(CubePosition)]),
     );
   });
 
@@ -252,7 +319,7 @@ describe('CombatController', () => {
     controller.handlePointerDown({ button: 0, worldX: 600, worldY: 300 });
     controller.handlePointerDown(clickAt(geometry, initial.game.ship1.position));
     controller.handlePointerDown(clickAt(geometry, initial.game.ship2.position));
-    controller.handlePointerDown(clickAt(geometry, new BoardPosition(10, 1)));
+    controller.handlePointerDown(clickAt(geometry, new CubePosition(1, 10, 2)));
     expect(flights.startedFlights).toHaveLength(0);
 
     controller.handlePointerDown(clickAt(geometry, legal));
@@ -260,7 +327,7 @@ describe('CombatController', () => {
     const ready = live(session);
     if (ready.phase !== 'attack-ready') throw new Error('Expected attack-ready.');
     controller.handlePointerDown(clickAt(geometry, ready.game.ship1.position));
-    controller.handlePointerDown(clickAt(geometry, new BoardPosition(1, 10)));
+    controller.handlePointerDown(clickAt(geometry, new CubePosition(10, 1, 2)));
     controller.handlePointerDown(clickAt(geometry, ready.game.ship2.position, 2));
     controller.handlePointerDown({ button: 0, worldX: -1, worldY: 10 });
     expect(torpedoes.startedAttacks).toHaveLength(0);
@@ -275,6 +342,8 @@ describe('CombatController', () => {
       setHighlights: vi.fn(),
       setShipPosition: vi.fn(),
       setShipVisualPosition: vi.fn(),
+      setShipOrientation: vi.fn(),
+      animateShipRotation: vi.fn((rotation) => ({ identity: rotation.identity, cancel: vi.fn() })),
     };
     const { session, flights, torpedoes, onBoardChanged, controller } = harness(14, { cubeView });
     const initial = live(session);

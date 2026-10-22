@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
 import { CubePosition } from '../../board/domain/CubePosition.js';
-import type { BoardSnapshot } from '../../board/domain/BoardSnapshot.js';
+import type { CubeSnapshot } from '../../board/domain/CubeSnapshot.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
 import { AbilityStat } from '../../ship-stats/domain/AbilityStat.js';
 import { CombatGame, type CombatShip } from '../domain/CombatGame.js';
@@ -27,11 +27,12 @@ function game(): CombatGame {
 }
 
 describe('CombatGame', () => {
-  it('is a frozen BoardSnapshot-compatible pair of complete, frozen ship records', () => {
+  it('is a frozen CubeSnapshot-compatible pair of complete, frozen ship records', () => {
     const value = game();
-    const snapshot: BoardSnapshot = value;
-    expect(snapshot.rows).toBe(10);
-    expect(snapshot.columns).toBe(10);
+    const snapshot: CubeSnapshot = value;
+    expect(snapshot.width).toBe(10);
+    expect(snapshot.height).toBe(10);
+    expect(snapshot.depth).toBe(10);
     expect(value.ship1.identity).toBe('ship-1');
     expect(value.ship1.owner).toBe('player-1');
     expect(value.ship2.identity).toBe('ship-2');

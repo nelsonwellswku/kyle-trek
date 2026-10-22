@@ -1,11 +1,13 @@
 import { CubePosition } from '../../board/domain/CubePosition.js';
-import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
+import type { CubeAxis, QuarterTurn } from '../../board/domain/CubeOrientation.js';
+import type { ShipIdentity } from '../../board/domain/CubeSnapshot.js';
 import type { PlayerIdentity } from '../../ship-movement/domain/MovementGame.js';
 import { Reachability, type ReachabilityResult } from '../../ship-movement/domain/Reachability.js';
 import { CombatGame, type CombatShip } from './CombatGame.js';
 import type { AttackOutcome, AttackResolution } from './AttackResolver.js';
 import type { PendingAttack } from './PendingAttack.js';
 import type { PendingMove } from '../../ship-movement/domain/PendingMove.js';
+import { PendingRotation } from './PendingRotation.js';
 
 interface LiveBattleSnapshot {
   readonly gameRevision: number;
@@ -36,6 +38,11 @@ export interface AttackReadySnapshot extends LiveBattleSnapshot {
   readonly phase: 'attack-ready';
 }
 
+export interface RotatingSnapshot extends LiveBattleSnapshot {
+  readonly phase: 'rotating';
+  readonly pendingRotation: PendingRotation;
+}
+
 export interface AttackingSnapshot extends LiveBattleSnapshot {
   readonly phase: 'attacking';
   readonly pendingAttack: PendingAttack;
@@ -58,6 +65,7 @@ export type BattleSnapshot =
   | AwaitingMovementSkipSnapshot
   | MovingSnapshot
   | AttackReadySnapshot
+  | RotatingSnapshot
   | AttackingSnapshot
   | FinishedSnapshot
   | DisposedSnapshot;
@@ -67,6 +75,7 @@ export interface InitialBattleCounters {
   readonly turnToken?: number;
   readonly moveId?: number;
   readonly attackId?: number;
+  readonly rotationId?: number;
 }
 
 export class BattleSession {
@@ -75,18 +84,21 @@ export class BattleSession {
   private currentTurnToken: number;
   private currentMoveId: number;
   private currentAttackId: number;
+  private currentRotationId: number;
   private activePlayer: PlayerIdentity = 'player-1';
   private currentPhase:
     | 'movement-ready'
     | 'awaiting-movement-skip'
     | 'moving'
     | 'attack-ready'
+    | 'rotating'
     | 'attacking'
     | 'finished'
     | 'disposed';
   private currentReachability: ReachabilityResult;
   private pendingMove: PendingMove | null = null;
   private pendingAttack: PendingAttack | null = null;
+  private pendingRotation: PendingRotation | null = null;
   private lastCompletedAttack: AttackOutcome | null = null;
   private winner: PlayerIdentity | null = null;
   private defeatedShip: ShipIdentity | null = null;
@@ -101,10 +113,12 @@ export class BattleSession {
     this.currentTurnToken = initialIdentityCounters.turnToken ?? 1;
     this.currentMoveId = initialIdentityCounters.moveId ?? 0;
     this.currentAttackId = initialIdentityCounters.attackId ?? 0;
+    this.currentRotationId = initialIdentityCounters.rotationId ?? 0;
     BattleSession.validateCounter(this.currentGameRevision, 'Game revision', 1);
     BattleSession.validateCounter(this.currentTurnToken, 'Turn token', 1);
     BattleSession.validateCounter(this.currentMoveId, 'Move identity', 0);
     BattleSession.validateCounter(this.currentAttackId, 'Attack identity', 0);
+    BattleSession.validateCounter(this.currentRotationId, 'Rotation identity', 0);
     if (!(initialGame instanceof CombatGame)) {
       throw new RangeError('A battle session requires a complete CombatGame.');
     }
@@ -150,6 +164,11 @@ export class BattleSession {
         return Object.freeze({ ...base, phase: 'moving', pendingMove: this.pendingMove });
       case 'attack-ready':
         return Object.freeze({ ...base, phase: 'attack-ready' });
+      case 'rotating':
+        if (!this.pendingRotation) {
+          throw new Error('A rotating battle must retain its pending rotation.');
+        }
+        return Object.freeze({ ...base, phase: 'rotating', pendingRotation: this.pendingRotation });
       case 'attacking':
         if (!this.pendingAttack) {
           throw new Error('An attacking battle must retain its pending attack.');
@@ -226,6 +245,69 @@ export class BattleSession {
     this.currentReachability = nextReachability;
     this.pendingMove = null;
     this.currentPhase = this.phaseFor(nextReachability);
+    return true;
+  }
+
+  rotateShip(
+    gameRevision: number,
+    turnToken: number,
+    shipIdentity: ShipIdentity,
+    axis: CubeAxis,
+    direction: QuarterTurn,
+  ): PendingRotation | null {
+    if (
+      (this.currentPhase !== 'movement-ready' &&
+        this.currentPhase !== 'awaiting-movement-skip' &&
+        this.currentPhase !== 'attack-ready') ||
+      !this.matchesTurn(gameRevision, turnToken) ||
+      shipIdentity !== BattleSession.shipForPlayer(this.activePlayer)
+    ) {
+      return null;
+    }
+
+    let targetOrientation;
+    try {
+      targetOrientation = this.ship(shipIdentity).orientation.rotate(axis, direction);
+    } catch {
+      return null;
+    }
+    const rotationId = BattleSession.incrementCounter(this.currentRotationId, 'Rotation identity');
+    const pendingRotation = new PendingRotation(
+      this.currentGameRevision,
+      this.currentTurnToken,
+      rotationId,
+      shipIdentity,
+      axis,
+      direction,
+      this.ship(shipIdentity).orientation,
+      targetOrientation,
+      this.currentPhase,
+    );
+    this.currentRotationId = rotationId;
+    this.pendingRotation = pendingRotation;
+    this.currentPhase = 'rotating';
+    return pendingRotation;
+  }
+
+  completeRotation(gameRevision: number, turnToken: number, rotationId: number): boolean {
+    const pendingRotation = this.pendingRotation;
+    if (!this.matchesRotation(gameRevision, turnToken, rotationId, pendingRotation)) return false;
+
+    this.currentGame = this.currentGame.withOrientation(
+      pendingRotation.shipIdentity,
+      pendingRotation.targetOrientation,
+    );
+    this.pendingRotation = null;
+    this.currentPhase = pendingRotation.resumePhase;
+    return true;
+  }
+
+  failRotation(gameRevision: number, turnToken: number, rotationId: number): boolean {
+    const pendingRotation = this.pendingRotation;
+    if (!this.matchesRotation(gameRevision, turnToken, rotationId, pendingRotation)) return false;
+
+    this.pendingRotation = null;
+    this.currentPhase = pendingRotation.resumePhase;
     return true;
   }
 
@@ -342,9 +424,11 @@ export class BattleSession {
     this.currentTurnToken = nextTurnToken;
     this.currentMoveId = 0;
     this.currentAttackId = 0;
+    this.currentRotationId = 0;
     this.activePlayer = 'player-1';
     this.pendingMove = null;
     this.pendingAttack = null;
+    this.pendingRotation = null;
     this.lastCompletedAttack = null;
     this.winner = null;
     this.defeatedShip = null;
@@ -357,6 +441,7 @@ export class BattleSession {
     if (this.currentPhase === 'disposed') return;
     this.pendingMove = null;
     this.pendingAttack = null;
+    this.pendingRotation = null;
     this.currentPhase = 'disposed';
   }
 
@@ -393,6 +478,22 @@ export class BattleSession {
       pendingAttack.gameRevision === gameRevision &&
       pendingAttack.turnToken === turnToken &&
       pendingAttack.attackId === attackId
+    );
+  }
+
+  private matchesRotation(
+    gameRevision: number,
+    turnToken: number,
+    rotationId: number,
+    pendingRotation: PendingRotation | null,
+  ): pendingRotation is PendingRotation {
+    return (
+      this.currentPhase === 'rotating' &&
+      pendingRotation !== null &&
+      this.matchesTurn(gameRevision, turnToken) &&
+      pendingRotation.gameRevision === gameRevision &&
+      pendingRotation.turnToken === turnToken &&
+      pendingRotation.rotationId === rotationId
     );
   }
 

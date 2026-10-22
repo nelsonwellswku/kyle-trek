@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
+import type { CubeScreenGeometry } from '../../board/presentation/CubeScreenGeometry.js';
 import type { RandomSource } from '../../game-setup/domain/RandomSource.js';
 import type { CombatGame } from '../domain/CombatGame.js';
 import { BattleSession } from '../domain/BattleSession.js';
@@ -9,26 +9,28 @@ import { PhaserFlightAnimator } from '../../ship-movement/presentation/PhaserFli
 import type { TorpedoAnimator } from './TorpedoAnimator.js';
 import { PhaserTorpedoAnimator, type TorpedoVisualObserver } from './PhaserTorpedoAnimator.js';
 import type { CombatControls } from './CombatControls.js';
-import { BoardView } from '../../board/presentation/BoardView.js';
-import { CombatController } from './CombatController.js';
+import { PhaserCubeProjectionView } from '../../board/presentation/PhaserCubeProjectionView.js';
+import { CombatController, type CombatCubeViewPort } from './CombatController.js';
 import { ThreeCubeView } from '../../board/presentation/ThreeCubeView.js';
 import type { CubePickTarget } from '../../board/presentation/CubePicker.js';
 import { ThreeFlightAnimator } from '../../ship-movement/presentation/ThreeFlightAnimator.js';
+import { ThreeTorpedoAnimator } from './ThreeTorpedoAnimator.js';
 
 export type CombatSceneReadyHandler = (revision: number) => void;
 
 /** Phaser requires Scene inheritance for lifecycle/input; combat behavior remains composed. */
 export class CombatScene extends Phaser.Scene {
-  private boardView: BoardView | null = null;
+  private boardView: PhaserCubeProjectionView | null = null;
   private cubeView: ThreeCubeView | null = null;
   private controller: CombatController | null = null;
+  private ownedTorpedoAnimator: TorpedoAnimator | null = null;
   private isListeningForPointer = false;
   private isCreated = false;
   private isDisposed = false;
 
   constructor(
     private readonly session: BattleSession,
-    private readonly geometry: BoardGeometry,
+    private readonly geometry: CubeScreenGeometry,
     private readonly controls: CombatControls,
     private readonly onDrawn: CombatSceneReadyHandler,
     private readonly onMovementError: (message: string) => void,
@@ -59,7 +61,7 @@ export class CombatScene extends Phaser.Scene {
     if (snapshot.phase === 'disposed') throw new Error('A CombatScene requires a live battle.');
 
     this.isCreated = true;
-    this.boardView = new BoardView(this, this.geometry);
+    this.boardView = new PhaserCubeProjectionView(this, this.geometry);
     if (this.cubeHost) {
       try {
         this.cubeView = new ThreeCubeView(
@@ -84,18 +86,12 @@ export class CombatScene extends Phaser.Scene {
       this.boardView,
       this.flightAnimator ??
         (this.cubeView ? new ThreeFlightAnimator() : new PhaserFlightAnimator(this, this.geometry)),
-      this.torpedoAnimator ??
-        new PhaserTorpedoAnimator(
-          this,
-          this.geometry,
-          this.onTorpedoEvent,
-          this.torpedoPathRandomSource,
-        ),
+      this.getTorpedoAnimator(),
       this.controls,
       this.onMovementError,
       this.onAttackError,
       this.onBoardChanged,
-      this.cubeView ?? undefined,
+      this.createCombatCubeViewPort(),
     );
     if (!this.cubeView) {
       this.input.on('pointerdown', this.handlePointerDown, this);
@@ -128,6 +124,8 @@ export class CombatScene extends Phaser.Scene {
     }
     this.controller?.dispose();
     this.controller = null;
+    this.ownedTorpedoAnimator?.dispose?.();
+    this.ownedTorpedoAnimator = null;
     this.cubeView?.dispose();
     this.cubeView = null;
     this.boardView?.dispose();
@@ -146,6 +144,47 @@ export class CombatScene extends Phaser.Scene {
       this.controller?.markReady(renderedRevision);
       this.onDrawn(renderedRevision);
     });
+  }
+
+  private createCombatCubeViewPort(): CombatCubeViewPort | undefined {
+    const view = this.cubeView;
+    if (!view) return undefined;
+    return {
+      setHighlights: (destinations) => view.setHighlights(destinations),
+      setShipPosition: (identity, position) => view.setShipPosition(identity, position),
+      setShipVisualPosition: (identity, point) => view.setShipVisualPosition(identity, point),
+      setShipOrientation: (identity, orientation) => view.setShipOrientation(identity, orientation),
+      animateShipRotation: (rotation, onComplete, onFailure) =>
+        view.animateShipOrientation(
+          rotation.shipIdentity,
+          rotation.targetOrientation,
+          onComplete,
+          onFailure,
+        ),
+    };
+  }
+
+  private getTorpedoAnimator(): TorpedoAnimator {
+    if (this.torpedoAnimator) return this.torpedoAnimator;
+    if (this.cubeView) {
+      const animator = new ThreeTorpedoAnimator(
+        this.cubeView.scene,
+        () => this.cubeView?.renderCurrentPose(),
+        this.torpedoPathRandomSource,
+        undefined,
+        this.onTorpedoEvent,
+      );
+      this.ownedTorpedoAnimator = animator;
+      return animator;
+    }
+    const animator = new PhaserTorpedoAnimator(
+      this,
+      this.geometry,
+      this.onTorpedoEvent,
+      this.torpedoPathRandomSource,
+    );
+    this.ownedTorpedoAnimator = animator;
+    return animator;
   }
 
   private readonly handlePointerDown = (pointer: Phaser.Input.Pointer): void => {

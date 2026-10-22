@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type Phaser from 'phaser';
 import { CubePosition } from '../../board/domain/CubePosition.js';
-import { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
+import { CubeScreenGeometry } from '../../board/presentation/CubeScreenGeometry.js';
 import { AgilityStat } from '../domain/AgilityStat.js';
 import { MovementGame } from '../domain/MovementGame.js';
 import type { LegalRoute } from '../domain/Reachability.js';
@@ -152,7 +152,7 @@ function animatorHarness(throwOnStart = false) {
     return tween;
   });
   const scene = { tweens: { addCounter } } as unknown as Phaser.Scene;
-  const animator = new PhaserFlightAnimator(scene, new BoardGeometry(600));
+  const animator = new PhaserFlightAnimator(scene, new CubeScreenGeometry(600));
 
   return {
     animator,

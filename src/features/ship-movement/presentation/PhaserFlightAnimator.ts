@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
+import type { CubeScreenGeometry } from '../../board/presentation/CubeScreenGeometry.js';
 import type { PendingMove } from '../domain/PendingMove.js';
 import type {
   FlightAnimator,
@@ -15,7 +15,7 @@ export class PhaserFlightAnimator implements FlightAnimator {
 
   constructor(
     private readonly scene: Phaser.Scene,
-    private readonly geometry: BoardGeometry,
+    private readonly geometry: CubeScreenGeometry,
   ) {}
 
   start(
@@ -133,7 +133,7 @@ export class PhaserFlightAnimator implements FlightAnimator {
   private static toCubeWorldPoint(
     point: { readonly x: number; readonly y: number },
     z: number,
-    geometry: BoardGeometry,
+    geometry: CubeScreenGeometry,
   ): { readonly x: number; readonly y: number; readonly z: number } {
     return Object.freeze({
       x: (point.x / geometry.logicalSize) * 10 - 5.5,

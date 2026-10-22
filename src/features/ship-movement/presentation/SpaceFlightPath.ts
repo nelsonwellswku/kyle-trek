@@ -1,10 +1,15 @@
-import type { BoardGeometry, BoardPoint } from '../../board/presentation/BoardGeometry.js';
+import type {
+  CubeScreenGeometry,
+  ScreenPoint,
+} from '../../board/presentation/CubeScreenGeometry.js';
 import { CubePosition } from '../../board/domain/CubePosition.js';
+
+type BoardPoint = ScreenPoint;
 
 export interface SpaceLineSegment {
   readonly kind: 'line';
-  readonly start: BoardPoint;
-  readonly end: BoardPoint;
+  readonly start: ScreenPoint;
+  readonly end: ScreenPoint;
 }
 
 export interface SpaceArcSegment {
@@ -28,7 +33,7 @@ export class SpaceFlightPath {
     origin: CubePosition,
     destination: CubePosition,
     obstacle: CubePosition,
-    geometry: BoardGeometry,
+    geometry: CubeScreenGeometry,
   ) {
     const start = geometry.cellCenter(origin);
     const end = geometry.cellCenter(destination);

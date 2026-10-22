@@ -1,11 +1,18 @@
 import { CubePosition } from '../../board/domain/CubePosition.js';
-import type { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
-import type { BoardView } from '../../board/presentation/BoardView.js';
+import {
+  CubeOrientation,
+  type CubeAxis,
+  type QuarterTurn,
+} from '../../board/domain/CubeOrientation.js';
+import type { ShipIdentity } from '../../board/domain/CubeSnapshot.js';
+import type { CubeScreenGeometry } from '../../board/presentation/CubeScreenGeometry.js';
+import type { PhaserCubeProjectionView } from '../../board/presentation/PhaserCubeProjectionView.js';
 import type { CubePickTarget } from '../../board/presentation/CubePicker.js';
 import type { CubeWorldPoint } from '../../ship-movement/presentation/CubeFlightPath.js';
 import type { BattleSession, BattleSnapshot, AttackingSnapshot } from '../domain/BattleSession.js';
 import type { CombatGame } from '../domain/CombatGame.js';
 import type { PendingMove } from '../../ship-movement/domain/PendingMove.js';
+import type { PendingRotation } from '../domain/PendingRotation.js';
 import type {
   FlightAnimator,
   FlightHandle,
@@ -24,18 +31,29 @@ export interface CombatCubeViewPort {
   setHighlights(destinations: readonly CubePosition[]): void;
   setShipPosition(identity: 'ship-1' | 'ship-2', position: CubePosition): void;
   setShipVisualPosition(identity: 'ship-1' | 'ship-2', point: CubeWorldPoint): void;
+  setShipOrientation(identity: ShipIdentity, orientation: CubeOrientation): void;
+  animateShipRotation(
+    rotation: PendingRotation,
+    onComplete: () => void,
+    onFailure: (error: Error) => void,
+  ): CombatRotationHandle;
+}
+
+export interface CombatRotationHandle {
+  cancel(): void;
 }
 
 export class CombatController {
   private readyRevision: number | null = null;
   private activeFlight: FlightHandle | null = null;
   private activeTorpedo: TorpedoHandle | null = null;
+  private activeRotation: CombatRotationHandle | null = null;
   private isDisposed = false;
 
   constructor(
     private readonly session: BattleSession,
-    private readonly geometry: BoardGeometry,
-    private readonly boardView: BoardView,
+    private readonly geometry: CubeScreenGeometry,
+    private readonly boardView: PhaserCubeProjectionView,
     private readonly flightAnimator: FlightAnimator,
     private readonly torpedoAnimator: TorpedoAnimator,
     private readonly controls: CombatControls,
@@ -47,6 +65,8 @@ export class CombatController {
     this.controls.setActionHandlers(
       (gameRevision, turnToken) => this.acknowledgeMovementSkip(gameRevision, turnToken),
       (gameRevision, turnToken) => this.endTurn(gameRevision, turnToken),
+      (gameRevision, turnToken, shipIdentity, axis, direction) =>
+        this.rotateShip(gameRevision, turnToken, shipIdentity, axis, direction),
     );
     this.renderSnapshot(this.session.snapshot);
   }
@@ -61,15 +81,14 @@ export class CombatController {
     if (this.isDisposed || pointer.button !== 0 || this.readyRevision === null) return;
     const snapshot = this.session.snapshot;
     if (snapshot.phase === 'disposed' || snapshot.gameRevision !== this.readyRevision) return;
-    const boardPosition = this.geometry.positionAt({ x: pointer.worldX, y: pointer.worldY });
-    if (!boardPosition) return;
+    const activePosition = this.shipPosition(snapshot.activeShip, snapshot.game);
+    const position = this.geometry.positionAt(
+      { x: pointer.worldX, y: pointer.worldY },
+      activePosition.z,
+    );
+    if (!position) return;
 
     if (snapshot.phase === 'movement-ready') {
-      const position = new CubePosition(
-        boardPosition.column,
-        boardPosition.row,
-        this.shipPosition(snapshot.activeShip, snapshot.game).z,
-      );
       const move = this.session.selectDestination(
         snapshot.gameRevision,
         snapshot.turnToken,
@@ -83,7 +102,7 @@ export class CombatController {
 
     if (snapshot.phase === 'attack-ready') {
       const target = snapshot.activeShip === 'ship-1' ? snapshot.game.ship2 : snapshot.game.ship1;
-      if (!target.position.equals(boardPosition)) return;
+      if (target.position.x !== position.x || target.position.y !== position.y) return;
       const attack = this.session.selectAttack(
         snapshot.gameRevision,
         snapshot.turnToken,
@@ -150,15 +169,57 @@ export class CombatController {
     return true;
   }
 
+  rotateShip(
+    gameRevision: number,
+    turnToken: number,
+    shipIdentity: ShipIdentity,
+    axis: CubeAxis,
+    direction: QuarterTurn,
+  ): boolean {
+    if (this.isDisposed || this.readyRevision !== gameRevision) return false;
+    const pendingRotation = this.session.rotateShip(
+      gameRevision,
+      turnToken,
+      shipIdentity,
+      axis,
+      direction,
+    );
+    if (!pendingRotation) return false;
+    this.renderSnapshot(this.session.snapshot);
+
+    if (!this.cubeView) {
+      this.completeRotation(pendingRotation);
+      return true;
+    }
+    try {
+      const handle = this.cubeView.animateShipRotation(
+        pendingRotation,
+        () => this.completeRotation(pendingRotation),
+        (error) => this.failRotation(pendingRotation, error),
+      );
+      if (this.matchesCurrentRotation(pendingRotation)) this.activeRotation = handle;
+      else handle.cancel();
+    } catch (error) {
+      this.failRotation(
+        pendingRotation,
+        error instanceof Error ? error : new Error('Ship rotation animation could not start.'),
+      );
+    }
+    return true;
+  }
+
   prepareForReplacement(): void {
     if (this.isDisposed) return;
     this.readyRevision = null;
     const flight = this.activeFlight;
     const torpedo = this.activeTorpedo;
+    const rotation = this.activeRotation;
     this.activeFlight = null;
     this.activeTorpedo = null;
+    this.activeRotation = null;
     flight?.cancel();
     torpedo?.cancel();
+    rotation?.cancel();
     this.boardView.setHighlights([]);
     this.cubeView?.setHighlights([]);
     this.renderSnapshot(this.session.snapshot);
@@ -170,10 +231,13 @@ export class CombatController {
     this.readyRevision = null;
     const flight = this.activeFlight;
     const torpedo = this.activeTorpedo;
+    const rotation = this.activeRotation;
     this.activeFlight = null;
     this.activeTorpedo = null;
+    this.activeRotation = null;
     flight?.cancel();
     torpedo?.cancel();
+    rotation?.cancel();
     this.boardView.setHighlights([]);
     this.cubeView?.setHighlights([]);
   }
@@ -283,6 +347,37 @@ export class CombatController {
     this.renderSnapshot(this.session.snapshot);
   }
 
+  private completeRotation(rotation: PendingRotation): void {
+    if (!this.matchesCurrentRotation(rotation)) return;
+    if (
+      !this.session.completeRotation(rotation.gameRevision, rotation.turnToken, rotation.rotationId)
+    ) {
+      return;
+    }
+
+    this.activeRotation = null;
+    this.cubeView?.setShipOrientation(rotation.shipIdentity, rotation.targetOrientation);
+    const completed = this.session.snapshot;
+    this.renderSnapshot(completed);
+    if (completed.phase !== 'disposed') this.onBoardChanged(completed.game);
+  }
+
+  private failRotation(rotation: PendingRotation, error: Error): void {
+    if (!this.matchesCurrentRotation(rotation)) return;
+    if (
+      !this.session.failRotation(rotation.gameRevision, rotation.turnToken, rotation.rotationId)
+    ) {
+      return;
+    }
+
+    const activeRotation = this.activeRotation;
+    this.activeRotation = null;
+    activeRotation?.cancel();
+    this.cubeView?.setShipOrientation(rotation.shipIdentity, rotation.previousOrientation);
+    this.renderSnapshot(this.session.snapshot);
+    this.onMovementError(`Ship rotation failed: ${error.message}`);
+  }
+
   private failTorpedo(identity: TorpedoIdentity, error: Error): void {
     if (this.isDisposed || !this.matchesCurrentAttack(identity)) return;
     const current = this.session.snapshot;
@@ -320,6 +415,18 @@ export class CombatController {
       snapshot.gameRevision === attack.gameRevision &&
       snapshot.turnToken === attack.turnToken &&
       snapshot.pendingAttack.attackId === attack.attackId
+    );
+  }
+
+  private matchesCurrentRotation(rotation: PendingRotation): boolean {
+    const snapshot = this.session.snapshot;
+    return (
+      !this.isDisposed &&
+      this.readyRevision === rotation.gameRevision &&
+      snapshot.phase === 'rotating' &&
+      snapshot.gameRevision === rotation.gameRevision &&
+      snapshot.turnToken === rotation.turnToken &&
+      snapshot.pendingRotation.rotationId === rotation.rotationId
     );
   }
 

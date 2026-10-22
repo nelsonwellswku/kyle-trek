@@ -1,8 +1,31 @@
 import type { CombatGame } from '../domain/CombatGame.js';
 import type { BattleSnapshot } from '../domain/BattleSession.js';
 import type { AttackOutcome } from '../domain/AttackResolver.js';
+import type { CubeAxis, QuarterTurn } from '../../board/domain/CubeOrientation.js';
+import type { ShipIdentity } from '../../board/domain/CubeSnapshot.js';
 
 export type BattleActionHandler = (gameRevision: number, turnToken: number) => void;
+export type ShipRotationActionHandler = (
+  gameRevision: number,
+  turnToken: number,
+  shipIdentity: ShipIdentity,
+  axis: CubeAxis,
+  direction: QuarterTurn,
+) => void;
+
+const ROTATION_ACTIONS = [
+  { selector: 'button.rotate-x-positive', axis: 'x', direction: 1, label: 'Rotate X +90°' },
+  { selector: 'button.rotate-x-negative', axis: 'x', direction: -1, label: 'Rotate X −90°' },
+  { selector: 'button.rotate-y-positive', axis: 'y', direction: 1, label: 'Rotate Y +90°' },
+  { selector: 'button.rotate-y-negative', axis: 'y', direction: -1, label: 'Rotate Y −90°' },
+  { selector: 'button.rotate-z-positive', axis: 'z', direction: 1, label: 'Rotate Z +90°' },
+  { selector: 'button.rotate-z-negative', axis: 'z', direction: -1, label: 'Rotate Z −90°' },
+] as const satisfies readonly {
+  readonly selector: string;
+  readonly axis: CubeAxis;
+  readonly direction: QuarterTurn;
+  readonly label: string;
+}[];
 
 export class CombatControls {
   private readonly turnControls: HTMLElement;
@@ -10,10 +33,17 @@ export class CombatControls {
   private readonly activeTurn: HTMLElement;
   private readonly skipButton: HTMLButtonElement;
   private readonly endTurnButton: HTMLButtonElement;
+  private readonly rotationButtons: readonly {
+    readonly button: HTMLButtonElement;
+    readonly axis: CubeAxis;
+    readonly direction: QuarterTurn;
+  }[];
   private skipHandler: EventListener | null = null;
   private endTurnHandler: EventListener | null = null;
+  private readonly rotationHandlers = new Map<HTMLButtonElement, EventListener>();
   private onSkipMovement: BattleActionHandler = () => {};
   private onEndTurn: BattleActionHandler = () => {};
+  private onRotateShip: ShipRotationActionHandler = () => {};
   private isDisposed = false;
 
   constructor(private readonly root: HTMLElement) {
@@ -31,6 +61,12 @@ export class CombatControls {
           <button class="skip-movement-button" type="button" hidden disabled>Skip movement</button>
           <button class="end-turn-button" type="button" hidden disabled>End turn</button>
         </div>
+        <div class="combat-rotation-controls" role="group" aria-label="Rotate active ship">
+          ${ROTATION_ACTIONS.map(
+            ({ selector, axis, direction, label }) =>
+              `<button class="${selector.replace(/^button\./, '')}" type="button" aria-label="Rotate active ship ${direction > 0 ? '+90' : '−90'} degrees around ${axis.toUpperCase()} axis" hidden disabled>${label}</button>`,
+          ).join('')}
+        </div>
       </section>
     `;
 
@@ -47,14 +83,25 @@ export class CombatControls {
     this.activeTurn = activeTurn;
     this.skipButton = skipButton;
     this.endTurnButton = endTurnButton;
+    this.rotationButtons = ROTATION_ACTIONS.map(({ selector, axis, direction }) => {
+      const button = root.querySelector<HTMLButtonElement>(selector);
+      if (!button) throw new Error(`Combat rotation button ${selector} is missing.`);
+      this.setButtonAvailable(button, false);
+      return { button, axis, direction };
+    });
     this.status.setAttribute('role', 'status');
     this.status.setAttribute('aria-live', 'polite');
   }
 
-  setActionHandlers(onSkipMovement: BattleActionHandler, onEndTurn: BattleActionHandler): void {
+  setActionHandlers(
+    onSkipMovement: BattleActionHandler,
+    onEndTurn: BattleActionHandler,
+    onRotateShip: ShipRotationActionHandler = () => {},
+  ): void {
     if (this.isDisposed) return;
     this.onSkipMovement = onSkipMovement;
     this.onEndTurn = onEndTurn;
+    this.onRotateShip = onRotateShip;
   }
 
   renderShips(game: CombatGame): void {
@@ -75,6 +122,7 @@ export class CombatControls {
       CombatControls.setText(this.root, '#battle-winner', '');
       this.setButtonAvailable(this.skipButton, false);
       this.setButtonAvailable(this.endTurnButton, false);
+      this.setRotationButtonsAvailable(false);
       return;
     }
 
@@ -97,13 +145,21 @@ export class CombatControls {
       boardReady && snapshot.phase === 'awaiting-movement-skip',
     );
     this.setButtonAvailable(this.endTurnButton, boardReady && snapshot.phase === 'attack-ready');
+    const canRotate =
+      boardReady &&
+      (snapshot.phase === 'movement-ready' ||
+        snapshot.phase === 'awaiting-movement-skip' ||
+        snapshot.phase === 'attack-ready');
+    this.setRotationButtonsAvailable(canRotate);
+    if (canRotate)
+      this.addRotationListeners(snapshot.gameRevision, snapshot.turnToken, snapshot.activeShip);
 
     switch (snapshot.phase) {
       case 'movement-ready':
-        this.status.textContent = `${CombatControls.playerName(snapshot.activePlayer)} — move ${CombatControls.shipName(snapshot.activeShip)} to a highlighted destination.`;
+        this.status.textContent = `${CombatControls.playerName(snapshot.activePlayer)} — move ${CombatControls.shipName(snapshot.activeShip)} to a highlighted destination or rotate it.`;
         break;
       case 'awaiting-movement-skip': {
-        this.status.textContent = snapshot.reason;
+        this.status.textContent = `${snapshot.reason} You can rotate your ship before continuing.`;
         const { gameRevision, turnToken } = snapshot;
         this.skipHandler = (): void => this.onSkipMovement(gameRevision, turnToken);
         this.skipButton.addEventListener('click', this.skipHandler);
@@ -112,8 +168,11 @@ export class CombatControls {
       case 'moving':
         this.status.textContent = `${CombatControls.shipName(snapshot.activeShip)} is moving.`;
         break;
+      case 'rotating':
+        this.status.textContent = `${CombatControls.shipName(snapshot.pendingRotation.shipIdentity)} is rotating ${snapshot.pendingRotation.direction > 0 ? '+90°' : '−90°'} around the ${snapshot.pendingRotation.axis.toUpperCase()} axis. Gameplay input is locked.`;
+        break;
       case 'attack-ready': {
-        this.status.textContent = `Movement is complete. Click the opposing ship to attack or choose End turn.`;
+        this.status.textContent = `Movement is complete. Rotate your ship, click the opposing ship to attack, or choose End turn.`;
         const { gameRevision, turnToken } = snapshot;
         this.endTurnHandler = (): void => this.onEndTurn(gameRevision, turnToken);
         this.endTurnButton.addEventListener('click', this.endTurnHandler);
@@ -134,12 +193,30 @@ export class CombatControls {
     this.removeActionListeners();
     this.setButtonAvailable(this.skipButton, false);
     this.setButtonAvailable(this.endTurnButton, false);
+    this.setRotationButtonsAvailable(false);
     this.root.replaceChildren();
   }
 
   private setButtonAvailable(button: HTMLButtonElement, available: boolean): void {
     button.hidden = !available;
     button.disabled = !available;
+  }
+
+  private setRotationButtonsAvailable(available: boolean): void {
+    for (const { button } of this.rotationButtons) this.setButtonAvailable(button, available);
+  }
+
+  private addRotationListeners(
+    gameRevision: number,
+    turnToken: number,
+    shipIdentity: ShipIdentity,
+  ): void {
+    for (const { button, axis, direction } of this.rotationButtons) {
+      const handler: EventListener = () =>
+        this.onRotateShip(gameRevision, turnToken, shipIdentity, axis, direction);
+      this.rotationHandlers.set(button, handler);
+      button.addEventListener('click', handler);
+    }
   }
 
   private removeActionListeners(): void {
@@ -151,6 +228,10 @@ export class CombatControls {
       this.endTurnButton.removeEventListener('click', this.endTurnHandler);
       this.endTurnHandler = null;
     }
+    for (const [button, handler] of this.rotationHandlers) {
+      button.removeEventListener('click', handler);
+    }
+    this.rotationHandlers.clear();
   }
 
   private renderShip(ship: CombatGame['ship1']): void {

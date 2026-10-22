@@ -1,7 +1,7 @@
 import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
 import { CubePosition } from '../../board/domain/CubePosition.js';
 import { CubeSnapshot } from '../../board/domain/CubeSnapshot.js';
-import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
+import type { ShipIdentity } from '../../board/domain/CubeSnapshot.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
 import { AbilityStat } from '../../ship-stats/domain/AbilityStat.js';
 import type { PlayerIdentity } from '../../ship-movement/domain/MovementGame.js';
@@ -48,6 +48,16 @@ export class CombatGame extends CubeSnapshot {
     return new CombatGame(
       identity === 'ship-1' ? { ...this.ship1, position } : this.ship1,
       identity === 'ship-2' ? { ...this.ship2, position } : this.ship2,
+    );
+  }
+
+  withOrientation(identity: ShipIdentity, orientation: CubeOrientation): CombatGame {
+    if (!(orientation instanceof CubeOrientation)) {
+      throw new RangeError('A combat orientation must be a valid CubeOrientation.');
+    }
+    return new CombatGame(
+      identity === 'ship-1' ? { ...this.ship1, orientation } : this.ship1,
+      identity === 'ship-2' ? { ...this.ship2, orientation } : this.ship2,
     );
   }
 

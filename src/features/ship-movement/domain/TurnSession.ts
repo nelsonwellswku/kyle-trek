@@ -1,5 +1,5 @@
 import { CubePosition } from '../../board/domain/CubePosition.js';
-import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
+import type { ShipIdentity } from '../../board/domain/CubeSnapshot.js';
 import { Reachability, type ReachabilityResult } from './Reachability.js';
 import { MovementGame, type PlayerIdentity } from './MovementGame.js';
 import type { PendingMove } from './PendingMove.js';

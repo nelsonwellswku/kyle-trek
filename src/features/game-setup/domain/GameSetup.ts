@@ -1,7 +1,7 @@
 import { CubeSnapshot, type CubeShipPlacement } from '../../board/domain/CubeSnapshot.js';
 import type { CubeSnapshot as GameSetupSnapshot } from '../../board/domain/CubeSnapshot.js';
 
-export type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
+export type { ShipIdentity } from '../../board/domain/CubeSnapshot.js';
 export type { CubeShipPlacement as ShipPlacement } from '../../board/domain/CubeSnapshot.js';
 export type { GameSetupSnapshot };
 

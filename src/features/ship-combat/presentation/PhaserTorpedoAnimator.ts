@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import type { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
+import type { CubeScreenGeometry } from '../../board/presentation/CubeScreenGeometry.js';
 import { MathRandomSource } from '../../game-setup/adapters/MathRandomSource.js';
 import type { RandomSource } from '../../game-setup/domain/RandomSource.js';
 import type { PendingAttack } from '../domain/PendingAttack.js';
@@ -26,7 +26,7 @@ export class PhaserTorpedoAnimator implements TorpedoAnimator {
 
   constructor(
     private readonly scene: Phaser.Scene,
-    private readonly geometry: BoardGeometry,
+    private readonly geometry: CubeScreenGeometry,
     private readonly observe: TorpedoVisualObserver = () => {},
     private readonly randomSource: RandomSource = new MathRandomSource(),
   ) {}

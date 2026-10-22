@@ -6,7 +6,7 @@ import { Reachability } from '../domain/Reachability.js';
 import { TurnSession } from '../domain/TurnSession.js';
 import { MovementController } from '../presentation/MovementController.js';
 import type { TurnControls } from '../presentation/TurnControls.js';
-import type { BoardView } from '../../board/presentation/BoardView.js';
+import type { PhaserCubeProjectionView } from '../../board/presentation/PhaserCubeProjectionView.js';
 import { ControlledFlightAnimator } from './fixtures/ControlledFlightAnimator.js';
 
 function positionKey(position: CubePosition): string {
@@ -44,7 +44,7 @@ function createController(
   const controller = new MovementController(
     session,
     { logicalSize: 600 } as never,
-    boardView as unknown as BoardView,
+    boardView as unknown as PhaserCubeProjectionView,
     animator,
     controls as unknown as TurnControls,
   );

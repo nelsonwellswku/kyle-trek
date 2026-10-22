@@ -41,6 +41,79 @@ function attackReady(session: BattleSession): Exclude<BattleSnapshot, { phase: '
 }
 
 describe('CombatControls battle phases', () => {
+  it('offers six accessible signed-axis rotation buttons to the active player in ready phases', () => {
+    const { session, snapshot } = immobileSnapshot();
+    const root = new FakeElement();
+    const rotate = vi.fn();
+    const controls = new CombatControls(root as unknown as HTMLElement);
+    controls.setActionHandlers(vi.fn(), vi.fn(), rotate);
+    controls.renderBattle(snapshot, false);
+
+    const selectors = [
+      'button.rotate-x-positive',
+      'button.rotate-x-negative',
+      'button.rotate-y-positive',
+      'button.rotate-y-negative',
+      'button.rotate-z-positive',
+      'button.rotate-z-negative',
+    ];
+    for (const selector of selectors) {
+      const button = root.querySelector<HTMLButtonElement>(selector);
+      expect(button?.hidden).toBe(true);
+      expect(button?.disabled).toBe(true);
+    }
+
+    controls.renderBattle(snapshot, true);
+    for (const selector of selectors) {
+      const button = root.querySelector<HTMLButtonElement>(selector);
+      expect(button?.hidden).toBe(false);
+      expect(button?.disabled).toBe(false);
+    }
+    expect(root.innerHTML).toContain('Rotate X +90°');
+    expect(root.innerHTML).toContain('Rotate X −90°');
+    expect(root.innerHTML).toContain('Rotate Y +90°');
+    expect(root.innerHTML).toContain('Rotate Y −90°');
+    expect(root.innerHTML).toContain('Rotate Z +90°');
+    expect(root.innerHTML).toContain('Rotate Z −90°');
+    expect(root.innerHTML).toContain('aria-label="Rotate active ship +90 degrees around X axis"');
+    expect(root.innerHTML).toContain('role="group" aria-label="Rotate active ship"');
+    expect(root.innerHTML.match(/<button class="rotate-[^\"]+" type="button"/g)).toHaveLength(6);
+
+    root.querySelector<HTMLButtonElement>('button.rotate-z-negative')?.click();
+    expect(rotate).toHaveBeenCalledWith(
+      snapshot.gameRevision,
+      snapshot.turnToken,
+      'ship-1',
+      'z',
+      -1,
+    );
+
+    const ready = attackReady(session);
+    controls.renderBattle(ready, true);
+    root.querySelector<HTMLButtonElement>('button.rotate-y-positive')?.click();
+    expect(rotate).toHaveBeenLastCalledWith(ready.gameRevision, ready.turnToken, 'ship-1', 'y', 1);
+    const pendingRotation = session.rotateShip(
+      ready.gameRevision,
+      ready.turnToken,
+      'ship-1',
+      'x',
+      1,
+    );
+    expect(pendingRotation).not.toBeNull();
+    controls.renderBattle(session.snapshot, true);
+    expect(root.querySelector('#turn-status')?.textContent).toMatch(/rotating.*X axis.*locked/i);
+    expect(root.querySelector<HTMLButtonElement>('button.rotate-x-positive')?.disabled).toBe(true);
+    if (pendingRotation) {
+      session.failRotation(
+        pendingRotation.gameRevision,
+        pendingRotation.turnToken,
+        pendingRotation.rotationId,
+      );
+    }
+    controls.renderBattle(session.snapshot, false);
+    expect(root.querySelector<HTMLButtonElement>('button.rotate-y-positive')?.disabled).toBe(true);
+  });
+
   it('keeps phase actions unavailable until the matching board revision is ready', () => {
     const { snapshot } = immobileSnapshot();
     const root = new FakeElement();

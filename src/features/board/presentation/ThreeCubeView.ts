@@ -23,7 +23,7 @@ import {
   type Material,
   WebGLRenderer,
 } from 'three';
-import type { ShipIdentity } from '../domain/BoardSnapshot.js';
+import type { ShipIdentity } from '../domain/CubeSnapshot.js';
 import { CubeOrientation } from '../domain/CubeOrientation.js';
 import { CubePosition } from '../domain/CubePosition.js';
 import type { CubeSnapshot } from '../domain/CubeSnapshot.js';
@@ -45,6 +45,10 @@ export interface CubeOrbitControlsPort {
 
 export interface CubePickerPort {
   pick(clientX: number, clientY: number): CubePickTarget | null;
+}
+
+export interface CubeRotationAnimationHandle {
+  cancel(): void;
 }
 
 export interface CubeResizeObserverPort {
@@ -77,6 +81,9 @@ export interface ThreeCubeViewOptions {
   readonly orbitControlsDriverFactory?: OrbitControlsDriverFactory;
   readonly resizeObserverFactory?: (callback: () => void) => CubeResizeObserverPort;
   readonly pixelRatio?: number;
+  readonly rotationDurationMs?: number;
+  readonly requestAnimationFrame?: (callback: FrameRequestCallback) => number;
+  readonly cancelAnimationFrame?: (handle: number) => void;
   readonly onSelect?: (target: CubePickTarget | null) => void;
 }
 
@@ -104,6 +111,16 @@ export class ThreeCubeView {
   private readonly orbitControls!: CubeOrbitControlsPort;
   private readonly picker!: CubePickerPort;
   private readonly resizeObserver!: CubeResizeObserverPort | null;
+  private readonly scheduleAnimationFrame: (callback: FrameRequestCallback) => number;
+  private readonly cancelScheduledAnimationFrame: (handle: number) => void;
+  private readonly rotationDurationMs: number;
+  private readonly rotationAnimations = new Map<
+    ShipIdentity,
+    {
+      readonly handle: CubeRotationAnimationHandle;
+      frame: number | null;
+    }
+  >();
   private isDisposed = false;
 
   constructor(
@@ -111,6 +128,14 @@ export class ThreeCubeView {
     private readonly onInspection: CubeInspectionHandler = () => {},
     options: ThreeCubeViewOptions = {},
   ) {
+    this.scheduleAnimationFrame =
+      options.requestAnimationFrame ?? ((callback) => globalThis.requestAnimationFrame(callback));
+    this.cancelScheduledAnimationFrame =
+      options.cancelAnimationFrame ?? ((handle) => globalThis.cancelAnimationFrame(handle));
+    this.rotationDurationMs = options.rotationDurationMs ?? 250;
+    if (!Number.isFinite(this.rotationDurationMs) || this.rotationDurationMs <= 0) {
+      throw new RangeError('Ship rotation animation duration must be positive and finite.');
+    }
     this.canvas = host.ownerDocument.createElement('canvas');
     this.canvas.className = 'three-cube-canvas';
     this.canvas.setAttribute('aria-hidden', 'true');
@@ -230,6 +255,7 @@ export class ThreeCubeView {
 
   setShipPosition(identity: ShipIdentity, position: CubePosition): void {
     if (this.isDisposed || !(position instanceof CubePosition)) return;
+    this.cancelShipRotation(identity);
     const model = this.shipModels.get(identity);
     model?.position.copy(ThreeCubeView.worldPosition(position));
     this.renderFrame();
@@ -251,6 +277,101 @@ export class ThreeCubeView {
     this.renderFrame();
   }
 
+  setShipOrientation(identity: ShipIdentity, orientation: CubeOrientation): void {
+    if (this.isDisposed || !(orientation instanceof CubeOrientation)) return;
+    this.cancelShipRotation(identity);
+    const model = this.shipModels.get(identity);
+    model?.quaternion.copy(ThreeCubeView.orientationQuaternion(orientation));
+    this.renderFrame();
+  }
+
+  animateShipOrientation(
+    identity: ShipIdentity,
+    orientation: CubeOrientation,
+    onComplete: () => void,
+    onFailure: (error: Error) => void,
+  ): CubeRotationAnimationHandle {
+    if (this.isDisposed) return { cancel: () => {} };
+    if (!(orientation instanceof CubeOrientation)) {
+      onFailure(new RangeError('A ship rotation requires a valid CubeOrientation.'));
+      return { cancel: () => {} };
+    }
+    const model = this.shipModels.get(identity);
+    if (!model) {
+      onFailure(new RangeError(`The ${identity} model is unavailable for rotation.`));
+      return { cancel: () => {} };
+    }
+
+    this.cancelShipRotation(identity);
+    const start = model.quaternion.clone();
+    const target = ThreeCubeView.orientationQuaternion(orientation);
+    let settled = false;
+    let startedAt: number | null = null;
+    let frame: number | null = null;
+    const handle: CubeRotationAnimationHandle = {
+      cancel: () => {
+        if (settled) return;
+        settled = true;
+        if (frame !== null) this.cancelScheduledAnimationFrame(frame);
+        frame = null;
+        if (this.rotationAnimations.get(identity) === animation) {
+          this.rotationAnimations.delete(identity);
+        }
+      },
+    };
+    const animation: { readonly handle: CubeRotationAnimationHandle; frame: number | null } = {
+      handle,
+      frame: null,
+    };
+    this.rotationAnimations.set(identity, animation);
+
+    const fail = (error: Error): void => {
+      if (settled) return;
+      settled = true;
+      if (frame !== null) this.cancelScheduledAnimationFrame(frame);
+      frame = null;
+      if (this.rotationAnimations.get(identity) === animation) {
+        this.rotationAnimations.delete(identity);
+      }
+      onFailure(error);
+    };
+    const step: FrameRequestCallback = (timestamp) => {
+      frame = null;
+      animation.frame = null;
+      if (settled || this.isDisposed) return;
+      if (!Number.isFinite(timestamp)) {
+        fail(new Error('The renderer returned an invalid ship rotation timestamp.'));
+        return;
+      }
+      if (startedAt === null) startedAt = timestamp;
+      const progress = Math.max(0, Math.min(1, (timestamp - startedAt) / this.rotationDurationMs));
+      model.quaternion.copy(start).slerp(target, progress);
+      this.renderFrame();
+      if (progress >= 1) {
+        settled = true;
+        this.rotationAnimations.delete(identity);
+        model.quaternion.copy(target);
+        this.renderFrame();
+        onComplete();
+        return;
+      }
+      try {
+        frame = this.scheduleAnimationFrame(step);
+        animation.frame = frame;
+      } catch (error) {
+        fail(error instanceof Error ? error : new Error('Ship rotation could not continue.'));
+      }
+    };
+
+    try {
+      frame = this.scheduleAnimationFrame(step);
+      animation.frame = frame;
+    } catch (error) {
+      fail(error instanceof Error ? error : new Error('Ship rotation could not start.'));
+    }
+    return handle;
+  }
+
   renderCurrentPose(): void {
     this.renderFrame();
   }
@@ -269,6 +390,7 @@ export class ThreeCubeView {
   dispose(): void {
     if (this.isDisposed) return;
     this.isDisposed = true;
+    for (const identity of [...this.rotationAnimations.keys()]) this.cancelShipRotation(identity);
     this.resizeObserver?.disconnect();
     this.orbitControls.dispose();
     this.onInspection(null);
@@ -319,18 +441,27 @@ export class ThreeCubeView {
   }
 
   private updateShip(placement: OrientedShip, identity: ShipIdentity): void {
+    this.cancelShipRotation(identity);
     const model = this.shipModels.get(identity);
     if (!model) return;
     model.position.copy(ThreeCubeView.worldPosition(placement.position));
     const orientation =
       placement.orientation ??
       (identity === 'ship-1' ? CubeOrientation.ship1Default() : CubeOrientation.ship2Default());
+    model.quaternion.copy(ThreeCubeView.orientationQuaternion(orientation));
+  }
+
+  private cancelShipRotation(identity: ShipIdentity): void {
+    this.rotationAnimations.get(identity)?.handle.cancel();
+  }
+
+  private static orientationQuaternion(orientation: CubeOrientation): Quaternion {
     const basis = new Matrix4().makeBasis(
       ThreeCubeView.axisVector(orientation.right),
       ThreeCubeView.axisVector(orientation.up),
       ThreeCubeView.axisVector(orientation.forward),
     );
-    model.quaternion.copy(new Quaternion().setFromRotationMatrix(basis));
+    return new Quaternion().setFromRotationMatrix(basis);
   }
 
   private static createWebGL2Renderer(canvas: HTMLCanvasElement): CubeRendererPort {

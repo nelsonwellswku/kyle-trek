@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CubePosition } from '../../board/domain/CubePosition.js';
-import { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
+import { CubeScreenGeometry } from '../../board/presentation/CubeScreenGeometry.js';
 import { AgilityStat } from '../domain/AgilityStat.js';
 import { MovementGame } from '../domain/MovementGame.js';
 import { TurnSession } from '../domain/TurnSession.js';
@@ -183,7 +183,7 @@ function sceneWithHarness() {
   const onDrawn = vi.fn();
   const scene = new MovementScene(
     gameSession,
-    new BoardGeometry(600),
+    new CubeScreenGeometry(600),
     controls as never,
     onDrawn,
     vi.fn(),
@@ -254,7 +254,7 @@ describe('MovementScene lifecycle', () => {
     const onDrawn = vi.fn();
     const scene = new MovementScene(
       gameSession,
-      new BoardGeometry(600),
+      new CubeScreenGeometry(600),
       controls as never,
       onDrawn,
       vi.fn(),
@@ -307,7 +307,7 @@ describe('MovementScene lifecycle', () => {
     const onDrawn = vi.fn();
     const scene = new MovementScene(
       gameSession,
-      new BoardGeometry(600),
+      new CubeScreenGeometry(600),
       controls as never,
       onDrawn,
       vi.fn(),

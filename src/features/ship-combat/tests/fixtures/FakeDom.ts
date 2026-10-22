@@ -39,6 +39,12 @@ export class FakeElement {
       '#ship-2-armor-class',
       'button.skip-movement-button',
       'button.end-turn-button',
+      'button.rotate-x-positive',
+      'button.rotate-x-negative',
+      'button.rotate-y-positive',
+      'button.rotate-y-negative',
+      'button.rotate-z-positive',
+      'button.rotate-z-negative',
       'button.new-game-button',
     ]) {
       const element = new FakeElementLeaf();

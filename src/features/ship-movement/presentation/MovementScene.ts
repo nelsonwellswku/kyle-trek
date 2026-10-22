@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { CubeSnapshot } from '../../board/domain/CubeSnapshot.js';
-import type { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
-import { BoardView } from '../../board/presentation/BoardView.js';
+import type { CubeScreenGeometry } from '../../board/presentation/CubeScreenGeometry.js';
+import { PhaserCubeProjectionView } from '../../board/presentation/PhaserCubeProjectionView.js';
 import type { TurnSession } from '../domain/TurnSession.js';
 import type { FlightAnimator } from './FlightAnimator.js';
 import { PhaserFlightAnimator } from './PhaserFlightAnimator.js';
@@ -14,7 +14,7 @@ export type MovementSceneReadyHandler = (revision: number) => void;
 
 /** Phaser requires a Scene subclass for lifecycle and input integration; gameplay remains composed. */
 export class MovementScene extends Phaser.Scene {
-  private boardView: BoardView | null = null;
+  private boardView: PhaserCubeProjectionView | null = null;
   private cubeView: ThreeCubeView | null = null;
   private controller: MovementController | null = null;
   private isListeningForPointer = false;
@@ -22,7 +22,7 @@ export class MovementScene extends Phaser.Scene {
 
   constructor(
     private readonly session: TurnSession,
-    private readonly geometry: BoardGeometry,
+    private readonly geometry: CubeScreenGeometry,
     private readonly controls: TurnControls,
     private readonly onDrawn: MovementSceneReadyHandler,
     private readonly onMovementError: (message: string) => void,
@@ -43,7 +43,7 @@ export class MovementScene extends Phaser.Scene {
       throw new Error('A MovementScene requires a live turn session.');
     }
 
-    this.boardView = new BoardView(this, this.geometry);
+    this.boardView = new PhaserCubeProjectionView(this, this.geometry);
     if (this.cubeHost) {
       this.cubeView = new ThreeCubeView(this.cubeHost, undefined, {
         onSelect: (target) => this.controller?.handlePickTarget(target),

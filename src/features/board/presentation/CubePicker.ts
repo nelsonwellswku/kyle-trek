@@ -1,5 +1,5 @@
 import { Raycaster, Vector2, type Camera, type InstancedMesh, type Object3D } from 'three';
-import type { ShipIdentity } from '../domain/BoardSnapshot.js';
+import type { ShipIdentity } from '../domain/CubeSnapshot.js';
 import { CubePosition } from '../domain/CubePosition.js';
 
 export type CubePickTarget =

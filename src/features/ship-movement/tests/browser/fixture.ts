@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import '../../../../app/styles.css';
 import { CubePosition } from '../../../board/domain/CubePosition.js';
-import { BoardGeometry } from '../../../board/presentation/BoardGeometry.js';
+import { CubeScreenGeometry } from '../../../board/presentation/CubeScreenGeometry.js';
 import { GameSetupControls } from '../../../game-setup/presentation/GameSetupControls.js';
 import { AgilityStat } from '../../domain/AgilityStat.js';
 import { MovementGame } from '../../domain/MovementGame.js';
@@ -105,7 +105,7 @@ function drawRouteOverlay(move: PendingMove): void {
     move.origin,
     move.destination,
     move.otherShipPosition,
-    new BoardGeometry(BOARD_SIZE),
+    new CubeScreenGeometry(BOARD_SIZE),
   );
   const namespace = 'http://www.w3.org/2000/svg';
   for (const segment of path.segments) {
@@ -121,7 +121,7 @@ function drawRouteOverlay(move: PendingMove): void {
   }
 
   for (const position of [move.origin, move.destination]) {
-    const center = new BoardGeometry(BOARD_SIZE).cellCenter(position);
+    const center = new CubeScreenGeometry(BOARD_SIZE).cellCenter(position);
     const endpoint = document.createElementNS(namespace, 'circle');
     endpoint.setAttribute('cx', String(center.x));
     endpoint.setAttribute('cy', String(center.y));
@@ -230,7 +230,7 @@ function resetSelectedPreset(): void {
 
 scene = new MovementScene(
   session,
-  new BoardGeometry(BOARD_SIZE),
+  new CubeScreenGeometry(BOARD_SIZE),
   turnControls,
   (revision) => {
     if (!game?.canvas) {

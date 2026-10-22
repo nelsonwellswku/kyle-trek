@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
 import { CubePosition } from '../../board/domain/CubePosition.js';
-import { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
-import type { BoardView } from '../../board/presentation/BoardView.js';
+import { CubeScreenGeometry } from '../../board/presentation/CubeScreenGeometry.js';
+import type { PhaserCubeProjectionView } from '../../board/presentation/PhaserCubeProjectionView.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
 import { ControlledFlightAnimator } from '../../ship-movement/tests/fixtures/ControlledFlightAnimator.js';
 import { AbilityStat } from '../../ship-stats/domain/AbilityStat.js';
@@ -64,7 +64,7 @@ describe('combat attack integration result timing', () => {
         hitPointsAfter: defender.hitPoints - 3,
       }),
     });
-    const geometry = new BoardGeometry(600);
+    const geometry = new CubeScreenGeometry(600);
     const boardView = {
       setHighlights: vi.fn(),
       setShipPosition: vi.fn(),
@@ -76,7 +76,7 @@ describe('combat attack integration result timing', () => {
     const controller = new CombatController(
       session,
       geometry,
-      boardView as unknown as BoardView,
+      boardView as unknown as PhaserCubeProjectionView,
       new ControlledFlightAnimator(),
       torpedoes,
       controls,
@@ -148,7 +148,7 @@ describe('combat attack integration result timing', () => {
         hitPointsAfter: defender.hitPoints - 3,
       }),
     });
-    const geometry = new BoardGeometry(600);
+    const geometry = new CubeScreenGeometry(600);
     const torpedoes = new ControlledTorpedoAnimator();
     const boardView = {
       setHighlights: vi.fn(),
@@ -159,7 +159,7 @@ describe('combat attack integration result timing', () => {
     const controller = new CombatController(
       session,
       geometry,
-      boardView as unknown as BoardView,
+      boardView as unknown as PhaserCubeProjectionView,
       new ControlledFlightAnimator(),
       torpedoes,
       controls,
@@ -209,7 +209,7 @@ describe('combat attack integration result timing', () => {
         hitPointsAfter: 0,
       }),
     });
-    const geometry = new BoardGeometry(600);
+    const geometry = new CubeScreenGeometry(600);
     const torpedoes = new ControlledTorpedoAnimator();
     const boardView = {
       setHighlights: vi.fn(),
@@ -220,7 +220,7 @@ describe('combat attack integration result timing', () => {
     const controller = new CombatController(
       session,
       geometry,
-      boardView as unknown as BoardView,
+      boardView as unknown as PhaserCubeProjectionView,
       new ControlledFlightAnimator(),
       torpedoes,
       controls,
@@ -258,7 +258,7 @@ describe('combat attack integration result timing', () => {
     const source = new ScriptedRandomSource([(12 - 1) / 20, (4 - 1) / 8]);
     const resolution = new AttackResolver(new DiceRoller(source));
     const session = new BattleSession(combatGame(), resolution);
-    const geometry = new BoardGeometry(600);
+    const geometry = new CubeScreenGeometry(600);
     const error = new Error('effect playback failed');
     const torpedoes = new ControlledTorpedoAnimator();
     const boardView = {
@@ -271,7 +271,7 @@ describe('combat attack integration result timing', () => {
     const controller = new CombatController(
       session,
       geometry,
-      boardView as unknown as BoardView,
+      boardView as unknown as PhaserCubeProjectionView,
       new ControlledFlightAnimator(),
       torpedoes,
       controls,

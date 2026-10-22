@@ -1,6 +1,6 @@
 import { CubePosition } from '../../board/domain/CubePosition.js';
 import { CubeSnapshot } from '../../board/domain/CubeSnapshot.js';
-import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
+import type { ShipIdentity } from '../../board/domain/CubeSnapshot.js';
 import { AgilityStat } from './AgilityStat.js';
 
 export type PlayerIdentity = 'player-1' | 'player-2';

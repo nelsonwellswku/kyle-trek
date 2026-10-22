@@ -61,7 +61,7 @@ Open `http://127.0.0.1:5173/`.
 3. Rotate to alternate sides and angles. Inspect the open lattice and directly select known boundary and interior cell markers. Confirm the hover/readout coordinate matches the marker and that all cells can be isolated from some view.
 4. On a movement-ready turn, click a legal cell without dragging. Confirm the 3D ship animation arrives at the exact X/Y/Z cell, then the same player receives the existing attack-or-end-turn choice. Test legal movement in all six directions over controlled turns.
 5. Attempt an occupied, unreachable, ambiguous, off-cube or non-active selection. Confirm no position, turn or combat value changes. For overlapping markers, orbit until the target is distinguishable before selecting.
-6. Use each of the six rotation controls on an active ship before its attack/end-turn choice. Confirm visible ship orientation change, stable cell and battle state, and no rotation by the non-active player.
+6. Use each of the six rotation controls on an active ship before its attack/end-turn choice. Confirm visible ship orientation change, stable cell and battle state, and no rotation by the non-active player. Repeat with Tab/Enter and Tab/Space to confirm native keyboard operation.
 7. Complete hit/miss attacks and a lethal hit. Confirm the displayed effects originate/target the current 3D ship positions, combat calculations are unchanged, one handoff occurs, and the winner/final state is locked.
 8. Start New Game during movement or an effect. Confirm old effects/callbacks cannot alter the replacement battle, Player 1 begins, ship orientation resets, and no additional canvas/listener is created. Resize the board host and verify orbit/picking alignment.
 
@@ -85,6 +85,8 @@ It must compose the real `CombatScene`, `BattleSession`, `CombatController` and 
 | Movement/torpedo      | Controlled destination and hit/miss outcomes          | Effects follow 3D ship positions; results and handoff/winner are once-only                 |
 | Reset interruption    | New Game during flight/rotation/torpedo               | Old effect is disposed; fresh battle and orientation cannot receive old callback           |
 | Resize/disposal       | Change host size/device-pixel ratio, then dispose     | Both canvases align; exact picks persist; resources/listeners are removed once             |
+
+The fixture's **Verify ship rotations and 3D torpedo** control runs the signed-axis rotation, camera-independence, current-position attack, outcome-preservation, reset, and stale-rotation checks through the production combat path.
 
 ## Visual, timing and usability acceptance
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
+import { CubeScreenGeometry } from '../../board/presentation/CubeScreenGeometry.js';
 import { GameSetupScene } from '../presentation/GameSetupScene.js';
 import { GameSession } from '../domain/GameSession.js';
 import { GameSetupFactory } from '../domain/GameSetupFactory.js';
@@ -123,7 +123,7 @@ describe('GameSetupScene lifecycle', () => {
     const source = new ScriptedRandomSource([0.01, 0.91, 0.21, 0.71]);
     const session = new GameSession(new GameSetupFactory(source));
     const onDrawn = vi.fn();
-    const scene = new GameSetupScene(session.currentSetup, new BoardGeometry(600), onDrawn);
+    const scene = new GameSetupScene(session.currentSetup, new CubeScreenGeometry(600), onDrawn);
     const harness = scene as unknown as {
       readonly events: TestEventEmitter;
       readonly game: { readonly events: TestEventEmitter };

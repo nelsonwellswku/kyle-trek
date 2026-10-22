@@ -1,8 +1,11 @@
-import type { BoardPoint, BoardGeometry } from '../../board/presentation/BoardGeometry.js';
-import type { BoardView } from '../../board/presentation/BoardView.js';
+import type {
+  ScreenPoint,
+  CubeScreenGeometry,
+} from '../../board/presentation/CubeScreenGeometry.js';
+import type { PhaserCubeProjectionView } from '../../board/presentation/PhaserCubeProjectionView.js';
 import { CubePosition } from '../../board/domain/CubePosition.js';
 import type { CubeSnapshot } from '../../board/domain/CubeSnapshot.js';
-import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
+import type { ShipIdentity } from '../../board/domain/CubeSnapshot.js';
 import type { MovementGame } from '../domain/MovementGame.js';
 import type { PendingMove, TurnSession, TurnSnapshot } from '../domain/TurnSession.js';
 import type { TurnControls } from './TurnControls.js';
@@ -30,8 +33,8 @@ export class MovementController {
 
   constructor(
     private readonly session: TurnSession,
-    private readonly geometry: BoardGeometry,
-    private readonly boardView: BoardView,
+    private readonly geometry: CubeScreenGeometry,
+    private readonly boardView: PhaserCubeProjectionView,
     private readonly animator: FlightAnimator,
     private readonly controls: TurnControls,
     private readonly onMovementError: (message: string) => void = () => {},
@@ -60,13 +63,14 @@ export class MovementController {
       return;
     }
 
-    const boardPosition = this.geometry.positionAt({ x: pointer.worldX, y: pointer.worldY });
-    if (!boardPosition) {
+    const activePosition = this.shipPosition(snapshot.activeShip, snapshot.game);
+    const destination = this.geometry.positionAt(
+      { x: pointer.worldX, y: pointer.worldY },
+      activePosition.z,
+    );
+    if (!destination) {
       return;
     }
-
-    const activePosition = this.shipPosition(snapshot.activeShip, snapshot.game);
-    const destination = new CubePosition(boardPosition.column, boardPosition.row, activePosition.z);
 
     this.handlePickTarget({ type: 'cell', position: destination });
   }
@@ -155,7 +159,7 @@ export class MovementController {
       if (this.cubeView) {
         this.cubeView.setShipVisualPosition(move.shipIdentity, point);
       } else {
-        const projected: BoardPoint = {
+        const projected: ScreenPoint = {
           x: ((point.x + 5.5) / 10) * this.geometry.logicalSize,
           y: ((point.y + 5.5) / 10) * this.geometry.logicalSize,
         };

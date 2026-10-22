@@ -12,6 +12,7 @@ import {
   SphereGeometry,
 } from 'three';
 import { CubePosition } from '../domain/CubePosition.js';
+import { CubeOrientation } from '../domain/CubeOrientation.js';
 import { CubeSnapshot } from '../domain/CubeSnapshot.js';
 import { CubeOrbitControls, type OrbitControlsDriver } from '../presentation/CubeOrbitControls.js';
 import { CubePicker } from '../presentation/CubePicker.js';
@@ -112,6 +113,68 @@ function rendererDouble(canvas: HTMLCanvasElement) {
 }
 
 describe('ThreeCubeView', () => {
+  it('animates ship orientation through signed-axis quarter-turns and cancels stale frames', () => {
+    const document = new FakeDocument();
+    const host = new FakeDomNode(document);
+    const frames = new Map<number, FrameRequestCallback>();
+    const cancelled: number[] = [];
+    let nextFrameId = 1;
+    const view = new ThreeCubeView(host as unknown as HTMLElement, undefined, {
+      inputElement: new FakePointerTarget() as unknown as HTMLElement,
+      rendererFactory: (canvas) => rendererDouble(canvas),
+      controlsFactory: () => ({ dispose: vi.fn() }),
+      pickerFactory: () => ({ pick: () => null }),
+      requestAnimationFrame: (callback) => {
+        const id = nextFrameId++;
+        frames.set(id, callback);
+        return id;
+      },
+      cancelAnimationFrame: (id) => {
+        cancelled.push(id);
+        frames.delete(id);
+      },
+    });
+    const model = view.shipModels.get('ship-1');
+    if (!model) throw new Error('Expected the ship-1 model.');
+    const original = model.quaternion.clone();
+    const target = CubeOrientation.ship1Default().rotate('x', 1);
+    const onComplete = vi.fn();
+    const onFailure = vi.fn();
+    view.animateShipOrientation('ship-1', target, onComplete, onFailure);
+    const advance = (timestamp: number): void => {
+      const [id, callback] = [...frames.entries()][0] ?? [];
+      if (id === undefined || !callback) throw new Error('Expected a queued rotation frame.');
+      frames.delete(id);
+      callback(timestamp);
+    };
+    advance(0);
+    advance(125);
+    expect(model.quaternion.equals(original)).toBe(false);
+    expect(onComplete).not.toHaveBeenCalled();
+    advance(250);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(onFailure).not.toHaveBeenCalled();
+    const completedQuaternion = model.quaternion.clone();
+    view.setShipOrientation('ship-1', target);
+    expect(model.quaternion.angleTo(completedQuaternion)).toBeCloseTo(0);
+
+    const staleCompletion = vi.fn();
+    view.animateShipOrientation(
+      'ship-1',
+      CubeOrientation.ship1Default(),
+      staleCompletion,
+      onFailure,
+    );
+    const staleFrame = [...frames.keys()][0];
+    const staleCallback = staleFrame === undefined ? undefined : frames.get(staleFrame);
+    const staleHandle = view.animateShipOrientation('ship-1', target, staleCompletion, onFailure);
+    staleHandle.cancel();
+    staleCallback?.(500);
+    expect(staleCompletion).not.toHaveBeenCalled();
+    expect(cancelled.length).toBeGreaterThan(0);
+    view.dispose();
+  });
+
   it('creates 1,000 stable marker identities, an open labeled view, oriented ships, and resizes', () => {
     const document = new FakeDocument();
     const host = new FakeDomNode(document);

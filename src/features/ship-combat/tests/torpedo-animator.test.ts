@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type Phaser from 'phaser';
-import { BoardPosition } from '../../board/domain/BoardPosition.js';
-import { BoardGeometry } from '../../board/presentation/BoardGeometry.js';
+import { CubePosition } from '../../board/domain/CubePosition.js';
+import { CubeScreenGeometry } from '../../board/presentation/CubeScreenGeometry.js';
 import type { RandomSource } from '../../game-setup/domain/RandomSource.js';
 import type { PendingAttack } from '../domain/PendingAttack.js';
 import { PhaserTorpedoAnimator } from '../presentation/PhaserTorpedoAnimator.js';
@@ -14,8 +14,8 @@ type ShapeEvent =
 
 function pendingAttack(
   kind: 'hit' | 'miss',
-  attackerPosition = new BoardPosition(2, 2),
-  defenderPosition = new BoardPosition(3, 2),
+  attackerPosition = new CubePosition(2, 2, 5),
+  defenderPosition = new CubePosition(3, 2, 5),
   attackId = 19,
 ): PendingAttack {
   const outcome =
@@ -113,7 +113,7 @@ function animatorHarness(throwOnStart = false, randomSource?: RandomSource) {
   } as unknown as Phaser.Scene;
   const animator = new PhaserTorpedoAnimator(
     scene,
-    new BoardGeometry(600),
+    new CubeScreenGeometry(600),
     undefined,
     randomSource,
   );
@@ -204,7 +204,7 @@ describe('PhaserTorpedoAnimator', () => {
   it('creates the hit explosion only after the star reaches defender contact', () => {
     const harness = animatorHarness();
     const attack = pendingAttack('hit');
-    const defender = new BoardGeometry(600).cellCenter(attack.defenderPosition);
+    const defender = new CubeScreenGeometry(600).cellCenter(attack.defenderPosition);
     harness.animator.start(attack, vi.fn(), vi.fn());
 
     harness.updateAt(850);
@@ -224,7 +224,7 @@ describe('PhaserTorpedoAnimator', () => {
 
   it('takes a miss fully off-board without an explosion, then removes the star', () => {
     const harness = animatorHarness();
-    const attack = pendingAttack('miss', new BoardPosition(5, 8), new BoardPosition(5, 10));
+    const attack = pendingAttack('miss', new CubePosition(8, 5, 5), new CubePosition(10, 5, 5));
     const onComplete = vi.fn();
     const handle = harness.animator.start(attack, onComplete, vi.fn());
     const star = harness.stars[0];
@@ -262,7 +262,7 @@ describe('PhaserTorpedoAnimator', () => {
     const first = animatorHarness(false, randomSource);
     const second = animatorHarness(false, randomSource);
     const third = animatorHarness(false, randomSource);
-    const positions = [new BoardPosition(5, 5), new BoardPosition(5, 6)] as const;
+    const positions = [new CubePosition(5, 5, 5), new CubePosition(6, 5, 5)] as const;
     first.animator.start(pendingAttack('miss', ...positions, 19), vi.fn(), vi.fn());
     second.animator.start(pendingAttack('hit', ...positions, 20), vi.fn(), vi.fn());
     second.animator.start(pendingAttack('miss', ...positions, 20), vi.fn(), vi.fn());
@@ -281,7 +281,7 @@ describe('PhaserTorpedoAnimator', () => {
       throw new Error('Expected all misses to reach their off-board endpoints.');
     }
 
-    const geometry = new BoardGeometry(600);
+    const geometry = new CubeScreenGeometry(600);
     const attacker = geometry.cellCenter(positions[0]);
     const defender = geometry.cellCenter(positions[1]);
     const directX = defender.x - attacker.x;
@@ -293,7 +293,7 @@ describe('PhaserTorpedoAnimator', () => {
   });
 
   it('maps uniform sample buckets across every angle from 10 to 35 on both sides', () => {
-    const positions = [new BoardPosition(5, 2), new BoardPosition(5, 9)] as const;
+    const positions = [new CubePosition(2, 5, 5), new CubePosition(9, 5, 5)] as const;
 
     for (let choice = 0; choice < 52; choice += 1) {
       const randomSource: RandomSource = { next: () => (choice + 0.5) / 52 };

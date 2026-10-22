@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CubeOrientation } from '../../board/domain/CubeOrientation.js';
 import { CubePosition } from '../../board/domain/CubePosition.js';
-import type { ShipIdentity } from '../../board/domain/BoardSnapshot.js';
+import type { ShipIdentity } from '../../board/domain/CubeSnapshot.js';
 import { AgilityStat } from '../../ship-movement/domain/AgilityStat.js';
 import { AbilityStat } from '../../ship-stats/domain/AbilityStat.js';
 import { BattleSession, type BattleSnapshot } from '../domain/BattleSession.js';
@@ -121,6 +121,132 @@ function beginAttack(session: BattleSession, target: ShipIdentity = 'ship-2') {
 }
 
 describe('BattleSession', () => {
+  it.each([
+    ['x', 1],
+    ['x', -1],
+    ['y', 1],
+    ['y', -1],
+    ['z', 1],
+    ['z', -1],
+  ] as const)(
+    'rotates the active ship around %s by %i and restores the ready phase without spending actions',
+    (axis, direction) => {
+      for (const readyPhase of ['movement-ready', 'attack-ready'] as const) {
+        const session = new BattleSession(game(), resolution());
+        if (readyPhase === 'attack-ready') {
+          arrive(session, moveOneCell(session));
+        }
+        const before = snapshot(session);
+        const beforeShip = before.game.ship1;
+        const pending = session.rotateShip(
+          before.gameRevision,
+          before.turnToken,
+          'ship-1',
+          axis,
+          direction,
+        );
+        expect(pending).not.toBeNull();
+        if (!pending) throw new Error('Expected a pending rotation.');
+        expect(Object.isFrozen(pending)).toBe(true);
+        expect(snapshot(session)).toMatchObject({
+          phase: 'rotating',
+          activePlayer: 'player-1',
+          turnToken: before.turnToken,
+        });
+        expect(pending.previousOrientation).toEqual(beforeShip.orientation);
+        expect(pending.targetOrientation).toEqual(beforeShip.orientation.rotate(axis, direction));
+        expect(snapshot(session).game).toBe(before.game);
+        expect(
+          session.completeRotation(pending.gameRevision, pending.turnToken, pending.rotationId),
+        ).toBe(true);
+
+        const completed = snapshot(session);
+        expect(completed.phase).toBe(readyPhase);
+        expect(completed.activePlayer).toBe('player-1');
+        expect(completed.turnToken).toBe(before.turnToken);
+        expect(completed.game.ship1.position).toBe(beforeShip.position);
+        expect(completed.game.ship1.orientation).toEqual(pending.targetOrientation);
+        expect(completed.game.ship1.agility).toBe(beforeShip.agility);
+        expect(completed.game.ship1.strength).toBe(beforeShip.strength);
+        expect(completed.game.ship1.constitution).toBe(beforeShip.constitution);
+        expect(completed.game.ship1.armorClass).toBe(beforeShip.armorClass);
+        expect(completed.game.ship1.startingHitPoints).toBe(beforeShip.startingHitPoints);
+        expect(completed.game.ship1.hitPoints).toBe(beforeShip.hitPoints);
+        expect(completed.game.ship2).toEqual(before.game.ship2);
+        expect(
+          session.completeRotation(pending.gameRevision, pending.turnToken, pending.rotationId),
+        ).toBe(false);
+      }
+    },
+  );
+
+  it('rolls a failed rotation back to the prior orientation and ready phase exactly once', () => {
+    const session = new BattleSession(game(), resolution());
+    const before = snapshot(session);
+    const pending = session.rotateShip(before.gameRevision, before.turnToken, 'ship-1', 'z', -1);
+    if (!pending) throw new Error('Expected a pending rotation.');
+
+    expect(session.failRotation(pending.gameRevision, pending.turnToken, pending.rotationId)).toBe(
+      true,
+    );
+    expect(snapshot(session)).toMatchObject({
+      phase: 'movement-ready',
+      activePlayer: 'player-1',
+      turnToken: before.turnToken,
+    });
+    expect(snapshot(session).game).toBe(before.game);
+    expect(session.failRotation(pending.gameRevision, pending.turnToken, pending.rotationId)).toBe(
+      false,
+    );
+    expect(
+      session.completeRotation(pending.gameRevision, pending.turnToken, pending.rotationId),
+    ).toBe(false);
+  });
+
+  it('rejects wrong-owner, stale, animating, attacking, finished, and disposed rotations', () => {
+    const session = new BattleSession(game(), resolution());
+    const initial = snapshot(session);
+    expect(
+      session.rotateShip(initial.gameRevision, initial.turnToken, 'ship-2', 'x', 1),
+    ).toBeNull();
+    expect(
+      session.rotateShip(initial.gameRevision + 1, initial.turnToken, 'ship-1', 'x', 1),
+    ).toBeNull();
+    expect(
+      session.rotateShip(initial.gameRevision, initial.turnToken + 1, 'ship-1', 'x', 1),
+    ).toBeNull();
+
+    const move = moveOneCell(session);
+    expect(session.rotateShip(move.gameRevision, move.turnToken, 'ship-1', 'x', 1)).toBeNull();
+    arrive(session, move);
+    const ready = snapshot(session);
+    const attack = beginAttack(session);
+    expect(session.rotateShip(attack.gameRevision, attack.turnToken, 'ship-1', 'y', -1)).toBeNull();
+    expect(session.completeAttack(attack.gameRevision, attack.turnToken, attack.attackId)).toBe(
+      true,
+    );
+
+    const lethal = new BattleSession(
+      game({ strength1: 14, hitPoints2: 1 }),
+      resolution((attacker, defender) => attackOutcome(attacker, defender, 5)),
+    );
+    arrive(lethal, moveOneCell(lethal));
+    const lethalAttack = beginAttack(lethal);
+    expect(
+      lethal.completeAttack(
+        lethalAttack.gameRevision,
+        lethalAttack.turnToken,
+        lethalAttack.attackId,
+      ),
+    ).toBe(true);
+    const final = snapshot(lethal);
+    expect(final.phase).toBe('finished');
+    expect(lethal.rotateShip(final.gameRevision, final.turnToken, 'ship-1', 'z', 1)).toBeNull();
+
+    session.dispose();
+    expect(session.rotateShip(ready.gameRevision, ready.turnToken, 'ship-1', 'z', 1)).toBeNull();
+  });
+
   it('starts Player 1 in movement-ready and retains player/token after legal arrival', () => {
     const session = new BattleSession(game(), resolution());
     const initial = snapshot(session);
