@@ -25,7 +25,7 @@ import {
 } from 'three';
 import type { ShipIdentity } from '../domain/CubeSnapshot.js';
 import { CubeOrientation } from '../domain/CubeOrientation.js';
-import { CubePosition } from '../domain/CubePosition.js';
+import { CUBE_CELL_COUNT, CUBE_SIZE, CubePosition } from '../domain/CubePosition.js';
 import type { CubeSnapshot } from '../domain/CubeSnapshot.js';
 import { CubeOrbitControls, type OrbitControlsDriverFactory } from './CubeOrbitControls.js';
 import type { CubePickTarget } from './CubePicker.js';
@@ -98,7 +98,9 @@ interface OrientedShip {
 /** Independently-owned WebGL2 cube view; game state is supplied as immutable snapshots. */
 export class ThreeCubeView {
   readonly cellPositions: readonly CubePosition[] = Object.freeze(
-    Array.from({ length: 1_000 }, (_, index) => CubePosition.fromPresentationIndex(index)),
+    Array.from({ length: CUBE_CELL_COUNT }, (_, index) =>
+      CubePosition.fromPresentationIndex(index),
+    ),
   );
   readonly camera!: PerspectiveCamera;
   readonly scene!: Scene;
@@ -159,12 +161,12 @@ export class ThreeCubeView {
       this.scene.background = new Color(0x0b1b2b);
       this.camera = new PerspectiveCamera(38, 1, 0.1, 100);
       this.camera.up.set(0, 0, 1);
-      this.camera.position.set(13, 12, 14);
+      this.camera.position.set(CUBE_SIZE * 1.3, CUBE_SIZE * 1.2, CUBE_SIZE * 1.4);
       this.camera.lookAt(0, 0, 0);
 
       this.scene.add(new AmbientLight(0xffffff, 1.8));
       const keyLight = new DirectionalLight(0xffffff, 2.3);
-      keyLight.position.set(8, -5, 14);
+      keyLight.position.set(CUBE_SIZE * 0.8, -CUBE_SIZE * 0.5, CUBE_SIZE * 1.4);
       this.scene.add(keyLight);
       this.scene.add(ThreeCubeView.createOpenLattice());
       this.scene.add(ThreeCubeView.createAxisArrow('x', 0x48d9ff));
@@ -494,13 +496,23 @@ export class ThreeCubeView {
 
   private static createOpenLattice(): LineSegments {
     const vertices: Vector3[] = [];
-    for (let step = 0; step <= 10; step += 1) {
-      const offset = step - 5;
-      for (let other = 0; other <= 10; other += 1) {
-        const second = other - 5;
-        vertices.push(new Vector3(-5, offset, second), new Vector3(5, offset, second));
-        vertices.push(new Vector3(offset, -5, second), new Vector3(offset, 5, second));
-        vertices.push(new Vector3(offset, second, -5), new Vector3(offset, second, 5));
+    const halfSize = CUBE_SIZE / 2;
+    for (let step = 0; step <= CUBE_SIZE; step += 1) {
+      const offset = step - halfSize;
+      for (let other = 0; other <= CUBE_SIZE; other += 1) {
+        const second = other - halfSize;
+        vertices.push(
+          new Vector3(-halfSize, offset, second),
+          new Vector3(halfSize, offset, second),
+        );
+        vertices.push(
+          new Vector3(offset, -halfSize, second),
+          new Vector3(offset, halfSize, second),
+        );
+        vertices.push(
+          new Vector3(offset, second, -halfSize),
+          new Vector3(offset, second, halfSize),
+        );
       }
     }
     const geometry = new BufferGeometry().setFromPoints(vertices);
@@ -510,7 +522,7 @@ export class ThreeCubeView {
 
   private static createAxisArrow(axis: 'x' | 'y' | 'z', color: number): ArrowHelper {
     const direction = new Vector3(axis === 'x' ? 1 : 0, axis === 'y' ? 1 : 0, axis === 'z' ? 1 : 0);
-    return new ArrowHelper(direction, new Vector3(), 5.65, color, 0.34, 0.2);
+    return new ArrowHelper(direction, new Vector3(), CUBE_SIZE / 2 + 0.65, color, 0.34, 0.2);
   }
 
   private static createShipModel(identity: ShipIdentity, color: number): Group {
@@ -561,7 +573,8 @@ export class ThreeCubeView {
   }
 
   private static worldPosition(position: CubePosition): Vector3 {
-    return new Vector3(position.x - 5.5, position.y - 5.5, position.z - 5.5);
+    const center = (CUBE_SIZE + 1) / 2;
+    return new Vector3(position.x - center, position.y - center, position.z - center);
   }
 
   private static axisVector(vector: CubeOrientation['right']): Vector3 {

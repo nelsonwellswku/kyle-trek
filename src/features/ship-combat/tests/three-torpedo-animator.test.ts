@@ -37,8 +37,8 @@ function pendingAttack(kind: 'hit' | 'miss', attackId = 7): PendingAttack {
     attackId,
     attackerIdentity: 'ship-1',
     defenderIdentity: 'ship-2',
-    attackerPosition: new CubePosition(2, 4, 6),
-    defenderPosition: new CubePosition(8, 7, 3),
+    attackerPosition: new CubePosition(2, 4, 5),
+    defenderPosition: new CubePosition(5, 5, 3),
     outcome: Object.freeze(outcome),
   });
 }
@@ -82,7 +82,7 @@ describe('ThreeTorpedoAnimator', () => {
       const effect = test.scene.children.find((object) => object.userData['torpedoEffect']);
       expect(effect?.userData['startPosition']).toEqual(attack.attackerPosition);
       expect(effect?.userData['targetPosition']).toEqual(attack.defenderPosition);
-      expect(effect?.position.toArray()).toEqual([-3.5, -1.5, 0.5]);
+      expect(effect?.position.toArray()).toEqual([-1, 1, 2]);
       expect(handle.identity).toEqual({ gameRevision: 3, turnToken: 5, attackId: 7 });
       expect(Object.isFrozen(handle.identity)).toBe(true);
 

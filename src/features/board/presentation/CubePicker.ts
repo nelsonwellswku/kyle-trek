@@ -17,7 +17,7 @@ export interface CubePickerCanvas {
   getBoundingClientRect(): ClientBounds;
 }
 
-/** Ray-picks only the 1,000 marker instances and the two ship models. */
+/** Ray-picks only the 125 marker instances and the two ship models. */
 export class CubePicker {
   private readonly raycaster = new Raycaster();
   private readonly pointer = new Vector2();

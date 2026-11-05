@@ -14,26 +14,26 @@ function placement(
 
 describe('GameSetup', () => {
   it('contains the fixed cube and exactly one correctly identified placement per ship', () => {
-    const setup = new GameSetup(placement('ship-1', 1, 1, 4), placement('ship-2', 10, 10, 7));
+    const setup = new GameSetup(placement('ship-1', 1, 1, 4), placement('ship-2', 5, 5, 3));
 
-    expect(setup.width).toBe(10);
-    expect(setup.height).toBe(10);
-    expect(setup.depth).toBe(10);
+    expect(setup.width).toBe(5);
+    expect(setup.height).toBe(5);
+    expect(setup.depth).toBe(5);
     expect(setup.ship1.identity).toBe('ship-1');
     expect(setup.ship1.position).toEqual(new CubePosition(1, 1, 4));
     expect(setup.ship2.identity).toBe('ship-2');
-    expect(setup.ship2.position).toEqual(new CubePosition(10, 10, 7));
+    expect(setup.ship2.position).toEqual(new CubePosition(5, 5, 3));
     expect(setup.ship1.position.equals(setup.ship2.position)).toBe(false);
   });
 
   it('rejects ship identities supplied in the wrong named zone', () => {
-    expect(
-      () => new GameSetup(placement('ship-2', 1, 1, 4), placement('ship-1', 10, 10, 7)),
-    ).toThrow(RangeError);
+    expect(() => new GameSetup(placement('ship-2', 1, 1, 4), placement('ship-1', 5, 5, 3))).toThrow(
+      RangeError,
+    );
   });
 
   it('is deeply immutable and exposes named placements rather than a mutable collection', () => {
-    const setup = new GameSetup(placement('ship-1', 2, 2, 10), placement('ship-2', 9, 9, 1));
+    const setup = new GameSetup(placement('ship-1', 2, 2, 5), placement('ship-2', 4, 4, 1));
 
     expect(Object.isFrozen(setup)).toBe(true);
     expect(Object.isFrozen(setup.ship1)).toBe(true);

@@ -202,7 +202,7 @@ function combatGame(agilityScore = 14): CombatGame {
   });
   return new CombatGame(
     ship('ship-1', new CubePosition(2, 2, 2)),
-    ship('ship-2', new CubePosition(9, 9, 9)),
+    ship('ship-2', new CubePosition(5, 5, 5)),
   );
 }
 

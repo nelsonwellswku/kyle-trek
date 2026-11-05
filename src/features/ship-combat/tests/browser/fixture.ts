@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { Color, Vector3 } from 'three';
 import '../../../../app/styles.css';
 import { CubeOrientation } from '../../../board/domain/CubeOrientation.js';
-import { CubePosition } from '../../../board/domain/CubePosition.js';
+import { CUBE_CELL_COUNT, CUBE_SIZE, CubePosition } from '../../../board/domain/CubePosition.js';
 import type { CubePickTarget } from '../../../board/presentation/CubePicker.js';
 import { CubeScreenGeometry } from '../../../board/presentation/CubeScreenGeometry.js';
 import { AgilityStat } from '../../../ship-movement/domain/AgilityStat.js';
@@ -74,55 +74,55 @@ interface CombatPreset {
 
 const presets: Readonly<Record<string, CombatPreset>> = {
   'threshold-hit': {
-    attackerPosition: [5, 5],
-    defenderPosition: [5, 6],
+    attackerPosition: [3, 3],
+    defenderPosition: [3, 4],
     strengthScore: 10,
     defenderHitPoints: 10,
     attackDie: 12,
     damageDie: 4,
   },
   'threshold-miss': {
-    attackerPosition: [5, 5],
-    defenderPosition: [5, 6],
+    attackerPosition: [3, 3],
+    defenderPosition: [3, 4],
     strengthScore: 10,
     defenderHitPoints: 10,
     attackDie: 11,
   },
   'zero-damage': {
-    attackerPosition: [5, 5],
-    defenderPosition: [5, 6],
+    attackerPosition: [3, 3],
+    defenderPosition: [3, 4],
     strengthScore: 8,
     defenderHitPoints: 10,
     attackDie: 13,
     damageDie: 1,
   },
   lethal: {
-    attackerPosition: [5, 5],
-    defenderPosition: [5, 6],
+    attackerPosition: [3, 3],
+    defenderPosition: [3, 4],
     strengthScore: 14,
     defenderHitPoints: 2,
     attackDie: 10,
     damageDie: 1,
   },
   overkill: {
-    attackerPosition: [5, 5],
-    defenderPosition: [5, 6],
+    attackerPosition: [3, 3],
+    defenderPosition: [3, 4],
     strengthScore: 20,
     defenderHitPoints: 3,
     attackDie: 7,
     damageDie: 8,
   },
   'adjacent-hit': {
-    attackerPosition: [5, 5],
-    defenderPosition: [5, 6],
+    attackerPosition: [3, 3],
+    defenderPosition: [3, 4],
     strengthScore: 10,
     defenderHitPoints: 10,
     attackDie: 12,
     damageDie: 4,
   },
   'adjacent-miss': {
-    attackerPosition: [5, 5],
-    defenderPosition: [5, 6],
+    attackerPosition: [3, 3],
+    defenderPosition: [3, 4],
     strengthScore: 10,
     defenderHitPoints: 10,
     attackDie: 11,
@@ -135,54 +135,54 @@ const presets: Readonly<Record<string, CombatPreset>> = {
     attackDie: 11,
   },
   'corner-top-right': {
-    attackerPosition: [4, 7],
-    defenderPosition: [1, 10],
+    attackerPosition: [4, 5],
+    defenderPosition: [1, 5],
     strengthScore: 10,
     defenderHitPoints: 10,
     attackDie: 11,
   },
   'corner-bottom-left': {
-    attackerPosition: [7, 4],
-    defenderPosition: [10, 1],
+    attackerPosition: [5, 4],
+    defenderPosition: [5, 1],
     strengthScore: 10,
     defenderHitPoints: 10,
     attackDie: 11,
   },
   'corner-bottom-right': {
-    attackerPosition: [7, 7],
-    defenderPosition: [10, 10],
+    attackerPosition: [4, 4],
+    defenderPosition: [5, 5],
     strengthScore: 10,
     defenderHitPoints: 10,
     attackDie: 11,
   },
   'maximum-separation': {
     attackerPosition: [1, 1],
-    defenderPosition: [10, 10],
+    defenderPosition: [5, 5],
     strengthScore: 10,
     defenderHitPoints: 10,
     attackDie: 11,
   },
   'maximum-separation-hit': {
     attackerPosition: [1, 1],
-    defenderPosition: [10, 10],
+    defenderPosition: [5, 5],
     strengthScore: 10,
     defenderHitPoints: 10,
     attackDie: 12,
     damageDie: 4,
   },
   immobility: {
-    attackerPosition: [5, 5],
-    defenderPosition: [9, 9],
+    attackerPosition: [3, 3],
+    defenderPosition: [5, 5],
     strengthScore: 10,
     defenderHitPoints: 10,
     attackDie: 12,
     damageDie: 4,
   },
   'six-axis-movement': {
-    attackerPosition: [5, 5],
-    defenderPosition: [10, 10],
-    attackerDepth: 5,
-    defenderDepth: 10,
+    attackerPosition: [3, 3],
+    defenderPosition: [5, 5],
+    attackerDepth: 3,
+    defenderDepth: 5,
     agilityScore: 20,
     strengthScore: 10,
     defenderHitPoints: 10,
@@ -390,7 +390,8 @@ function onDrawn(revision: number): void {
         const azimuthSteps = 16;
 
         for (const [index, position] of view.cellPositions.entries()) {
-          const world = new Vector3(position.x - 5.5, position.y - 5.5, position.z - 5.5);
+          const center = (CUBE_SIZE + 1) / 2;
+          const world = new Vector3(position.x - center, position.y - center, position.z - center);
           let found = false;
           for (const elevation of elevations) {
             for (let azimuthIndex = 0; azimuthIndex < azimuthSteps; azimuthIndex += 1) {
@@ -427,7 +428,7 @@ function onDrawn(revision: number): void {
           }
           if (!found) failures.push(`${position.x},${position.y},${position.z}`);
           if (index % 25 === 0) {
-            status.textContent = `Checking cube marker picks: ${index + 1} / 1,000`;
+            status.textContent = `Checking cube marker picks: ${index + 1} / ${CUBE_CELL_COUNT}`;
             await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
           }
         }
@@ -476,18 +477,18 @@ function onDrawn(revision: number): void {
         if (!ready) throw new Error('The deterministic movement preset did not become ready.');
 
         const moves = [
-          { ship: 'ship-1', destination: new CubePosition(6, 5, 5) },
-          { ship: 'ship-2', destination: new CubePosition(9, 10, 10) },
-          { ship: 'ship-1', destination: new CubePosition(5, 5, 5) },
-          { ship: 'ship-2', destination: new CubePosition(10, 10, 10) },
-          { ship: 'ship-1', destination: new CubePosition(5, 6, 5) },
-          { ship: 'ship-2', destination: new CubePosition(10, 9, 10) },
-          { ship: 'ship-1', destination: new CubePosition(5, 5, 5) },
-          { ship: 'ship-2', destination: new CubePosition(10, 10, 10) },
-          { ship: 'ship-1', destination: new CubePosition(5, 5, 6) },
-          { ship: 'ship-2', destination: new CubePosition(10, 10, 9) },
-          { ship: 'ship-1', destination: new CubePosition(5, 5, 5) },
-          { ship: 'ship-2', destination: new CubePosition(10, 10, 10) },
+          { ship: 'ship-1', destination: new CubePosition(4, 3, 3) },
+          { ship: 'ship-2', destination: new CubePosition(4, 5, 5) },
+          { ship: 'ship-1', destination: new CubePosition(3, 3, 3) },
+          { ship: 'ship-2', destination: new CubePosition(5, 5, 5) },
+          { ship: 'ship-1', destination: new CubePosition(3, 4, 3) },
+          { ship: 'ship-2', destination: new CubePosition(5, 4, 5) },
+          { ship: 'ship-1', destination: new CubePosition(3, 3, 3) },
+          { ship: 'ship-2', destination: new CubePosition(5, 5, 5) },
+          { ship: 'ship-1', destination: new CubePosition(3, 3, 4) },
+          { ship: 'ship-2', destination: new CubePosition(5, 5, 4) },
+          { ship: 'ship-1', destination: new CubePosition(3, 3, 3) },
+          { ship: 'ship-2', destination: new CubePosition(5, 5, 5) },
         ] as const;
         const failed: string[] = [];
         const movementTimesMs: number[] = [];
@@ -900,7 +901,8 @@ function findCellPoint(
   position: CubePosition,
 ): { readonly x: number; readonly y: number } | null {
   const bounds = view.canvas.getBoundingClientRect();
-  const world = new Vector3(position.x - 5.5, position.y - 5.5, position.z - 5.5);
+  const center = (CUBE_SIZE + 1) / 2;
+  const world = new Vector3(position.x - center, position.y - center, position.z - center);
   for (const elevation of [0.22, 0.5, 0.85, 1.2, 1.57, 1.9, 2.35, 2.75]) {
     for (let azimuthIndex = 0; azimuthIndex < 16; azimuthIndex += 1) {
       const azimuth = (azimuthIndex / 16) * Math.PI * 2;

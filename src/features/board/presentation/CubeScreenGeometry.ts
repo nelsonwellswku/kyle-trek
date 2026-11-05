@@ -1,4 +1,4 @@
-import { CubePosition } from '../domain/CubePosition.js';
+import { CUBE_SIZE, CubePosition } from '../domain/CubePosition.js';
 
 export interface ScreenRectangle {
   readonly x: number;
@@ -22,7 +22,7 @@ export class CubeScreenGeometry {
 
   cellBounds(position: CubePosition): ScreenRectangle {
     CubeScreenGeometry.validatePosition(position);
-    const cellSize = this.logicalSize / 10;
+    const cellSize = this.logicalSize / CUBE_SIZE;
 
     return Object.freeze({
       x: (position.x - 1) * cellSize,
@@ -53,7 +53,7 @@ export class CubeScreenGeometry {
       return null;
     }
 
-    const cellSize = this.logicalSize / 10;
+    const cellSize = this.logicalSize / CUBE_SIZE;
     try {
       return new CubePosition(
         Math.floor(point.x / cellSize) + 1,
@@ -82,7 +82,7 @@ export class CubeScreenGeometry {
   }
 
   visualEnvelopeRadius(): number {
-    return (this.logicalSize / 10) * 0.4;
+    return (this.logicalSize / CUBE_SIZE) * 0.4;
   }
 
   private static validatePosition(position: CubePosition): void {

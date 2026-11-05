@@ -30,9 +30,9 @@ description: 'Task list for Three-Dimensional Ship Movement'
 
 **Purpose**: Establish the renderer-independent cube value types required by setup, movement, combat, and presentation.
 
-- [x] T002 [P] Add `CubePosition` tests for all 1,000 valid coordinates, rejected out-of-range/non-integer/non-finite inputs, equality, and stable bijective presentation indexes in `src/features/board/tests/cube-position.test.ts`.
-- [x] T003 Implement immutable validated `CubePosition(x, y, z)` values with axes bounded inclusively from 1 through 10 and the documented stable index mapping in `src/features/board/domain/CubePosition.ts`.
-- [x] T004 Add `CubeSnapshot` tests for fixed 10 × 10 × 10 dimensions, typed ship placements, derived occupancy, and rejection of duplicate positions in `src/features/board/tests/cube-snapshot.test.ts`.
+- [x] T002 [P] Add `CubePosition` tests for all 125 valid coordinates, rejected out-of-range/non-integer/non-finite inputs, equality, and stable bijective presentation indexes in `src/features/board/tests/cube-position.test.ts`.
+- [x] T003 Implement immutable validated `CubePosition(x, y, z)` values with axes bounded inclusively from 1 through 5 and the documented stable index mapping in `src/features/board/domain/CubePosition.ts`.
+- [x] T004 Add `CubeSnapshot` tests for fixed 5 × 5 × 5 dimensions, typed ship placements, derived occupancy, and rejection of duplicate positions in `src/features/board/tests/cube-snapshot.test.ts`.
 - [x] T005 Implement immutable `CubeSnapshot` with exactly two distinct ship positions and derived occupancy in `src/features/board/domain/CubeSnapshot.ts`.
 - [x] T006 [P] Add orientation tests that enumerate all 24 proper cube orientations, verify signed quarter-turns around X/Y/Z, and confirm inverse/composition behavior in `src/features/board/tests/cube-orientation.test.ts`.
 - [x] T007 Implement renderer-independent `CubeOrientation` as a right-handed signed-axis basis with valid ±90-degree global-axis composition in `src/features/board/domain/CubeOrientation.ts`.
@@ -43,24 +43,24 @@ description: 'Task list for Three-Dimensional Ship Movement'
 
 ## Phase 3: User Story 1 - See and Navigate the 3D Playing Space (Priority: P1)
 
-**Goal**: Show the 1,000-cell cube, two ships and their coordinates in an orbitable three-quarter view, with independently uniform starting placement and default ship orientations.
+**Goal**: Show the 125-cell cube, two ships and their coordinates in an orbitable three-quarter view, with independently uniform starting placement and default ship orientations.
 
-**Independent Test**: Start a new game and verify exactly 1,000 uniquely addressed cell markers, three labeled axes, two distinct ships in their assigned Y bands with visible X/Y/Z coordinates, and an orbit pose that allows each near, far, upper, lower, and interior marker to be identified and picked without changing game state.
+**Independent Test**: Start a new game and verify exactly 125 uniquely addressed cell markers, three labeled axes, two distinct ships in their assigned Y bands with visible X/Y/Z coordinates, and an orbit pose that allows each near, far, upper, lower, and interior marker to be identified and picked without changing game state.
 
 ### Tests for User Story 1
 
-- [x] T008 [P] [US1] Extend setup tests with controlled coverage of all 200 eligible cells per ship, independent draws, correct Y bands, and distinct positions in `src/features/game-setup/tests/setup.test.ts`.
+- [x] T008 [P] [US1] Extend setup tests with controlled coverage of all 50 eligible cells per ship, independent draws, correct Y bands, and distinct positions in `src/features/game-setup/tests/setup.test.ts`.
 - [x] T009 [P] [US1] Add combat snapshot/factory tests for the two default facing directions and preservation of existing stats and hit points when 3D positions/orientations are created in `src/features/ship-combat/tests/combat-game.test.ts` and `src/features/ship-combat/tests/combat-game-factory.test.ts`.
-- [x] T010 [P] [US1] Add typed renderer-double tests for 1,000 stable cell markers, open lattice/axis labels, two oriented ships, WebGL2 failure reporting, resize, and disposal in `src/features/board/tests/cube-view.test.ts`.
+- [x] T010 [P] [US1] Add typed renderer-double tests for 125 stable cell markers, open lattice/axis labels, two oriented ships, WebGL2 failure reporting, resize, and disposal in `src/features/board/tests/cube-view.test.ts`.
 - [x] T011 [US1] Add orbit/picker tests for the three-quarter default, full azimuth and usable elevation, nearest visible marker selection, click-versus-drag arbitration at the 5 CSS-pixel threshold, and exact coordinate mapping in `src/features/board/tests/cube-view.test.ts`.
 - [x] T012 [P] [US1] Extend setup/HUD tests to verify both ships' visible X/Y/Z coordinates, occupancy summaries, and accessible axis/rotation labels in `src/features/game-setup/tests/controls.test.ts`.
-- [x] T013 [US1] Extend application/scene lifecycle tests and the real-browser fixture to verify one Three view/canvas, aligned Phaser/Three bounds, readable renderer startup failure, New Game reuse, disposal, an orbit pose for every one of the 1,000 coordinates, exact ray picks, and no game-state changes from orbit/inspection in `src/features/ship-combat/tests/game-application.test.ts`, `src/features/ship-combat/tests/combat-scene.test.ts`, `src/features/ship-combat/tests/browser/fixture.ts`, and `src/features/ship-combat/tests/browser/fixture.html`.
+- [x] T013 [US1] Extend application/scene lifecycle tests and the real-browser fixture to verify one Three view/canvas, aligned Phaser/Three bounds, readable renderer startup failure, New Game reuse, disposal, an orbit pose for every one of the 125 coordinates, exact ray picks, and no game-state changes from orbit/inspection in `src/features/ship-combat/tests/game-application.test.ts`, `src/features/ship-combat/tests/combat-scene.test.ts`, `src/features/ship-combat/tests/browser/fixture.ts`, and `src/features/ship-combat/tests/browser/fixture.html`.
 
 ### Implementation for User Story 1
 
-- [x] T014 [US1] Update `GameSetup` and `GameSetupFactory` to map one uniform draw in [0, 200) bijectively to X/Z and the ship's two allowed Y layers, using `CubePosition`, in `src/features/game-setup/domain/GameSetup.ts` and `src/features/game-setup/domain/GameSetupFactory.ts`.
+- [x] T014 [US1] Update `GameSetup` and `GameSetupFactory` to map one uniform draw in [0, 50) bijectively to X/Z and the ship's two allowed Y layers, using `CubePosition`, in `src/features/game-setup/domain/GameSetup.ts` and `src/features/game-setup/domain/GameSetupFactory.ts`.
 - [x] T015 [US1] Migrate `CombatGame` and `CombatGameFactory` to `CubePosition`, store `CubeOrientation`, initialize Ship 1 toward +Y and Ship 2 toward −Y with +Z up, and preserve all existing stats and dice draw order in `src/features/ship-combat/domain/CombatGame.ts` and `src/features/ship-combat/domain/CombatGameFactory.ts`.
-- [x] T016 [US1] Implement the independent WebGL2 cube renderer with a decorative open lattice, 1,000 stable selectable center markers, visible oriented procedural ship models, axes, resize handling, and explicit resource disposal in `src/features/board/presentation/ThreeCubeView.ts`.
+- [x] T016 [US1] Implement the independent WebGL2 cube renderer with a decorative open lattice, 125 stable selectable center markers, visible oriented procedural ship models, axes, resize handling, and explicit resource disposal in `src/features/board/presentation/ThreeCubeView.ts`.
 - [x] T017 [US1] Implement orbit controls and typed ray picking so only visible cell-center markers and ships are targets, the overlay passes pointer events to the Phaser host, and camera state remains presentation-only in `src/features/board/presentation/CubeOrbitControls.ts` and `src/features/board/presentation/CubePicker.ts`.
 - [x] T018 [US1] Update board/HUD controls to show both ship coordinate triples, occupancy, readable axis labels, and accessible cell/ship descriptions in `src/features/game-setup/presentation/GameSetupControls.ts`.
 - [x] T019 [US1] Compose and own the Three view through `CombatScene` and `GameApplication`, show the hovered/selected cell's coordinate and occupancy without issuing a battle command, align the overlay canvas to the Phaser board host, keep the HUD outside the overlay, and surface renderer errors in `src/features/ship-combat/presentation/CombatScene.ts`, `src/app/GameApplication.ts`, `src/app/styles.css`, and `src/features/game-setup/presentation/GameSetupControls.ts`.
@@ -191,13 +191,13 @@ T034 torpedo animator tests in src/features/ship-combat/tests/three-torpedo-anim
 1. Complete Phase 1: Setup.
 2. Complete Phase 2: Foundational cube types.
 3. Complete Phase 3: User Story 1, including production new-game placement, readable coordinates, cube orbit/picking, and resource lifecycle.
-4. Validate all 1,000 markers and cell identity through the real-browser fixture; record visual evidence.
+4. Validate all 125 markers and cell identity through the real-browser fixture; record visual evidence.
 5. Stop for a demonstrable cube-view MVP before adding 3D movement and ship rotation.
 
 ### Incremental Delivery
 
 1. Setup + Foundation → canonical 3D domain.
-2. US1 → playable, inspectable 10 × 10 × 10 board MVP.
+2. US1 → playable, inspectable 5 × 5 × 5 board MVP.
 3. US2 → six-direction legal movement and flight.
 4. US3 → all-axis ship rotation and 3D combat presentation.
 5. Polish → full automated, browser, timing, usability, and constitution evidence.
@@ -208,4 +208,4 @@ T034 torpedo animator tests in src/features/ship-combat/tests/three-torpedo-anim
 - Story labels map to the three scenarios in `specs/004-3d-ship-movement/spec.md`.
 - Movement legality comes from the shared six-neighbor BFS; visual proximity never authorizes a move.
 - Camera pose remains presentation state; it must not enter `CombatGame` or `BattleSession`.
-- Preserve exact data-model constraints in the relevant tasks: `CubePosition` integer coordinates 1–10, starting bands Y=1/2 and Y=9/10 with 200 eligible cells each, and a maximum five-step movement allowance.
+- Preserve exact data-model constraints in the relevant tasks: `CubePosition` integer coordinates 1–5, starting bands Y=1/2 and Y=4/5 with 50 eligible cells each, and a maximum five-step movement allowance.

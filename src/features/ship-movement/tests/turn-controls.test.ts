@@ -11,13 +11,13 @@ function game(score1: number, score2: number): MovementGame {
     {
       identity: 'ship-1',
       owner: 'player-1',
-      position: new CubePosition(5, 5, 5),
+      position: new CubePosition(3, 3, 3),
       agility: new AgilityStat(score1),
     },
     {
       identity: 'ship-2',
       owner: 'player-2',
-      position: new CubePosition(10, 10, 10),
+      position: new CubePosition(5, 5, 5),
       agility: new AgilityStat(score2),
     },
   );

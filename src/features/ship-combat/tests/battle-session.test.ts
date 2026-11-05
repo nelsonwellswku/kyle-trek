@@ -51,7 +51,7 @@ function game(
     ),
     ship(
       'ship-2',
-      options.position2 ?? new CubePosition(10, 10, 10),
+      options.position2 ?? new CubePosition(5, 5, 5),
       options.agility2 ?? 14,
       options.strength2 ?? 10,
       options.hitPoints2 ?? 10,
@@ -294,18 +294,18 @@ describe('BattleSession', () => {
   });
 
   it.each([
-    ['+X', new CubePosition(6, 5, 5)],
-    ['-X', new CubePosition(4, 5, 5)],
-    ['+Y', new CubePosition(5, 6, 5)],
-    ['-Y', new CubePosition(5, 4, 5)],
-    ['+Z', new CubePosition(5, 5, 6)],
-    ['-Z', new CubePosition(5, 5, 4)],
+    ['+X', new CubePosition(4, 3, 3)],
+    ['-X', new CubePosition(2, 3, 3)],
+    ['+Y', new CubePosition(3, 4, 3)],
+    ['-Y', new CubePosition(3, 2, 3)],
+    ['+Z', new CubePosition(3, 3, 4)],
+    ['-Z', new CubePosition(3, 3, 2)],
   ] as const)(
     'moves along %s while retaining the turn until arrival',
     (_direction, destination) => {
-      const origin = new CubePosition(5, 5, 5);
+      const origin = new CubePosition(3, 3, 3);
       const session = new BattleSession(
-        game({ position1: origin, position2: new CubePosition(10, 10, 10) }),
+        game({ position1: origin, position2: new CubePosition(5, 5, 5) }),
         resolution(),
       );
       const before = snapshot(session);
@@ -316,7 +316,7 @@ describe('BattleSession', () => {
       expect(session.snapshot).toMatchObject({ phase: 'moving', activePlayer: 'player-1' });
       expect(snapshot(session).game.ship1.position).toEqual(origin);
       expect(
-        session.selectDestination(before.gameRevision, before.turnToken, new CubePosition(5, 5, 7)),
+        session.selectDestination(before.gameRevision, before.turnToken, new CubePosition(3, 3, 5)),
       ).toBeNull();
       expect(
         session.completeMove(before.gameRevision, before.turnToken, pending?.moveId ?? 0),
@@ -335,8 +335,8 @@ describe('BattleSession', () => {
     const session = new BattleSession(
       game({
         agility1: 12,
-        position1: new CubePosition(5, 5, 5),
-        position2: new CubePosition(6, 5, 5),
+        position1: new CubePosition(3, 3, 3),
+        position2: new CubePosition(4, 3, 3),
       }),
       resolution(),
     );
@@ -344,24 +344,24 @@ describe('BattleSession', () => {
     if (ready.phase !== 'movement-ready') throw new Error('Expected movement-ready.');
 
     expect(
-      session.selectDestination(ready.gameRevision, ready.turnToken, new CubePosition(6, 6, 5)),
+      session.selectDestination(ready.gameRevision, ready.turnToken, new CubePosition(4, 4, 3)),
     ).toBeNull();
     expect(
-      session.selectDestination(ready.gameRevision, ready.turnToken, new CubePosition(6, 5, 5)),
+      session.selectDestination(ready.gameRevision, ready.turnToken, new CubePosition(4, 3, 3)),
     ).toBeNull();
     expect(
-      session.selectDestination(ready.gameRevision, ready.turnToken, new CubePosition(8, 5, 5)),
+      session.selectDestination(ready.gameRevision, ready.turnToken, new CubePosition(5, 3, 3)),
     ).toBeNull();
     expect(snapshot(session).phase).toBe('movement-ready');
 
     const valid = ready.reachability.destinations.find(
-      ({ position }) => !position.equals(new CubePosition(5, 5, 5)),
+      ({ position }) => !position.equals(new CubePosition(3, 3, 3)),
     )?.position;
     if (!valid) throw new Error('Expected at least one valid adjacent destination.');
     const pending = session.selectDestination(ready.gameRevision, ready.turnToken, valid);
     expect(pending).not.toBeNull();
     expect(
-      session.selectDestination(ready.gameRevision, ready.turnToken, new CubePosition(5, 5, 6)),
+      session.selectDestination(ready.gameRevision, ready.turnToken, new CubePosition(3, 3, 4)),
     ).toBeNull();
     expect(snapshot(session).phase).toBe('moving');
   });

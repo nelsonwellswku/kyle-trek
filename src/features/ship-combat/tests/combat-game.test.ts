@@ -23,16 +23,16 @@ function ship(identity: 'ship-1' | 'ship-2', row: number): CombatShip {
 }
 
 function game(): CombatGame {
-  return new CombatGame(ship('ship-1', 1), ship('ship-2', 10));
+  return new CombatGame(ship('ship-1', 1), ship('ship-2', 5));
 }
 
 describe('CombatGame', () => {
   it('is a frozen CubeSnapshot-compatible pair of complete, frozen ship records', () => {
     const value = game();
     const snapshot: CubeSnapshot = value;
-    expect(snapshot.width).toBe(10);
-    expect(snapshot.height).toBe(10);
-    expect(snapshot.depth).toBe(10);
+    expect(snapshot.width).toBe(5);
+    expect(snapshot.height).toBe(5);
+    expect(snapshot.depth).toBe(5);
     expect(value.ship1.identity).toBe('ship-1');
     expect(value.ship1.owner).toBe('player-1');
     expect(value.ship2.identity).toBe('ship-2');
@@ -56,20 +56,20 @@ describe('CombatGame', () => {
     ['hitPoints', 1.5, 12],
   ])('rejects %s=%s', (field, invalid, starting) => {
     const broken = { ...ship('ship-1', 1), startingHitPoints: starting, [field]: invalid };
-    expect(() => new CombatGame(broken as CombatShip, ship('ship-2', 10))).toThrow(RangeError);
+    expect(() => new CombatGame(broken as CombatShip, ship('ship-2', 5))).toThrow(RangeError);
   });
 
   it('rejects mismatched identity/owner, overlapping ships, and non-12 armor class', () => {
-    expect(() => new CombatGame(ship('ship-2', 1), ship('ship-1', 10))).toThrow(RangeError);
+    expect(() => new CombatGame(ship('ship-2', 1), ship('ship-1', 5))).toThrow(RangeError);
     expect(
-      () => new CombatGame({ ...ship('ship-1', 1), owner: 'player-2' }, ship('ship-2', 10)),
+      () => new CombatGame({ ...ship('ship-1', 1), owner: 'player-2' }, ship('ship-2', 5)),
     ).toThrow(RangeError);
     expect(() => new CombatGame(ship('ship-1', 1), ship('ship-2', 1))).toThrow(RangeError);
     expect(
       () =>
         new CombatGame(
           { ...ship('ship-1', 1), armorClass: 11 } as unknown as CombatShip,
-          ship('ship-2', 10),
+          ship('ship-2', 5),
         ),
     ).toThrow(RangeError);
   });

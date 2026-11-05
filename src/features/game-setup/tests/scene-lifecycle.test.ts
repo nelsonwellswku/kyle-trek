@@ -142,8 +142,8 @@ describe('GameSetupScene lifecycle', () => {
     harness.game.events.emit('postrender');
     expect(onDrawn).toHaveBeenLastCalledWith(2);
     expect(sceneHarness.containers.slice(-2).map(({ x, y }) => [x, y])).toEqual([
-      [150, 30],
-      [450, 510],
+      [180, 60],
+      [420, 540],
     ]);
 
     scene.updateSetup(session.currentSetup, session.revision);
@@ -161,8 +161,8 @@ describe('GameSetupScene lifecycle', () => {
 
     expect(onDrawn.mock.calls.map(([revision]) => revision)).toEqual([1, 2, 2, 2]);
     expect(sceneHarness.containers.slice(-2).map(({ x, y }) => [x, y])).toEqual([
-      [150, 30],
-      [450, 510],
+      [180, 60],
+      [420, 540],
     ]);
     expect(session.currentSetup).toBe(replacement);
     expect(session.revision).toBe(2);

@@ -1,30 +1,32 @@
 import { describe, expect, it } from 'vitest';
+import { CUBE_SIZE } from '../../board/domain/CubePosition.js';
 import { MathRandomSource } from '../adapters/MathRandomSource.js';
 import { GameSetupFactory } from '../domain/GameSetupFactory.js';
 import { ScriptedRandomSource } from './fixtures/ScriptedRandomSource.js';
 
 function drawForIndex(index: number): number {
-  return (index + 0.5) / 200;
+  return (index + 0.5) / 50;
 }
 
-function expectedPosition(index: number, firstLayer: 1 | 9) {
+function expectedPosition(index: number, firstLayer: 1 | 4) {
+  const cellsAcrossTwoLayers = 2 * CUBE_SIZE;
   return {
-    x: Math.floor(index / 20) + 1,
-    y: firstLayer + Math.floor((index % 20) / 10),
-    z: (index % 10) + 1,
+    x: Math.floor(index / cellsAcrossTwoLayers) + 1,
+    y: firstLayer + Math.floor((index % cellsAcrossTwoLayers) / CUBE_SIZE),
+    z: (index % CUBE_SIZE) + 1,
   };
 }
 
 describe('GameSetupFactory', () => {
-  it('maps each of 200 uniform draws bijectively into each ship’s assigned two Y layers', () => {
+  it('maps each of 50 uniform draws bijectively into each ship’s assigned two Y layers', () => {
     const ship1Positions = new Set<string>();
     const ship2Positions = new Set<string>();
 
-    for (let index = 0; index < 200; index += 1) {
+    for (let index = 0; index < 50; index += 1) {
       const source = new ScriptedRandomSource([drawForIndex(index), drawForIndex(index)]);
       const setup = new GameSetupFactory(source).create();
       const expectedShip1 = expectedPosition(index, 1);
-      const expectedShip2 = expectedPosition(index, 9);
+      const expectedShip2 = expectedPosition(index, 4);
 
       expect(setup.ship1.position).toMatchObject(expectedShip1);
       expect(setup.ship2.position).toMatchObject(expectedShip2);
@@ -38,18 +40,18 @@ describe('GameSetupFactory', () => {
       );
     }
 
-    expect(ship1Positions.size).toBe(200);
-    expect(ship2Positions.size).toBe(200);
+    expect(ship1Positions.size).toBe(50);
+    expect(ship2Positions.size).toBe(50);
   });
 
   it('uses two independent draws and allows any eligible cell pair', () => {
     const first = 37;
-    const second = 166;
+    const second = 46;
     const source = new ScriptedRandomSource([drawForIndex(first), drawForIndex(second)]);
     const setup = new GameSetupFactory(source).create();
 
     expect(setup.ship1.position).toMatchObject(expectedPosition(first, 1));
-    expect(setup.ship2.position).toMatchObject(expectedPosition(second, 9));
+    expect(setup.ship2.position).toMatchObject(expectedPosition(second, 4));
     expect(source.consumedDraws).toBe(2);
   });
 
@@ -71,12 +73,12 @@ describe('GameSetupFactory', () => {
 
   it.each([
     { label: 'zero', value: 0, index: 0 },
-    { label: 'one half', value: 0.5, index: 100 },
-    { label: 'the largest value below one', value: 1 - Number.EPSILON / 2, index: 199 },
+    { label: 'one half', value: 0.5, index: 25 },
+    { label: 'the largest value below one', value: 1 - Number.EPSILON / 2, index: 49 },
   ])('maps $label into eligible cube index $index', ({ value, index }) => {
     const setup = new GameSetupFactory(new ScriptedRandomSource([value, value])).create();
     expect(setup.ship1.position).toMatchObject(expectedPosition(index, 1));
-    expect(setup.ship2.position).toMatchObject(expectedPosition(index, 9));
+    expect(setup.ship2.position).toMatchObject(expectedPosition(index, 4));
   });
 
   it.each([

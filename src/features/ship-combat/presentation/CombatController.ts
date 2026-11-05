@@ -1,4 +1,4 @@
-import { CubePosition } from '../../board/domain/CubePosition.js';
+import { CUBE_SIZE, CubePosition } from '../../board/domain/CubePosition.js';
 import {
   CubeOrientation,
   type CubeAxis,
@@ -288,9 +288,10 @@ export class CombatController {
       if (this.cubeView) {
         this.cubeView.setShipVisualPosition(move.shipIdentity, point);
       } else {
+        const center = (CUBE_SIZE + 1) / 2;
         this.boardView.setShipVisualPosition(move.shipIdentity, {
-          x: ((point.x + 5.5) / 10) * this.geometry.logicalSize,
-          y: ((point.y + 5.5) / 10) * this.geometry.logicalSize,
+          x: ((point.x + center) / CUBE_SIZE) * this.geometry.logicalSize,
+          y: ((point.y + center) / CUBE_SIZE) * this.geometry.logicalSize,
         });
       }
     }

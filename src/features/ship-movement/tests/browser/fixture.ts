@@ -39,14 +39,14 @@ const observationLog = fixtureLog;
 
 function createPreset(name: PresetName): MovementGame {
   const presets: Record<PresetName, readonly [number, number, number, number, number, number]> = {
-    center: [5, 5, 14, 10, 10, 18],
-    'blocked-direct': [5, 4, 14, 5, 5, 18],
-    'enemy-detour': [5, 4, 18, 5, 5, 18],
+    center: [3, 3, 14, 5, 5, 18],
+    'blocked-direct': [3, 2, 14, 3, 3, 18],
+    'enemy-detour': [3, 2, 18, 3, 3, 18],
     edge: [1, 1, 20, 1, 2, 18],
-    straight: [5, 2, 20, 10, 10, 18],
-    'one-immobile': [1, 1, 8, 10, 10, 16],
-    'both-immobile': [1, 1, 9, 10, 10, 11],
-    'reset-during-flight': [5, 5, 20, 10, 10, 18],
+    straight: [3, 2, 20, 5, 5, 18],
+    'one-immobile': [1, 1, 8, 5, 5, 16],
+    'both-immobile': [1, 1, 9, 5, 5, 11],
+    'reset-during-flight': [3, 3, 20, 5, 5, 18],
   };
   const [ship1Row, ship1Column, ship1Score, ship2Row, ship2Column, ship2Score] = presets[name];
 

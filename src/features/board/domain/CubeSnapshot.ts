@@ -1,4 +1,4 @@
-import { CubePosition } from './CubePosition.js';
+import { CUBE_SIZE, CubePosition } from './CubePosition.js';
 
 export type ShipIdentity = 'ship-1' | 'ship-2';
 
@@ -9,9 +9,9 @@ export interface CubeShipPlacement {
 
 /** Immutable fixed-size cube state; occupancy is derived from the two placements. */
 export class CubeSnapshot {
-  readonly width = 10 as const;
-  readonly height = 10 as const;
-  readonly depth = 10 as const;
+  readonly width = CUBE_SIZE;
+  readonly height = CUBE_SIZE;
+  readonly depth = CUBE_SIZE;
   readonly ship1: CubeShipPlacement;
   readonly ship2: CubeShipPlacement;
 

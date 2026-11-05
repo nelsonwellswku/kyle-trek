@@ -40,10 +40,10 @@ class ManualFrameScheduler implements FlightFrameScheduler {
 }
 
 function move(steps: number): PendingMove {
-  const origin = new CubePosition(2, 2, 2);
+  const origin = new CubePosition(1, 1, 1);
   const positions = Array.from(
     { length: steps + 1 },
-    (_, index) => new CubePosition(2 + index, 2, 2),
+    (_, index) => new CubePosition(Math.min(5, 1 + index), 1 + Math.max(0, index - 4), 1),
   );
   const destination = positions.at(-1);
   if (!destination) throw new Error('Expected a movement destination.');
@@ -54,7 +54,7 @@ function move(steps: number): PendingMove {
     shipIdentity: 'ship-1',
     origin,
     destination,
-    otherShipPosition: new CubePosition(10, 10, 10),
+    otherShipPosition: new CubePosition(5, 5, 5),
     route: Object.freeze({ positions: Object.freeze(positions), stepCount: steps }),
   });
 }
@@ -71,13 +71,13 @@ describe('ThreeFlightAnimator', () => {
     const handle = animator.start(pending, progress, complete, failure);
     expect(handle.identity).toEqual({ gameRevision: 3, turnToken: 5, moveId: 7 });
     scheduler.advance(250);
-    expect(progress).toHaveBeenCalledWith({ x: -2.5, y: -3.5, z: -3.5 });
+    expect(progress).toHaveBeenCalledWith({ x: -1, y: -2, z: -2 });
     expect(complete).not.toHaveBeenCalled();
     scheduler.advance(249);
     expect(complete).not.toHaveBeenCalled();
     scheduler.advance(1);
 
-    expect(progress).toHaveBeenLastCalledWith({ x: -1.5, y: -3.5, z: -3.5 });
+    expect(progress).toHaveBeenLastCalledWith({ x: 0, y: -2, z: -2 });
     expect(complete).toHaveBeenCalledExactlyOnceWith(handle.identity);
     expect(failure).not.toHaveBeenCalled();
   });
@@ -117,7 +117,7 @@ describe('ThreeFlightAnimator', () => {
     const animator = new ThreeFlightAnimator(scheduler);
     const malformed = {
       ...move(2),
-      route: { positions: [new CubePosition(2, 2, 2), new CubePosition(5, 2, 2)], stepCount: 1 },
+      route: { positions: [new CubePosition(1, 1, 1), new CubePosition(3, 1, 1)], stepCount: 1 },
     } as PendingMove;
     const complete = vi.fn();
     const failure = vi.fn();

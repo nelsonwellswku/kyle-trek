@@ -21,7 +21,7 @@ function combatGame(strengthScore = 14): CombatGame {
     startingHitPoints: 20,
     hitPoints: identity === 'ship-1' ? 17 : 9,
   });
-  return new CombatGame(ship('ship-1', 1), ship('ship-2', 10));
+  return new CombatGame(ship('ship-1', 1), ship('ship-2', 5));
 }
 
 function render(game: CombatGame): FakeElement {

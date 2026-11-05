@@ -1,4 +1,4 @@
-import { CubePosition } from '../../board/domain/CubePosition.js';
+import { CUBE_SIZE, CubePosition } from '../../board/domain/CubePosition.js';
 import type { LegalRoute } from '../domain/Reachability.js';
 
 export interface CubeWorldPoint {
@@ -84,7 +84,12 @@ export class CubeFlightPath {
   }
 
   private static worldPosition(position: CubePosition): CubeWorldPoint {
-    return Object.freeze({ x: position.x - 5.5, y: position.y - 5.5, z: position.z - 5.5 });
+    const center = (CUBE_SIZE + 1) / 2;
+    return Object.freeze({
+      x: position.x - center,
+      y: position.y - center,
+      z: position.z - center,
+    });
   }
 
   private static measure(points: readonly CubeWorldPoint[]): number {

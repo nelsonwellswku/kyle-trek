@@ -19,7 +19,7 @@
 
 - `BattleSession` is the only production authority for 3D movement and retains revision, turn token, move ID, pending-origin, recovery, stale-completion, one-move-per-turn, and skip-only-when-immobile behavior.
 - The combat scene dispatches typed cube targets on pointer release. Orbit drags remain selection-free through `CubeOrbitControls`' existing 5 CSS-pixel gesture arbitration.
-- Legal destinations are highlighted on the 1,000-marker Three.js mesh. The flight animator uses direct paths when clear and follows the validated blocker-free route when a direct path intersects the other ship. Animation duration is 250 ms per logical step, with a five-step maximum.
+- Legal destinations are highlighted on the 125-marker Three.js mesh. The flight animator uses direct paths when clear and follows the validated blocker-free route when a direct path intersects the other ship. Animation duration is 250 ms per logical step, with a five-step maximum.
 - The production browser fixture now provides a deterministic six-axis movement check that exercises actual marker ray picks, highlighted destinations, pointer-release dispatch, arrival positions, turn handoffs, and elapsed movement time.
 
 ### Browser and usability observations
@@ -71,3 +71,11 @@
 - `npm run build`: passed; Vite emitted its existing large-bundle advisory for the Three.js client chunk.
 - Production fixture HTTP check: `curl -I --max-time 10 http://127.0.0.1:5173/src/features/ship-combat/tests/browser/fixture.html` returned HTTP 200.
 - Actual WebGL2 fixture launch was attempted with the cached Chromium binary but failed before startup because `libnspr4.so` (and the related NSS/audio shared libraries) are unavailable. T042's real-browser checks remain unverified; no browser visual/timing/usability result is claimed.
+
+## Board-size update — 5 × 5 × 5
+
+- Changed the shared cube from 10 positions per axis to 5, updating coordinate validation and stable indexing, cube snapshots, reachability bounds, 3D/2D rendering projections, flight paths, torpedo paths, UI labels, and browser fixtures.
+- Preserved the existing two-layer start-region layout: Ship 1 uses Y=1/2 and Ship 2 Y=4/5, with 50 eligible positions each. The five-step movement cap, actions, turns, combat behavior, ship orientation, and orbit interactions remain unchanged.
+- Updated the coordinate and setup tests to exhaustively cover all 125 cells and all 50 eligible starts per ship; adjusted movement, combat, renderer, and animation fixtures to use valid smaller-cube coordinates.
+- Validation passed: `npm test` (290 tests across 40 files), `npm run typecheck`, `npm run lint`, `npm run format:check`, and `npm run build`. The build retains the existing Three.js bundle-size advisory.
+- The real-browser/WebGL2 acceptance fixture was updated for 125 markers but was not launched for this size change; visual picking and timing remain covered by the existing browser acceptance process.

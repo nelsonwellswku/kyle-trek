@@ -18,7 +18,7 @@ describe('GameSetupControls', () => {
     controls.showSetup(
       new GameSetup(
         { identity: 'ship-1', position: new CubePosition(2, 1, 1) },
-        { identity: 'ship-2', position: new CubePosition(9, 10, 10) },
+        { identity: 'ship-2', position: new CubePosition(5, 4, 5) },
       ),
     );
     controls.updateBoard(
@@ -26,28 +26,28 @@ describe('GameSetupControls', () => {
         {
           identity: 'ship-1',
           owner: 'player-1',
-          position: new CubePosition(6, 5, 1),
+          position: new CubePosition(4, 3, 1),
           agility: new AgilityStat(14),
         },
         {
           identity: 'ship-2',
           owner: 'player-2',
-          position: new CubePosition(8, 7, 1),
+          position: new CubePosition(5, 4, 1),
           agility: new AgilityStat(18),
         },
       ),
     );
 
-    expect(root.element('#ship-1-position').textContent).toContain('X 6, Y 5, Z 1');
-    expect(root.element('#ship-2-position').textContent).toContain('X 8, Y 7, Z 1');
+    expect(root.element('#ship-1-position').textContent).toContain('X 4, Y 3, Z 1');
+    expect(root.element('#ship-2-position').textContent).toContain('X 5, Y 4, Z 1');
     expect(root.element('#ship-1-position').textContent).toContain('occupied');
     expect(root.innerHTML).toContain(
       'aria-label="Cube axes: X left and right, Y front and back, Z up and down"',
     );
     expect(root.innerHTML).toContain('aria-label="Rotate the cube viewing angle"');
     expect(root.element('#cube-inspection').textContent).toContain('Hover over a cell marker');
-    controls.updateInspection(new CubePosition(4, 5, 6), null);
-    expect(root.element('#cube-inspection').textContent).toBe('Cell X 4, Y 5, Z 6 — empty.');
+    controls.updateInspection(new CubePosition(4, 5, 3), null);
+    expect(root.element('#cube-inspection').textContent).toBe('Cell X 4, Y 5, Z 3 — empty.');
     expect(controls.turnHudHost).toBe(hudHost);
   });
 });

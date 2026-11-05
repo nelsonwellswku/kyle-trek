@@ -171,12 +171,12 @@ describe('PhaserTorpedoAnimator', () => {
         expect.any(Number),
         expect.any(Number),
         5,
-        6,
         12,
+        24,
         0xffe36e,
         1,
       ]);
-      expect(harness.stars[0]?.setStrokeStyle).toHaveBeenCalledWith(2, 0xffffff, 1);
+      expect(harness.stars[0]?.setStrokeStyle).toHaveBeenCalledWith(4, 0xffffff, 1);
     },
   );
 
@@ -224,7 +224,7 @@ describe('PhaserTorpedoAnimator', () => {
 
   it('takes a miss fully off-board without an explosion, then removes the star', () => {
     const harness = animatorHarness();
-    const attack = pendingAttack('miss', new CubePosition(8, 5, 5), new CubePosition(10, 5, 5));
+    const attack = pendingAttack('miss', new CubePosition(4, 3, 5), new CubePosition(5, 3, 5));
     const onComplete = vi.fn();
     const handle = harness.animator.start(attack, onComplete, vi.fn());
     const star = harness.stars[0];
@@ -262,7 +262,7 @@ describe('PhaserTorpedoAnimator', () => {
     const first = animatorHarness(false, randomSource);
     const second = animatorHarness(false, randomSource);
     const third = animatorHarness(false, randomSource);
-    const positions = [new CubePosition(5, 5, 5), new CubePosition(6, 5, 5)] as const;
+    const positions = [new CubePosition(4, 3, 3), new CubePosition(5, 3, 3)] as const;
     first.animator.start(pendingAttack('miss', ...positions, 19), vi.fn(), vi.fn());
     second.animator.start(pendingAttack('hit', ...positions, 20), vi.fn(), vi.fn());
     second.animator.start(pendingAttack('miss', ...positions, 20), vi.fn(), vi.fn());
@@ -293,7 +293,7 @@ describe('PhaserTorpedoAnimator', () => {
   });
 
   it('maps uniform sample buckets across every angle from 10 to 35 on both sides', () => {
-    const positions = [new CubePosition(2, 5, 5), new CubePosition(9, 5, 5)] as const;
+    const positions = [new CubePosition(1, 3, 3), new CubePosition(5, 3, 3)] as const;
 
     for (let choice = 0; choice < 52; choice += 1) {
       const randomSource: RandomSource = { next: () => (choice + 0.5) / 52 };
@@ -305,7 +305,7 @@ describe('PhaserTorpedoAnimator', () => {
       if (!endpoint) throw new Error(`Miss choice ${choice} did not reach its endpoint.`);
       const expectedDegrees = 10 + (choice % 26);
       const expectedSide = choice < 26 ? 1 : -1;
-      const angleDegrees = (Math.atan2(endpoint[1] - 270, endpoint[0] - 90) * 180) / Math.PI;
+      const angleDegrees = (Math.atan2(endpoint[1] - 300, endpoint[0] - 60) * 180) / Math.PI;
       expect(Math.round(Math.abs(angleDegrees)), `angle choice ${choice}`).toBe(expectedDegrees);
       expect(Math.sign(angleDegrees), `side choice ${choice}`).toBe(expectedSide);
     }

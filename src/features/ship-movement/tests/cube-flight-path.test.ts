@@ -33,39 +33,35 @@ describe('CubeFlightPath', () => {
     const end = new CubePosition(4, 3, 4);
     const path = new CubeFlightPath(
       route(start, new CubePosition(3, 3, 4), end),
-      new CubePosition(8, 8, 8),
+      new CubePosition(5, 5, 5),
     );
 
     expect(path.isDetour).toBe(false);
     expect(path.points).toEqual([
-      { x: -3.5, y: -2.5, z: -1.5 },
-      { x: -1.5, y: -2.5, z: -1.5 },
+      { x: -1, y: 0, z: 1 },
+      { x: 1, y: 0, z: 1 },
     ]);
     expect(path.pathLength).toBeCloseTo(2);
     expect(path.pointAt(0)).toEqual(path.points[0]);
     expect(path.pointAt(1)).toEqual(path.points.at(-1));
-    expect(path.pointAt(0.5)).toEqual({ x: -2.5, y: -2.5, z: -1.5 });
+    expect(path.pointAt(0.5)).toEqual({ x: 0, y: 0, z: 1 });
   });
 
   it('follows the typed legal route when the direct flight intersects the opposing ship', () => {
     const positions = [
-      new CubePosition(2, 5, 5),
-      new CubePosition(2, 4, 5),
-      new CubePosition(3, 4, 5),
-      new CubePosition(4, 4, 5),
-      new CubePosition(5, 4, 5),
-      new CubePosition(6, 4, 5),
-      new CubePosition(7, 4, 5),
-      new CubePosition(8, 4, 5),
-      new CubePosition(8, 5, 5),
+      new CubePosition(3, 3, 3),
+      new CubePosition(3, 2, 3),
+      new CubePosition(4, 2, 3),
+      new CubePosition(5, 2, 3),
+      new CubePosition(5, 3, 3),
     ];
-    const obstacle = new CubePosition(5, 5, 5);
+    const obstacle = new CubePosition(4, 3, 3);
     const path = new CubeFlightPath(route(...positions), obstacle);
 
     expect(path.isDetour).toBe(true);
-    expect(path.points[0]).toEqual({ x: -3.5, y: -0.5, z: -0.5 });
-    expect(path.points.at(-1)).toEqual({ x: 2.5, y: -0.5, z: -0.5 });
-    expect(path.pathLength).toBe(8);
+    expect(path.points[0]).toEqual({ x: 0, y: 0, z: 0 });
+    expect(path.points.at(-1)).toEqual({ x: 2, y: 0, z: 0 });
+    expect(path.pathLength).toBe(4);
     for (let index = 1; index < positions.length; index += 1) {
       const start = positions[index - 1];
       const end = positions[index];
@@ -79,13 +75,13 @@ describe('CubeFlightPath', () => {
   it('rejects a route whose endpoints do not match its typed cube positions or step count', () => {
     const start = new CubePosition(2, 2, 2);
     expect(
-      () => new CubeFlightPath(route(start, new CubePosition(4, 2, 2)), new CubePosition(9, 9, 9)),
+      () => new CubeFlightPath(route(start, new CubePosition(4, 2, 2)), new CubePosition(5, 5, 5)),
     ).toThrow(RangeError);
     expect(
       () =>
         new CubeFlightPath(
           { positions: [start, new CubePosition(3, 2, 2)], stepCount: 4 },
-          new CubePosition(9, 9, 9),
+          new CubePosition(5, 5, 5),
         ),
     ).toThrow(RangeError);
   });

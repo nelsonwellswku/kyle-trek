@@ -37,7 +37,7 @@ function game(
 ): CombatGame {
   return new CombatGame(
     ship('ship-1', 1, 10 + 2 * attackerModifier, 12),
-    ship('ship-2', 10, 10, defenderStartingHitPoints, defenderHitPoints),
+    ship('ship-2', 5, 10, defenderStartingHitPoints, defenderHitPoints),
   );
 }
 

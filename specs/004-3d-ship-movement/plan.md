@@ -1,6 +1,6 @@
 # Implementation Plan: Three-Dimensional Ship Movement
 
-**Branch**: `004-3d-ship-movement` | **Date**: 2026-10-20 | **Spec**: [spec.md](spec.md)
+**Branch**: `004-3d-ship-movement` | **Revised**: 2026-10-22 | **Spec**: [spec.md](spec.md)
 
 **Feature identifier**: `004-3d-ship-movement`. Setup resolves this identifier independently of the repository's current Git branch.
 
@@ -8,7 +8,7 @@
 
 ## Summary
 
-Replace the live battle's flat 10 × 10 board with a selectable 10 × 10 × 10 cube, three-dimensional movement and ship orientation, and a user-orbitable three-quarter view. Keep `BattleSession` as the sole authority for movement, rotation, combat and turn transitions. Extend the shared board capability to validated cube coordinates, reachability, rendering and picking. Use a separate Three.js WebGL2 canvas for the orbitable cube, with a non-opaque cell-center marker at each of the 1,000 positions so interior cells remain visible and selectable by orbiting; retain Phaser for the existing game/scene lifecycle and DOM HUD. Adapt movement and torpedo effects to the shared 3D scene while preserving their current outcome, cancellation and timing contracts.
+Replace the live battle's flat 10 × 10 board with a selectable 5 × 5 × 5 cube, three-dimensional movement and ship orientation, and a user-orbitable three-quarter view. Keep `BattleSession` as the sole authority for movement, rotation, combat and turn transitions. Extend the shared board capability to validated cube coordinates, reachability, rendering and picking. Use a separate Three.js WebGL2 canvas for the orbitable cube, with a non-opaque cell-center marker at each of the 125 positions so interior cells remain visible and selectable by orbiting; retain Phaser for the existing game/scene lifecycle and DOM HUD. Adapt movement and torpedo effects to the shared 3D scene while preserving their current outcome, cancellation and timing contracts.
 
 ## Technical Context
 
@@ -24,11 +24,11 @@ Replace the live battle's flat 10 × 10 board with a selectable 10 × 10 × 10 c
 
 **Project Type**: Single-page client-side web game organized by gameplay feature.
 
-**Performance Goals**: Legal movement choices visible within 300 ms on the 1,000-cell cube; every selected move completes within 1.5 seconds. Reachability is bounded by the existing maximum allowance of five steps, which can reach at most 231 cells in an unobstructed 3D grid. Validate orbiting and marker picking in the reference desktop browser; do not treat mocked renderer timing as visual acceptance.
+**Performance Goals**: Legal movement choices visible within 300 ms on the 125-cell cube; every selected move completes within 1.5 seconds. Reachability is bounded by the existing maximum allowance of five steps and the 125 cells in the cube. Validate orbiting and marker picking in the reference desktop browser; do not treat mocked renderer timing as visual acceptance.
 
-**Constraints**: Exactly two ships and two local players; 10 valid coordinates on each axis; six face-adjacent movement directions; existing agility allowance and one move per turn; opposing ships block routes; ship rotation is in 90-degree increments around the cube axes and does not change occupancy. Each ship has 200 eligible starting cells in its assigned two Y layers. Camera orientation is presentation-only. A separate Three.js WebGL2 context is required because the current Phaser renderer uses WebGL1 by default.
+**Constraints**: Exactly two ships and two local players; 5 valid coordinates on each axis; six face-adjacent movement directions; existing agility allowance and one move per turn; opposing ships block routes; ship rotation is in 90-degree increments around the cube axes and does not change occupancy. Each ship has 50 eligible starting cells in its assigned two Y layers. Camera orientation is presentation-only. A separate Three.js WebGL2 context is required because the current Phaser renderer uses WebGL1 by default.
 
-**Scale/Scope**: 1,000 cell markers, two ships and one active move or combat effect at a time. One bounded reachability search explores no more than 231 cells at the maximum existing allowance. No networking, save state, additional ships, or player-editable stats.
+**Scale/Scope**: 125 cell markers, two ships and one active move or combat effect at a time. One bounded reachability search explores no more than the 125 cells at the maximum existing allowance. No networking, save state, additional ships, or player-editable stats.
 
 ## Constitution Check
 
@@ -76,7 +76,7 @@ src/
     │   │   ├── CubeOrientation.ts             # renderer-independent cube rotation value
     │   │   └── CubeSnapshot.ts                # canonical board occupancy/dimensions
     │   ├── presentation/
-    │   │   ├── ThreeCubeView.ts               # separate WebGL2 canvas, lattice and 1,000 markers
+    │   │   ├── ThreeCubeView.ts               # separate WebGL2 canvas, lattice and 125 markers
     │   │   ├── CubeOrbitControls.ts            # camera gestures and default perspective
     │   │   └── CubePicker.ts                   # marker/ship raycast to typed targets
     │   └── tests/
@@ -121,21 +121,21 @@ src/
 
 ## Phase 0: Research Outcomes
 
-See [research.md](research.md). Repository investigation established that `CombatScene`/`BattleSession` is the live gameplay path and that current shared board geometry and movement are strictly 2D. Phaser 4.2.1 has no 3D camera/raycaster and creates WebGL1 by default; Three.js 0.186.1 requires WebGL2. Use a second, separately owned Three.js canvas rather than sharing Phaser's context. The user's orbit choice is implemented with an open lattice and 1,000 selectable cell-center markers, not solid cell volumes: camera rotation can disambiguate markers without introducing an unrequested layer selector. No unresolved technical-context questions remain.
+See [research.md](research.md). Repository investigation established that `CombatScene`/`BattleSession` is the live gameplay path and that current shared board geometry and movement are strictly 2D. Phaser 4.2.1 has no 3D camera/raycaster and creates WebGL1 by default; Three.js 0.186.1 requires WebGL2. Use a second, separately owned Three.js canvas rather than sharing Phaser's context. The user's orbit choice is implemented with an open lattice and 125 selectable cell-center markers, not solid cell volumes: camera rotation can disambiguate markers without introducing an unrequested layer selector. No unresolved technical-context questions remain.
 
 ## Phase 1: Design and Contracts
 
 ### Domain, initialization and reachability
 
-- `CubePosition` validates integer X/Y/Z coordinates from 1 through 10 and is the only board coordinate in gameplay snapshots, commands and routes. `CubeSnapshot` defines the fixed 10 × 10 × 10 space and two distinct occupied positions; unoccupied state is derived rather than stored as 1,000 mutable cell flags.
+- `CubePosition` validates integer X/Y/Z coordinates from 1 through 5 and is the only board coordinate in gameplay snapshots, commands and routes. `CubeSnapshot` defines the fixed 5 × 5 × 5 space and two distinct occupied positions; unoccupied state is derived rather than stored as 125 mutable cell flags.
 - `CubeOrientation` is a renderer-independent right-handed signed-axis basis, admitting only the 24 proper orientations of a cube. A rotation command composes a positive or negative quarter-turn around a global X, Y or Z axis. `CombatGame` stores the current orientation; Three.js converts it to a quaternion only at the rendering boundary. Ship 1 defaults to forward +Y, Ship 2 to forward −Y, both with +Z as the up axis.
-- The setup factory makes one validated uniform draw in `[0, 200)` for each ship, maps it bijectively to X/Z and one of its two Y layers, and stages the complete battle before publication. Existing agility, strength, constitution, hit points, armor class, die draw order and Player 1 first-turn behavior remain intact.
-- Generalize `Reachability` to six face-adjacent neighbors and a 3D visited key. BFS returns all and only empty destinations and a shortest route for each; highlights and selection consume that same result. Preserve a maximum 5-step movement allowance and one move per turn. A full unconstrained radius-5 search visits at most 231 positions, not the full 1,000.
+- The setup factory makes one validated uniform draw in `[0, 50)` for each ship, maps it bijectively to X/Z and one of its two Y layers, and stages the complete battle before publication. Ship 1 uses Y=1/2 and Ship 2 uses Y=4/5. Existing agility, strength, constitution, hit points, armor class, die draw order and Player 1 first-turn behavior remain intact.
+- Generalize `Reachability` to six face-adjacent neighbors and a 3D visited key. BFS returns all and only empty destinations and a shortest route for each; highlights and selection consume that same result. Preserve a maximum 5-step movement allowance and one move per turn. Reachability remains bounded to the 125 positions in the cube.
 - `BattleSession` remains the only authoritative battle state machine. A successful movement stays with the current player for attack-or-end-turn; explicit skip remains available only when immobile. Rotation is accepted for the active ship in movement-ready or attack-ready, never during another action or after the battle ends. A pending rotation has a revision/turn/action identity; completion commits orientation and returns to the prior ready phase without spending movement or ending the turn. Matching failure restores the prior orientation/phase; stale completion, failure, New Game and disposal cannot affect the replacement.
 
 ### Cube view, orbit and input
 
-- `ThreeCubeView` creates one independent WebGL2 renderer/canvas, sized to the existing board host. Its open lattice is decorative; an `InstancedMesh` (or equivalent single indexed collection) maps each of 1,000 visible cell-center markers to one stable `CubePosition`. The marker collection, not cell-volume faces or lattice lines, is the cell-picking target. Two distinguishable procedural ship models have an asymmetric nose and visible top marker so all stored orientation changes can be seen.
+- `ThreeCubeView` creates one independent WebGL2 renderer/canvas, sized to the existing board host. Its open lattice is decorative; an `InstancedMesh` (or equivalent single indexed collection) maps each of 125 visible cell-center markers to one stable `CubePosition`. The marker collection, not cell-volume faces or lattice lines, is the cell-picking target. Two distinguishable procedural ship models have an asymmetric nose and visible top marker so all stored orientation changes can be seen.
 - Start with a three-quarter perspective camera. Orbit controls cover the cube's full azimuth and usable elevations; marker coverage tests must find at least one view for every coordinate where its marker is separately ray-pickable. For coincident/ambiguous projected markers, show the nearest marker as the hover target and let the player orbit until the intended cell is isolated. This satisfies the clarified orbit-only selection behavior without a slice/coordinate selector.
 - Put the Three canvas over the Phaser board canvas with pointer hit-testing passed through to the Phaser host. Attach orbit controls to the matching Phaser canvas bounds. Use primary-button drag to orbit and a primary-button release with less than a 5 CSS-pixel displacement to select; a drag never also selects a cell. The picker maps client coordinates through the Three canvas bounds and camera, then returns a typed cell or ship target. Resize both canvases from the same host bounds and keep the HUD outside the 3D canvas.
 - Camera pose is presentation state and never enters `CombatGame` or `BattleSession`; orbiting is available regardless of which player owns the turn. A view change cannot consume a command, movement, random sample or turn token. New Game cancels old visual effects and updates the same view without accumulating canvases/listeners.

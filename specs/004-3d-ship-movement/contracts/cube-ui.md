@@ -6,7 +6,7 @@ The public interface is the local browser game. There is no HTTP API, network pr
 
 ## Display contract
 
-- Show an open 10 × 10 × 10 lattice in a three-quarter view, with all 1,000 uniquely addressable cell markers and three distinguishable labeled axes.
+- Show an open 5 × 5 × 5 lattice in a three-quarter view, with all 125 uniquely addressable cell markers and three distinguishable labeled axes.
 - Do not render filled opaque cell volumes that permanently hide the interior. Lattice lines are decorative, not click targets. Each cell-center marker has one stable X/Y/Z coordinate identity.
 - Show exactly two distinguishable procedural ships at their current cell centers, oriented using their stored cube orientation. Each ship has a visible nose and top marker so rotation around the forward axis is distinguishable. Show both positions as X/Y/Z coordinates, each ship's existing stats and the current player/phase.
 - Show current legal movement destinations and a visible hover/selected coordinate. Show the cell occupancy before selection. The hit target returned by picking must match the visible marker and its typed coordinate.
@@ -47,7 +47,7 @@ Rotation changes ship orientation only and returns to the same ready phase after
 
 | Collaborator / operation             | Input                                                               | Output / guarantee                                                                      |
 | ------------------------------------ | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `CubePosition.create`                | Integer x/y/z                                                       | Valid immutable coordinate in 1–10 on every axis or rejected value                      |
+| `CubePosition.create`                | Integer x/y/z                                                       | Valid immutable coordinate in 1–5 on every axis or rejected value                       |
 | `Reachability.find`                  | Cube snapshot, active origin, movement allowance                    | Readonly exact destination set and shortest six-neighbor routes                         |
 | `CubePicker.pick`                    | CSS pointer location, current camera, marker/ship instances         | Typed cell/ship target matching current visible ray hit, or no target                   |
 | `ThreeCubeView.render`               | Cube/combat view snapshot, legal highlights, matching game revision | Updated cube, ship poses and effects; view state remains outside game domain            |
@@ -62,7 +62,7 @@ Three.js types do not enter domain snapshots or session commands. `CombatControl
 
 - Start one Three.js canvas/view for the active application. Repeated New Game reuses that view and does not add canvases, listeners or render loops.
 - On New Game/disposal, invalidate old battle identities before cancelling Three effects. Remove the overlay canvas and dispose controls, geometries, materials, renderer and resize observers exactly once on final disposal.
-- The displayed cube includes all 1,000 unique marker identities. For every marker, the browser acceptance sweep finds a view where it is distinguishable, then confirms ray picking returns its exact coordinate.
+- The displayed cube includes all 125 unique marker identities. For every marker, the browser acceptance sweep finds a view where it is distinguishable, then confirms ray picking returns its exact coordinate.
 - Movement, ship rotation, torpedo results, winner display and turn transitions continue to be governed by existing combat rules and their matching action identities.
 
 ## Acceptance references

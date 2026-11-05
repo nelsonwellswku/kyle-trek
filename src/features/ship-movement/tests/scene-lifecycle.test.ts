@@ -121,13 +121,13 @@ function session(): TurnSession {
       {
         identity: 'ship-1',
         owner: 'player-1',
-        position: new CubePosition(5, 5, 5),
+        position: new CubePosition(3, 3, 3),
         agility: new AgilityStat(14),
       },
       {
         identity: 'ship-2',
         owner: 'player-2',
-        position: new CubePosition(10, 10, 10),
+        position: new CubePosition(5, 5, 5),
         agility: new AgilityStat(18),
       },
     ),
@@ -201,7 +201,7 @@ describe('MovementScene lifecycle', () => {
     };
 
     scene.create();
-    harness.input.emit('pointerdown', { button: 0, worldX: 330, worldY: 270 });
+    harness.input.emit('pointerdown', { button: 0, worldX: 420, worldY: 300 });
     expect(gameSession.snapshot.phase).toBe('ready');
     expect(animator.startedFlights).toHaveLength(0);
     expect(harness.input.listenerCount('pointerdown')).toBe(1);
@@ -210,7 +210,7 @@ describe('MovementScene lifecycle', () => {
     expect(onDrawn).toHaveBeenCalledWith(1);
     harness.input.emit('pointerdown', { button: 2, worldX: 330, worldY: 270 });
     expect(gameSession.snapshot.phase).toBe('ready');
-    harness.input.emit('pointerdown', { button: 0, worldX: 330, worldY: 270 });
+    harness.input.emit('pointerdown', { button: 0, worldX: 420, worldY: 300 });
     expect(gameSession.snapshot.phase).toBe('moving');
     expect(animator.startedFlights).toHaveLength(1);
   });
@@ -241,7 +241,7 @@ describe('MovementScene lifecycle', () => {
 
     scene.create();
     harness.game.events.emit('postrender');
-    harness.input.emit('pointerdown', { button: 0, worldX: 330, worldY: 270 });
+    harness.input.emit('pointerdown', { button: 0, worldX: 420, worldY: 300 });
     scene.dispose();
     expect(animator.startedFlights[0]?.cancelled).toBe(true);
     expect(harness.input.listenerCount('pointerdown')).toBe(0);
@@ -267,7 +267,7 @@ describe('MovementScene lifecycle', () => {
 
     scene.create();
     harness.game.events.emit('postrender');
-    harness.input.emit('pointerdown', { button: 0, worldX: 330, worldY: 270 });
+    harness.input.emit('pointerdown', { button: 0, worldX: 420, worldY: 300 });
     const replacement = new MovementGame(
       {
         identity: 'ship-1',
@@ -278,7 +278,7 @@ describe('MovementScene lifecycle', () => {
       {
         identity: 'ship-2',
         owner: 'player-2',
-        position: new CubePosition(9, 9, 5),
+        position: new CubePosition(5, 5, 5),
         agility: new AgilityStat(18),
       },
     );
@@ -330,7 +330,7 @@ describe('MovementScene lifecycle', () => {
       {
         identity: 'ship-2',
         owner: 'player-2',
-        position: new CubePosition(9, 9, 5),
+        position: new CubePosition(5, 5, 5),
         agility: new AgilityStat(18),
       },
     );
@@ -352,7 +352,7 @@ describe('MovementScene lifecycle', () => {
       {
         identity: 'ship-2',
         owner: 'player-2',
-        position: new CubePosition(8, 8, 5),
+        position: new CubePosition(5, 5, 5),
         agility: new AgilityStat(16),
       },
     );

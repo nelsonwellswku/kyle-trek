@@ -5,12 +5,12 @@ import { CubeSnapshot } from '../domain/CubeSnapshot.js';
 describe('CubeSnapshot', () => {
   it('has fixed dimensions, typed placements, and derives occupancy from the two ships', () => {
     const ship1 = { identity: 'ship-1' as const, position: new CubePosition(2, 1, 3) };
-    const ship2 = { identity: 'ship-2' as const, position: new CubePosition(9, 10, 8) };
+    const ship2 = { identity: 'ship-2' as const, position: new CubePosition(4, 5, 3) };
     const snapshot = new CubeSnapshot(ship1, ship2);
 
-    expect(snapshot.width).toBe(10);
-    expect(snapshot.height).toBe(10);
-    expect(snapshot.depth).toBe(10);
+    expect(snapshot.width).toBe(5);
+    expect(snapshot.height).toBe(5);
+    expect(snapshot.depth).toBe(5);
     expect(snapshot.ship1).toEqual(ship1);
     expect(snapshot.ship2).toEqual(ship2);
     expect(snapshot.occupantAt(ship1.position)).toBe('ship-1');
@@ -24,7 +24,7 @@ describe('CubeSnapshot', () => {
 
   it('rejects duplicate positions and incorrectly identified placements', () => {
     const position = new CubePosition(1, 1, 1);
-    const other = new CubePosition(10, 10, 10);
+    const other = new CubePosition(5, 5, 5);
 
     expect(
       () =>

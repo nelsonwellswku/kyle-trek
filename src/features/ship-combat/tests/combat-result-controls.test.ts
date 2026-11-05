@@ -30,7 +30,7 @@ function combatGame(ship2HitPoints = 10): CombatGame {
 
   return new CombatGame(
     ship('ship-1', new CubePosition(1, 1, 1), 10),
-    ship('ship-2', new CubePosition(10, 10, 10), ship2HitPoints),
+    ship('ship-2', new CubePosition(5, 5, 5), ship2HitPoints),
   );
 }
 

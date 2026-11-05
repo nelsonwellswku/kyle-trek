@@ -39,7 +39,7 @@ function combatGame(agilityScore = 14): CombatGame {
   });
   return new CombatGame(
     ship('ship-1', new CubePosition(2, 2, 2)),
-    ship('ship-2', new CubePosition(9, 9, 9)),
+    ship('ship-2', new CubePosition(5, 5, 5)),
   );
 }
 
@@ -319,7 +319,7 @@ describe('CombatController', () => {
     controller.handlePointerDown({ button: 0, worldX: 600, worldY: 300 });
     controller.handlePointerDown(clickAt(geometry, initial.game.ship1.position));
     controller.handlePointerDown(clickAt(geometry, initial.game.ship2.position));
-    controller.handlePointerDown(clickAt(geometry, new CubePosition(1, 10, 2)));
+    controller.handlePointerDown(clickAt(geometry, new CubePosition(1, 5, 2)));
     expect(flights.startedFlights).toHaveLength(0);
 
     controller.handlePointerDown(clickAt(geometry, legal));
@@ -327,7 +327,7 @@ describe('CombatController', () => {
     const ready = live(session);
     if (ready.phase !== 'attack-ready') throw new Error('Expected attack-ready.');
     controller.handlePointerDown(clickAt(geometry, ready.game.ship1.position));
-    controller.handlePointerDown(clickAt(geometry, new CubePosition(10, 1, 2)));
+    controller.handlePointerDown(clickAt(geometry, new CubePosition(5, 1, 2)));
     controller.handlePointerDown(clickAt(geometry, ready.game.ship2.position, 2));
     controller.handlePointerDown({ button: 0, worldX: -1, worldY: 10 });
     expect(torpedoes.startedAttacks).toHaveLength(0);

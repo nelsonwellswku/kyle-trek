@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+import { CUBE_SIZE } from '../../board/domain/CubePosition.js';
 import type { CubeScreenGeometry } from '../../board/presentation/CubeScreenGeometry.js';
 import { MathRandomSource } from '../../game-setup/adapters/MathRandomSource.js';
 import type { RandomSource } from '../../game-setup/domain/RandomSource.js';
@@ -49,7 +50,7 @@ export class PhaserTorpedoAnimator implements TorpedoAnimator {
       this.geometry,
       missPathChoice,
     );
-    const scale = this.geometry.logicalSize / 10 / 60;
+    const scale = this.geometry.logicalSize / CUBE_SIZE / 60;
     let settled = false;
     let explosionCreated = false;
     let exitReported = false;

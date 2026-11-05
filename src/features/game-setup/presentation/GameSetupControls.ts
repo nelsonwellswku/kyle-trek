@@ -27,7 +27,7 @@ export class GameSetupControls {
         <section class="turn-hud" id="turn-hud" aria-label="Turn controls"></section>
         <section class="game-layout" aria-label="Combat board">
           <div class="board-copy" id="board-description">
-            <h2>10 × 10 × 10 battle cube</h2>
+            <h2>5 × 5 × 5 battle cube</h2>
             <p>Orbit the cube to inspect cells. Movement, attack, and turn commands remain in the battle controls.</p>
           </div>
           <p class="cube-orbit-instructions" aria-label="Rotate the cube viewing angle">Drag with the primary mouse button to rotate the viewing angle; clicking a marker only inspects it.</p>
@@ -130,7 +130,7 @@ export class GameSetupControls {
 
   markReady(revision: number, canvas: HTMLCanvasElement): void {
     canvas.setAttribute('role', 'img');
-    canvas.setAttribute('aria-label', 'Orbitable 10 by 10 by 10 spaceship combat cube');
+    canvas.setAttribute('aria-label', 'Orbitable 5 by 5 by 5 spaceship combat cube');
     canvas.setAttribute(
       'aria-describedby',
       'board-description ship-summary cube-inspection turn-hud',

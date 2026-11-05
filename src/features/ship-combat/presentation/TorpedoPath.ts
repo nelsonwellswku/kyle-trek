@@ -2,7 +2,7 @@ import type {
   CubeScreenGeometry,
   ScreenPoint,
 } from '../../board/presentation/CubeScreenGeometry.js';
-import { CubePosition } from '../../board/domain/CubePosition.js';
+import { CUBE_SIZE, CubePosition } from '../../board/domain/CubePosition.js';
 import type { CubeWorldPoint } from '../../ship-movement/presentation/CubeFlightPath.js';
 
 type BoardPoint = ScreenPoint;
@@ -105,7 +105,7 @@ export class TorpedoPath {
     const requestedDegrees = 10 + (variation % 26);
     const requestedSide = variation < 26 ? 1 : -1;
     const directAngle = Math.atan2(target.y - origin.y, target.x - origin.x);
-    const cellSize = geometry.logicalSize / 10;
+    const cellSize = geometry.logicalSize / CUBE_SIZE;
     const scale = cellSize / 60;
     const projectileRadius = 13 * scale;
     const clearance = scale;
@@ -412,7 +412,12 @@ export class CubeTorpedoPath {
   }
 
   private static worldPosition(position: CubePosition): CubeWorldPoint {
-    return Object.freeze({ x: position.x - 5.5, y: position.y - 5.5, z: position.z - 5.5 });
+    const center = (CUBE_SIZE + 1) / 2;
+    return Object.freeze({
+      x: position.x - center,
+      y: position.y - center,
+      z: position.z - center,
+    });
   }
 
   private static normalize(point: CubeWorldPoint): CubeWorldPoint {

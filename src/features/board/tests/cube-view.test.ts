@@ -175,7 +175,7 @@ describe('ThreeCubeView', () => {
     view.dispose();
   });
 
-  it('creates 1,000 stable marker identities, an open labeled view, oriented ships, and resizes', () => {
+  it('creates 125 stable marker identities, an open labeled view, oriented ships, and resizes', () => {
     const document = new FakeDocument();
     const host = new FakeDomNode(document);
     const input = new FakePointerTarget();
@@ -198,19 +198,19 @@ describe('ThreeCubeView', () => {
       },
       pickerFactory: () => ({
         pick: (x, y) =>
-          x === 15 && y === 25 ? { type: 'cell', position: new CubePosition(4, 6, 8) } : null,
+          x === 15 && y === 25 ? { type: 'cell', position: new CubePosition(4, 3, 2) } : null,
       }),
       resizeObserverFactory: () => ({ observe: vi.fn(), disconnect: resizeDisconnect }),
       pixelRatio: 1.5,
       onSelect,
     });
 
-    expect(view.markerCount).toBe(1_000);
-    expect(view.cellPositions).toHaveLength(1_000);
+    expect(view.markerCount).toBe(125);
+    expect(view.cellPositions).toHaveLength(125);
     expect(new Set(view.cellPositions.map((position) => position.presentationIndex)).size).toBe(
-      1_000,
+      125,
     );
-    expect(view.cellPositions[321]).toEqual(CubePosition.fromPresentationIndex(321));
+    expect(view.cellPositions[74]).toEqual(CubePosition.fromPresentationIndex(74));
     expect(view.shipModels.size).toBe(2);
     expect([...view.shipModels.values()].every((model) => model.children.length >= 4)).toBe(true);
     expect(view.scene.children.some((object) => object instanceof LineSegments)).toBe(true);
@@ -227,12 +227,12 @@ describe('ThreeCubeView', () => {
     hover?.(200, 200);
     expect(onInspection).toHaveBeenNthCalledWith(1, {
       type: 'cell',
-      position: new CubePosition(4, 6, 8),
+      position: new CubePosition(4, 3, 2),
     });
     expect(onInspection).toHaveBeenNthCalledWith(2, null);
     expect(onSelect).toHaveBeenCalledWith({
       type: 'cell',
-      position: new CubePosition(4, 6, 8),
+      position: new CubePosition(4, 3, 2),
     });
 
     host.setBounds(800, 400);
@@ -242,25 +242,25 @@ describe('ThreeCubeView', () => {
     view.render(
       new CubeSnapshot(
         { identity: 'ship-1', position: new CubePosition(2, 1, 4) },
-        { identity: 'ship-2', position: new CubePosition(9, 10, 7) },
+        { identity: 'ship-2', position: new CubePosition(4, 5, 3) },
       ),
     );
-    expect(view.shipModels.get('ship-1')?.position.toArray()).toEqual([-3.5, -4.5, -1.5]);
-    expect(view.shipModels.get('ship-2')?.position.toArray()).toEqual([3.5, 4.5, 1.5]);
+    expect(view.shipModels.get('ship-1')?.position.toArray()).toEqual([-1, -2, 1]);
+    expect(view.shipModels.get('ship-2')?.position.toArray()).toEqual([1, 2, 0]);
     expect(
       view.shipModels.get('ship-1')?.quaternion.equals(view.shipModels.get('ship-2')!.quaternion),
     ).toBe(false);
     expect(renderer?.render).toHaveBeenCalled();
 
     const highlighted = new Color();
-    const cell = new CubePosition(4, 6, 8);
+    const cell = new CubePosition(4, 3, 2);
     view.setHighlights([cell]);
     view.markerMesh.getColorAt(cell.presentationIndex, highlighted);
     expect(highlighted.getHex()).toBe(0xffe679);
     view.setShipVisualPosition('ship-1', { x: 1, y: 2, z: 3 });
     expect(view.shipModels.get('ship-1')?.position.toArray()).toEqual([1, 2, 3]);
-    view.setShipPosition('ship-1', new CubePosition(4, 5, 6));
-    expect(view.shipModels.get('ship-1')?.position.toArray()).toEqual([-1.5, -0.5, 0.5]);
+    view.setShipPosition('ship-1', new CubePosition(4, 5, 4));
+    expect(view.shipModels.get('ship-1')?.position.toArray()).toEqual([1, 2, 1]);
     view.setHighlights([]);
     view.markerMesh.getColorAt(cell.presentationIndex, highlighted);
     expect(highlighted.getHex()).toBe(0x9fe8ff);

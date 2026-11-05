@@ -1,4 +1,7 @@
-/** Immutable one-based coordinate in the 10 × 10 × 10 battle cube. */
+export const CUBE_SIZE = 5;
+export const CUBE_CELL_COUNT = CUBE_SIZE ** 3;
+
+/** Immutable one-based coordinate in the 5 × 5 × 5 battle cube. */
 export class CubePosition {
   readonly x: number;
   readonly y: number;
@@ -24,22 +27,24 @@ export class CubePosition {
   }
 
   get presentationIndex(): number {
-    return (this.x - 1) * 100 + (this.y - 1) * 10 + this.z - 1;
+    return (this.x - 1) * CUBE_SIZE ** 2 + (this.y - 1) * CUBE_SIZE + this.z - 1;
   }
 
   static fromPresentationIndex(index: number): CubePosition {
-    if (!Number.isInteger(index) || index < 0 || index >= 1_000) {
-      throw new RangeError('A cube presentation index must be an integer between 0 and 999.');
+    if (!Number.isInteger(index) || index < 0 || index >= CUBE_CELL_COUNT) {
+      throw new RangeError(
+        `A cube presentation index must be an integer between 0 and ${CUBE_CELL_COUNT - 1}.`,
+      );
     }
-    const x = Math.floor(index / 100) + 1;
-    const y = Math.floor((index % 100) / 10) + 1;
-    const z = (index % 10) + 1;
+    const x = Math.floor(index / CUBE_SIZE ** 2) + 1;
+    const y = Math.floor((index % CUBE_SIZE ** 2) / CUBE_SIZE) + 1;
+    const z = (index % CUBE_SIZE) + 1;
     return new CubePosition(x, y, z);
   }
 
   private static validateCubeCoordinate(value: number, name: string): void {
-    if (!Number.isInteger(value) || value < 1 || value > 10) {
-      throw new RangeError(`${name} must be an integer between 1 and 10.`);
+    if (!Number.isInteger(value) || value < 1 || value > CUBE_SIZE) {
+      throw new RangeError(`${name} must be an integer between 1 and ${CUBE_SIZE}.`);
     }
   }
 }

@@ -22,13 +22,13 @@ function game(score1 = 14, score2 = 18): MovementGame {
     {
       identity: 'ship-1',
       owner: 'player-1',
-      position: new CubePosition(5, 5, 5),
+      position: new CubePosition(3, 3, 3),
       agility: new AgilityStat(score1),
     },
     {
       identity: 'ship-2',
       owner: 'player-2',
-      position: new CubePosition(10, 10, 10),
+      position: new CubePosition(5, 5, 5),
       agility: new AgilityStat(score2),
     },
   );
@@ -129,28 +129,28 @@ describe('MovementController', () => {
     const unchanged = liveSnapshot(session);
     expect(unchanged.phase).toBe('ready');
     expect(unchanged.turnToken).toBe(initial.turnToken);
-    expect(unchanged.game.ship1.position).toEqual(new CubePosition(5, 5, 5));
+    expect(unchanged.game.ship1.position).toEqual(new CubePosition(3, 3, 3));
   });
 
   it('locks before flight, clears highlights, then commits one arrival and refreshes the next turn', () => {
     const { session, boardView, controls, animator, controller } = controllerHarness();
 
-    controller.handlePointerDown({ button: 0, worldX: 330, worldY: 270 });
+    controller.handlePointerDown({ button: 0, worldX: 420, worldY: 300 });
 
     const moving = liveSnapshot(session);
     expect(moving.phase).toBe('moving');
     expect(animator.startedFlights).toHaveLength(1);
     expect(boardView.setHighlights).toHaveBeenLastCalledWith([]);
     expect(controls.render).toHaveBeenLastCalledWith(expect.objectContaining({ phase: 'moving' }));
-    expect(moving.game.ship1.position).toEqual(new CubePosition(5, 5, 5));
+    expect(moving.game.ship1.position).toEqual(new CubePosition(3, 3, 3));
 
     animator.startedFlights[0]?.complete();
 
     const arrived = liveSnapshot(session);
     expect(arrived.phase).toBe('ready');
     expect(arrived.activePlayer).toBe('player-2');
-    expect(arrived.game.ship1.position).toEqual(new CubePosition(6, 5, 5));
-    expect(boardView.setShipPosition).toHaveBeenCalledWith('ship-1', new CubePosition(6, 5, 5));
+    expect(arrived.game.ship1.position).toEqual(new CubePosition(4, 3, 3));
+    expect(boardView.setShipPosition).toHaveBeenCalledWith('ship-1', new CubePosition(4, 3, 3));
     expect(boardView.setHighlights).toHaveBeenLastCalledWith(
       expect.arrayContaining([expect.any(CubePosition)]),
     );
@@ -178,16 +178,16 @@ describe('MovementController', () => {
     } = controllerHarness(animator);
     const initial = liveSnapshot(session);
 
-    controller.handlePointerDown({ button: 0, worldX: 330, worldY: 270 });
+    controller.handlePointerDown({ button: 0, worldX: 420, worldY: 300 });
 
     const recovered = liveSnapshot(session);
     expect(recovered.phase).toBe('ready');
     expect(recovered.activePlayer).toBe('player-1');
     expect(recovered.turnToken).toBeGreaterThan(initial.turnToken);
-    expect(recovered.game.ship1.position).toEqual(new CubePosition(5, 5, 5));
+    expect(recovered.game.ship1.position).toEqual(new CubePosition(3, 3, 3));
     expect(onMovementError).toHaveBeenCalledWith('Movement failed: startup error');
 
-    controller.handlePointerDown({ button: 0, worldX: 330, worldY: 270 });
+    controller.handlePointerDown({ button: 0, worldX: 420, worldY: 300 });
     expect(controlled.startedFlights).toHaveLength(1);
     expect(activeAnimator).toBe(animator);
   });
@@ -196,7 +196,7 @@ describe('MovementController', () => {
     const { session, boardView, animator, onMovementError, controller } = controllerHarness();
     const initial = liveSnapshot(session);
 
-    controller.handlePointerDown({ button: 0, worldX: 330, worldY: 270 });
+    controller.handlePointerDown({ button: 0, worldX: 420, worldY: 300 });
     const controlled = animator as ControlledFlightAnimator;
     const flight = controlled.startedFlights[0];
     if (!flight) {
@@ -209,18 +209,18 @@ describe('MovementController', () => {
     expect(recovered.phase).toBe('ready');
     expect(recovered.activePlayer).toBe('player-1');
     expect(recovered.turnToken).toBeGreaterThan(initial.turnToken);
-    expect(recovered.game.ship1.position).toEqual(new CubePosition(5, 5, 5));
-    expect(boardView.setShipPosition).toHaveBeenLastCalledWith('ship-1', new CubePosition(5, 5, 5));
+    expect(recovered.game.ship1.position).toEqual(new CubePosition(3, 3, 3));
+    expect(boardView.setShipPosition).toHaveBeenLastCalledWith('ship-1', new CubePosition(3, 3, 3));
     expect(onMovementError).toHaveBeenCalledWith('Movement failed: mid-flight error');
 
-    controller.handlePointerDown({ button: 0, worldX: 330, worldY: 270 });
+    controller.handlePointerDown({ button: 0, worldX: 420, worldY: 300 });
     expect(controlled.startedFlights).toHaveLength(2);
   });
 
   it('rejects duplicate arrivals and delayed pass activations from an earlier turn', () => {
     const deferred = new DeferredFlightAnimator();
     const movement = controllerHarness(deferred);
-    movement.controller.handlePointerDown({ button: 0, worldX: 330, worldY: 270 });
+    movement.controller.handlePointerDown({ button: 0, worldX: 420, worldY: 300 });
     deferred.complete();
     const afterArrival = liveSnapshot(movement.session);
     deferred.complete();
@@ -251,7 +251,7 @@ describe('MovementController', () => {
   it('ignores deferred success/failure callbacks after replacement, recovery, and disposal', () => {
     const replacementAnimator = new DeferredFlightAnimator();
     const replacementHarness = controllerHarness(replacementAnimator);
-    replacementHarness.controller.handlePointerDown({ button: 0, worldX: 330, worldY: 270 });
+    replacementHarness.controller.handlePointerDown({ button: 0, worldX: 420, worldY: 300 });
     const revision = replacementHarness.session.newGame(game());
     replacementHarness.controller.prepareForReplacement();
     replacementHarness.controller.markReady(revision);
@@ -260,12 +260,12 @@ describe('MovementController', () => {
     const replacement = liveSnapshot(replacementHarness.session);
     expect(replacement.gameRevision).toBe(revision);
     expect(replacement.activePlayer).toBe('player-1');
-    expect(replacement.game.ship1.position).toEqual(new CubePosition(5, 5, 5));
+    expect(replacement.game.ship1.position).toEqual(new CubePosition(3, 3, 3));
     expect(replacementHarness.boardView.setShipPosition).not.toHaveBeenCalled();
 
     const recoveryAnimator = new DeferredFlightAnimator();
     const recoveryHarness = controllerHarness(recoveryAnimator);
-    recoveryHarness.controller.handlePointerDown({ button: 0, worldX: 330, worldY: 270 });
+    recoveryHarness.controller.handlePointerDown({ button: 0, worldX: 420, worldY: 300 });
     recoveryAnimator.fail(new Error('recover this move'));
     const recovered = liveSnapshot(recoveryHarness.session);
     recoveryAnimator.complete();
@@ -275,7 +275,7 @@ describe('MovementController', () => {
 
     const disposedAnimator = new DeferredFlightAnimator();
     const disposedHarness = controllerHarness(disposedAnimator);
-    disposedHarness.controller.handlePointerDown({ button: 0, worldX: 330, worldY: 270 });
+    disposedHarness.controller.handlePointerDown({ button: 0, worldX: 420, worldY: 300 });
     disposedHarness.controller.dispose();
     disposedAnimator.complete();
     disposedAnimator.fail(new Error('after dispose'));

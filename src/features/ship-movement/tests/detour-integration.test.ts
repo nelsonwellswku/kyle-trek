@@ -69,34 +69,34 @@ function expectHighlightsMatchSession(
 describe('3D movement controller integration', () => {
   it('rejects an occupied cell and a blocked destination below its detour allowance', () => {
     const { session, animator, controller, boardView } = createController(
-      new CubePosition(5, 5, 5),
-      new CubePosition(6, 5, 5),
+      new CubePosition(3, 3, 3),
+      new CubePosition(4, 3, 3),
       14,
     );
     const initial = session.snapshot;
     if (initial.phase !== 'ready') throw new Error('Expected a playable movement turn.');
     expectHighlightsMatchSession(session, boardView);
 
-    controller.handlePickTarget({ type: 'cell', position: new CubePosition(6, 5, 5) });
-    controller.handlePickTarget({ type: 'cell', position: new CubePosition(7, 5, 5) });
+    controller.handlePickTarget({ type: 'cell', position: new CubePosition(4, 3, 3) });
+    controller.handlePickTarget({ type: 'cell', position: new CubePosition(5, 3, 3) });
 
     expect(animator.startedFlights).toHaveLength(0);
     const unchanged = session.snapshot;
     expect(unchanged.phase).toBe('ready');
     if (unchanged.phase === 'disposed') throw new Error('The movement session was disposed.');
     expect(unchanged.turnToken).toBe(initial.turnToken);
-    expect(unchanged.game.ship1.position).toEqual(new CubePosition(5, 5, 5));
+    expect(unchanged.game.ship1.position).toEqual(new CubePosition(3, 3, 3));
   });
 
   it('selects the highlighted affordable detour and commits the exact cube destination once', () => {
     const { session, animator, controller, boardView } = createController(
-      new CubePosition(5, 5, 5),
-      new CubePosition(6, 5, 5),
+      new CubePosition(3, 3, 3),
+      new CubePosition(4, 3, 3),
       18,
     );
     const initial = session.snapshot;
     if (initial.phase !== 'ready') throw new Error('Expected a playable movement turn.');
-    const destination = new CubePosition(7, 5, 5);
+    const destination = new CubePosition(5, 3, 3);
     const expectedRoute = initial.reachability.routeTo(destination);
     expectHighlightsMatchSession(session, boardView);
     expect(expectedRoute?.stepCount).toBe(4);
@@ -109,11 +109,11 @@ describe('3D movement controller integration', () => {
       expectedRoute?.positions.map(positionKey),
     );
     expect(flight?.move.route.positions.map(positionKey)).toEqual([
-      '5,5,5',
-      '5,4,5',
-      '6,4,5',
-      '7,4,5',
-      '7,5,5',
+      '3,3,3',
+      '3,2,3',
+      '4,2,3',
+      '5,2,3',
+      '5,3,3',
     ]);
     flight?.complete();
 
@@ -129,17 +129,17 @@ describe('3D movement controller integration', () => {
   it('keeps five-step routes at cube boundaries and moves through depth coordinates', () => {
     const { session, animator, controller } = createController(
       new CubePosition(1, 1, 1),
-      new CubePosition(10, 10, 10),
+      new CubePosition(5, 5, 5),
       20,
     );
     const initial = session.snapshot;
     if (initial.phase !== 'ready') throw new Error('Expected a playable corner turn.');
-    const destination = new CubePosition(1, 1, 6);
+    const destination = new CubePosition(5, 2, 1);
     const route = initial.reachability.routeTo(destination);
     expect(route?.stepCount).toBe(5);
     expect(
       route?.positions.every(
-        ({ x, y, z }) => x >= 1 && x <= 10 && y >= 1 && y <= 10 && z >= 1 && z <= 10,
+        ({ x, y, z }) => x >= 1 && x <= 5 && y >= 1 && y <= 5 && z >= 1 && z <= 5,
       ),
     ).toBe(true);
 
@@ -153,18 +153,15 @@ describe('3D movement controller integration', () => {
 
   it('requires one explicit pass acknowledgment when all six neighboring cells are blocked', () => {
     const blockers = [
+      new CubePosition(2, 3, 3),
+      new CubePosition(4, 3, 3),
+      new CubePosition(3, 2, 3),
+      new CubePosition(3, 4, 3),
+      new CubePosition(3, 3, 2),
+      new CubePosition(3, 3, 4),
       new CubePosition(4, 5, 5),
-      new CubePosition(6, 5, 5),
       new CubePosition(5, 4, 5),
-      new CubePosition(5, 6, 5),
       new CubePosition(5, 5, 4),
-      new CubePosition(5, 5, 6),
-      new CubePosition(8, 9, 9),
-      new CubePosition(10, 9, 9),
-      new CubePosition(9, 8, 9),
-      new CubePosition(9, 10, 9),
-      new CubePosition(9, 9, 8),
-      new CubePosition(9, 9, 10),
     ];
     const reachability = new Reachability();
     const find = reachability.find.bind(reachability);
@@ -172,8 +169,8 @@ describe('3D movement controller integration', () => {
       find(snapshot, activeShip, allowance, blockers),
     );
     const { session, animator, controller } = createController(
+      new CubePosition(3, 3, 3),
       new CubePosition(5, 5, 5),
-      new CubePosition(9, 9, 9),
       18,
       reachability,
     );
@@ -182,7 +179,7 @@ describe('3D movement controller integration', () => {
     expect(playerOne.phase).toBe('awaiting-pass');
     expect(animator.startedFlights).toHaveLength(0);
     if (playerOne.phase !== 'awaiting-pass') throw new Error('Expected movement to be skipped.');
-    controller.handlePickTarget({ type: 'cell', position: new CubePosition(4, 5, 5) });
+    controller.handlePickTarget({ type: 'cell', position: new CubePosition(2, 3, 3) });
     expect(animator.startedFlights).toHaveLength(0);
     expect(controller.acknowledgePass(playerOne.gameRevision, playerOne.turnToken)).toBe(true);
 

@@ -22,8 +22,8 @@ describe('MovementGameFactory', () => {
     const { game, source } = createWithScores(14, 14);
 
     expect(source.consumedDraws).toBe(4);
-    expect(game.ship1.position).toEqual(new CubePosition(1, 1, 3));
-    expect(game.ship2.position).toEqual(new CubePosition(10, 10, 9));
+    expect(game.ship1.position).toEqual(new CubePosition(1, 1, 1));
+    expect(game.ship2.position).toEqual(new CubePosition(5, 5, 5));
     expect(game.ship1.agility.score).toBe(14);
     expect(game.ship2.agility.score).toBe(14);
   });

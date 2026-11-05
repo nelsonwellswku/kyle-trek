@@ -33,12 +33,12 @@ Vitest already discovers `src/features/*/tests/**/*.test.ts` and fails when no t
 
 | Coverage                    | Required checks                                                                                                                                                                                                 |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Coordinates / SC-001        | All 1,000 valid X/Y/Z combinations map bijectively; each boundary accepted; zero, 11, fractional and non-finite values rejected                                                                                 |
-| Setup / SC-008              | Script 200 controlled indices for each ship; every index maps once into the assigned Y band; two draws remain independent; New Game creates fresh state and Player 1 starts                                     |
+| Coordinates / SC-001        | All 125 valid X/Y/Z combinations map bijectively; each boundary accepted; zero, 6, fractional and non-finite values rejected                                                                                    |
+| Setup / SC-008              | Script 50 controlled indices for each ship; every index maps once into the assigned Y band; two draws remain independent; New Game creates fresh state and Player 1 starts                                      |
 | Reachability / SC-003       | Independent route oracle for all six neighbors, center/edge/corner, blocked route, affordable detour, occupied destination, zero and maximum allowance; exact set and shortest cost                             |
 | Turns / SC-004              | One movement per turn, movement before attack/end-turn, acknowledged no-move skip, optional End turn, exactly one handoff, invalid/non-active clicks ignored                                                    |
 | Orientation / SC-005        | Enumerate all 24 valid orientations; six signed quarter-turns; inverse pairs restore orientation; order-dependent rotations compose correctly; positions/stats/HP unchanged                                     |
-| Orbit and picker / SC-002   | Exactly 1,000 unique marker identities; decoration cannot be picked; deterministic azimuth/elevation sweep finds a distinct camera pose for every marker; each test ray returns the expected coordinate         |
+| Orbit and picker / SC-002   | Exactly 125 unique marker identities; decoration cannot be picked; deterministic azimuth/elevation sweep finds a distinct camera pose for every marker; each test ray returns the expected coordinate           |
 | Click/drag arbitration      | Stationary click selects at pointer-up; drag at or above 5 CSS px only orbits; repeated clicks during a gameplay animation cause no extra action; first click after orbit uses the updated camera               |
 | Battle state                | Movement and rotation preserve all unrelated combat fields; rotation is rejected for non-active ship, attacking/finished/disposed phases; reset rejects stale move/rotation/torpedo callbacks                   |
 | Renderer lifecycle          | WebGL2 creation failure reports an error; resize keeps canvas bounds aligned; New Game reuses one view; disposal removes canvas/listeners/observers and stops rendering                                         |
@@ -75,7 +75,7 @@ It must compose the real `CombatScene`, `BattleSession`, `CombatController` and 
 
 | Preset                | Setup / action                                        | Expected result                                                                            |
 | --------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Default three-quarter | New game                                              | Cube axes, 1,000 cell markers, two opponents and initial positions legible                 |
+| Default three-quarter | New game                                              | Cube axes, 125 cell markers, two opponents and initial positions legible                    |
 | Interior marker       | Known interior coordinate; orbit around cube          | Target marker can be separated and ray-picked to exact X/Y/Z                               |
 | Projection overlap    | Known aligned markers from axis view                  | Nearest visible marker readout is stable; orbit reveals deeper marker; no hidden selection |
 | Six directions        | Center ship, positive movement allowance              | Each of ±X, ±Y, ±Z is reachable when unblocked; position commits exactly                   |

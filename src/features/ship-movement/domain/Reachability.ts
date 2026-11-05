@@ -96,7 +96,16 @@ export class Reachability {
         const x = current.x + xDelta;
         const y = current.y + yDelta;
         const z = current.z + zDelta;
-        if (x < 1 || x > 10 || y < 1 || y > 10 || z < 1 || z > 10) continue;
+        if (
+          x < 1 ||
+          x > snapshot.width ||
+          y < 1 ||
+          y > snapshot.height ||
+          z < 1 ||
+          z > snapshot.depth
+        ) {
+          continue;
+        }
 
         const next = new CubePosition(x, y, z);
         const nextKey = Reachability.positionKey(next);

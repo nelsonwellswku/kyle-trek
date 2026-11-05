@@ -22,13 +22,13 @@ The active implementation path is `GameApplication` → `CombatScene` → `Comba
 
 **Rationale:** The user selected viewing-angle rotation and requires selection throughout the 3D volume. Phaser supplies only a 2D camera and planar picking; a separate 3D renderer directly models those interactions. The independent context increases GPU/canvas lifecycle work but has a smaller compatibility risk than a shared Phaser/Three context.
 
-**Alternatives considered:** Custom 3D-to-2D projection in Phaser (avoids a dependency but makes orbit, depth ordering and precise 1,000-position picking application-owned); Three.js through Phaser `Extern` (one canvas and natural layer order, but current WebGL1 context is incompatible and shared-state handoff is fragile); replace all Phaser lifecycle/composition at once (unnecessary scope).
+**Alternatives considered:** Custom 3D-to-2D projection in Phaser (avoids a dependency but makes orbit, depth ordering and precise cell picking application-owned); Three.js through Phaser `Extern` (one canvas and natural layer order, but current WebGL1 context is incompatible and shared-state handoff is fragile); replace all Phaser lifecycle/composition at once (unnecessary scope).
 
 ## 3. Orbit-only access to interior cells
 
-**Decision:** Render an open wireframe lattice with one visible, independently selectable center marker for each of the 1,000 cells. The lattice is decorative and not pickable; ray picking targets only the cell-marker collection. Use orbit to separate projected markers that overlap at a particular view, and select only a marker that is the ray's unambiguous nearest target.
+**Decision:** Render an open wireframe lattice with one visible, independently selectable center marker for each of the 125 cells. The lattice is decorative and not pickable; ray picking targets only the cell-marker collection. Use orbit to separate projected markers that overlap at a particular view, and select only a marker that is the ray's unambiguous nearest target.
 
-**Rationale:** Orbiting cannot expose the 512 strictly interior positions of a packed opaque cube. Three.js raycasting through transparent or cutaway-looking meshes does not by itself change which geometric hit is nearest. A center-marker lattice has no opaque cell faces, lets interior positions remain visible, and makes the clarified orbit-only approach viable without adding a layer selector. Instanced markers can map stable `instanceId` values back to exact coordinates.
+**Rationale:** Orbiting cannot expose the 27 strictly interior positions of a packed opaque 5 × 5 × 5 cube. Three.js raycasting through transparent or cutaway-looking meshes does not by itself change which geometric hit is nearest. A center-marker lattice has no opaque cell faces, lets interior positions remain visible, and makes the clarified orbit-only approach viable without adding a layer selector. Instanced markers can map stable `instanceId` values back to exact coordinates.
 
 **Alternatives considered:** Solid cell boxes (hide the interior from every outside camera position); translucent boxes (transparency does not make ray picking pass through); full cutaway/slice or coordinate controls (could work but add a selection mode the user did not choose); make lattice lines selectable (crossings and line hit tolerances are ambiguous).
 
@@ -44,11 +44,11 @@ The active implementation path is `GameApplication` → `CombatScene` → `Comba
 
 ## 5. Coordinates, movement and initialization
 
-**Decision:** Use validated integer `CubePosition(x,y,z)` values in [1,10] on every axis and generalize BFS to the six face-adjacent neighbors. Keep the current nonnegative agility allowance, one movement action and maximum five-step range. Map one validated uniform random draw to one of 200 eligible cells for each ship's opposing Y-layer band.
+**Decision (board-size update 2026-10-22):** Use validated integer `CubePosition(x,y,z)` values in [1,5] on every axis and generalize BFS to the six face-adjacent neighbors. Keep the current nonnegative agility allowance, one movement action and maximum five-step range. Map one validated uniform random draw to one of 50 eligible cells for each ship's opposing two-layer Y band (Y=1/2 for Ship 1; Y=4/5 for Ship 2).
 
-**Rationale:** The current `Reachability` already owns route cost, blocker handling and shortest routes, and its existing bound of five steps caps an unobstructed 3D BFS at 231 visited cells. Positions in the two home bands do not overlap, so initial ships remain distinct without rejection draws. A bijection from each draw to a cell preserves the project's injectable deterministic `RandomSource` and equal likelihood.
+**Rationale:** The current `Reachability` already owns route cost, blocker handling and shortest routes, and its existing five-step bound can reach at most the 125 positions in the smaller cube. Positions in the two home bands do not overlap, so initial ships remain distinct without rejection draws. A bijection from each draw to a cell preserves the project's injectable deterministic `RandomSource` and equal likelihood.
 
-**Alternatives considered:** Straight-line or Euclidean movement (changes existing orthogonal movement allowance); inspect all 1,000 cells every turn (unneeded with five-step BFS); select x/y/z independently with separate draws (changes deterministic draw count); reroll duplicate positions (unnecessary because Y bands are disjoint).
+**Alternatives considered:** Straight-line or Euclidean movement (changes existing orthogonal movement allowance); scan the whole cube every turn (unneeded with five-step BFS); select x/y/z independently with separate draws (changes deterministic draw count); reroll duplicate positions (unnecessary because Y bands are disjoint).
 
 ## 6. Ship orientation and battle lifecycle
 

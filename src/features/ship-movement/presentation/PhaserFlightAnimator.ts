@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { CUBE_SIZE } from '../../board/domain/CubePosition.js';
 import type { CubeScreenGeometry } from '../../board/presentation/CubeScreenGeometry.js';
 import type { PendingMove } from '../domain/PendingMove.js';
 import type {
@@ -135,10 +136,11 @@ export class PhaserFlightAnimator implements FlightAnimator {
     z: number,
     geometry: CubeScreenGeometry,
   ): { readonly x: number; readonly y: number; readonly z: number } {
+    const center = (CUBE_SIZE + 1) / 2;
     return Object.freeze({
-      x: (point.x / geometry.logicalSize) * 10 - 5.5,
-      y: (point.y / geometry.logicalSize) * 10 - 5.5,
-      z: z - 5.5,
+      x: (point.x / geometry.logicalSize) * CUBE_SIZE - center,
+      y: (point.y / geometry.logicalSize) * CUBE_SIZE - center,
+      z: z - center,
     });
   }
 }

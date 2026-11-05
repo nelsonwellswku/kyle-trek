@@ -61,18 +61,18 @@ function expectPathWithinBoard(path: SpaceFlightPath, radius: number): void {
 
 describe('SpaceFlightPath', () => {
   it('flies diagonally in a single straight segment when the obstacle does not block it', () => {
-    const path = createPath([5, 5], [7, 7], [10, 10]);
+    const path = createPath([3, 3], [5, 5], [1, 5]);
 
     expect(path.segments).toEqual([
-      { kind: 'line', start: { x: 270, y: 270 }, end: { x: 390, y: 390 } },
+      { kind: 'line', start: { x: 300, y: 300 }, end: { x: 540, y: 540 } },
     ]);
-    expect(path.pathLength).toBeCloseTo(Math.hypot(120, 120), 10);
+    expect(path.pathLength).toBeCloseTo(Math.hypot(240, 240), 10);
   });
 
   it('takes the shortest tangent-arc-tangent path around a blocking ship', () => {
-    const path = createPath([5, 4], [5, 6], [5, 5]);
+    const path = createPath([3, 2], [3, 4], [3, 3]);
     const [entry, arc, exit] = path.segments;
-    const cellSize = geometry.logicalSize / 10;
+    const cellSize = geometry.logicalSize / 5;
     const radius = geometry.visualEnvelopeRadius() * 2;
     const endpointDistance = cellSize;
     const tangentLength = Math.sqrt(endpointDistance ** 2 - radius ** 2);
@@ -87,13 +87,13 @@ describe('SpaceFlightPath', () => {
       throw new Error('Expected tangent segments joined by a circular arc.');
     }
 
-    expect(arc.center).toEqual({ x: 270, y: 270 });
-    expect(arc.radius).toBe(48);
+    expect(arc.center).toEqual({ x: 300, y: 300 });
+    expect(arc.radius).toBe(96);
     expect(Math.abs(arc.sweepRadians)).toBeCloseTo(shortestArc, 10);
     expect(arc.start).toEqual(entry.end);
     expect(arc.end).toEqual(exit.start);
     expect(path.pathLength).toBeCloseTo(expectedLength, 8);
-    expect(path.pathLength).toBeLessThan(180);
+    expect(path.pathLength).toBeLessThan(330);
     expect(Math.hypot(arc.start.x - arc.center.x, arc.start.y - arc.center.y)).toBeCloseTo(
       radius,
       10,
@@ -126,11 +126,11 @@ describe('SpaceFlightPath', () => {
   });
 
   it('uses no arc when the direct diagonal clears the other ship envelope', () => {
-    const path = createPath([2, 2], [4, 4], [8, 8]);
+    const path = createPath([2, 2], [4, 4], [1, 5]);
 
     expect(path.segments).toHaveLength(1);
     expect(path.segments[0]?.kind).toBe('line');
-    expect(path.segments[0]?.start).toEqual({ x: 90, y: 90 });
-    expect(path.segments[0]?.end).toEqual({ x: 210, y: 210 });
+    expect(path.segments[0]?.start).toEqual({ x: 180, y: 180 });
+    expect(path.segments[0]?.end).toEqual({ x: 420, y: 420 });
   });
 });

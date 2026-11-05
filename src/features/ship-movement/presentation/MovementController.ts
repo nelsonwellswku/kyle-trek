@@ -3,7 +3,7 @@ import type {
   CubeScreenGeometry,
 } from '../../board/presentation/CubeScreenGeometry.js';
 import type { PhaserCubeProjectionView } from '../../board/presentation/PhaserCubeProjectionView.js';
-import { CubePosition } from '../../board/domain/CubePosition.js';
+import { CUBE_SIZE, CubePosition } from '../../board/domain/CubePosition.js';
 import type { CubeSnapshot } from '../../board/domain/CubeSnapshot.js';
 import type { ShipIdentity } from '../../board/domain/CubeSnapshot.js';
 import type { MovementGame } from '../domain/MovementGame.js';
@@ -159,9 +159,10 @@ export class MovementController {
       if (this.cubeView) {
         this.cubeView.setShipVisualPosition(move.shipIdentity, point);
       } else {
+        const center = (CUBE_SIZE + 1) / 2;
         const projected: ScreenPoint = {
-          x: ((point.x + 5.5) / 10) * this.geometry.logicalSize,
-          y: ((point.y + 5.5) / 10) * this.geometry.logicalSize,
+          x: ((point.x + center) / CUBE_SIZE) * this.geometry.logicalSize,
+          y: ((point.y + center) / CUBE_SIZE) * this.geometry.logicalSize,
         };
         this.boardView.setShipVisualPosition(move.shipIdentity, projected);
       }

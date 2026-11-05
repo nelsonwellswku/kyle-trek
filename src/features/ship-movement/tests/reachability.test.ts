@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CubePosition } from '../../board/domain/CubePosition.js';
+import { CUBE_SIZE, CubePosition } from '../../board/domain/CubePosition.js';
 import { CubeSnapshot } from '../../board/domain/CubeSnapshot.js';
 import { Reachability, type ReachabilityResult } from '../domain/Reachability.js';
 
@@ -28,11 +28,11 @@ function expectLegalShortestRoutes(result: ReachabilityResult): void {
 
     positions.forEach((position, index) => {
       expect(position.x).toBeGreaterThanOrEqual(1);
-      expect(position.x).toBeLessThanOrEqual(10);
+      expect(position.x).toBeLessThanOrEqual(CUBE_SIZE);
       expect(position.y).toBeGreaterThanOrEqual(1);
-      expect(position.y).toBeLessThanOrEqual(10);
+      expect(position.y).toBeLessThanOrEqual(CUBE_SIZE);
       expect(position.z).toBeGreaterThanOrEqual(1);
-      expect(position.z).toBeLessThanOrEqual(10);
+      expect(position.z).toBeLessThanOrEqual(CUBE_SIZE);
       if (index > 0) {
         const previous = positions[index - 1];
         if (!previous) throw new Error('Every route step must have a predecessor.');
@@ -55,16 +55,16 @@ interface RouteArrangement {
 }
 
 const routeArrangements: readonly RouteArrangement[] = [
-  { name: 'center, one step', origin: [5, 5, 5], blocker: [10, 10, 10], allowance: 1 },
-  { name: 'center, two steps', origin: [5, 5, 5], blocker: [10, 10, 10], allowance: 2 },
-  { name: 'center, five-step limit', origin: [5, 5, 5], blocker: [10, 10, 10], allowance: 5 },
-  { name: 'center with +X blocker', origin: [5, 5, 5], blocker: [6, 5, 5], allowance: 3 },
-  { name: 'center with -Y blocker', origin: [5, 5, 5], blocker: [5, 4, 5], allowance: 4 },
-  { name: 'near face', origin: [5, 5, 1], blocker: [10, 10, 10], allowance: 5 },
-  { name: 'upper edge', origin: [1, 5, 5], blocker: [10, 10, 10], allowance: 4 },
-  { name: 'corner', origin: [1, 1, 1], blocker: [10, 10, 10], allowance: 5 },
+  { name: 'center, one step', origin: [3, 3, 3], blocker: [5, 5, 5], allowance: 1 },
+  { name: 'center, two steps', origin: [3, 3, 3], blocker: [5, 5, 5], allowance: 2 },
+  { name: 'center, five-step limit', origin: [3, 3, 3], blocker: [5, 5, 5], allowance: 5 },
+  { name: 'center with +X blocker', origin: [3, 3, 3], blocker: [4, 3, 3], allowance: 3 },
+  { name: 'center with -Y blocker', origin: [3, 3, 3], blocker: [3, 2, 3], allowance: 4 },
+  { name: 'near face', origin: [3, 3, 1], blocker: [5, 5, 5], allowance: 5 },
+  { name: 'upper edge', origin: [1, 3, 3], blocker: [5, 5, 5], allowance: 4 },
+  { name: 'corner', origin: [1, 1, 1], blocker: [5, 5, 5], allowance: 5 },
   { name: 'corner with adjacent blocker', origin: [1, 1, 1], blocker: [2, 1, 1], allowance: 5 },
-  { name: 'affordable blocker detour', origin: [5, 5, 5], blocker: [6, 5, 5], allowance: 4 },
+  { name: 'affordable blocker detour', origin: [3, 3, 3], blocker: [4, 3, 3], allowance: 4 },
 ];
 
 function enumerateBoundedRoutes(
@@ -90,7 +90,7 @@ function enumerateBoundedRoutes(
       const x = position.x + dx;
       const y = position.y + dy;
       const z = position.z + dz;
-      if (x < 1 || x > 10 || y < 1 || y > 10 || z < 1 || z > 10) continue;
+      if (x < 1 || x > CUBE_SIZE || y < 1 || y > CUBE_SIZE || z < 1 || z > CUBE_SIZE) continue;
 
       const next = new CubePosition(x, y, z);
       const nextKey = key(next);
@@ -114,16 +114,16 @@ describe('Reachability', () => {
 
   it('returns exactly the six face-adjacent neighbors and rejects diagonal steps', () => {
     const result = reachability.find(
-      cube(new CubePosition(5, 5, 5), new CubePosition(10, 10, 10)),
+      cube(new CubePosition(3, 3, 3), new CubePosition(5, 5, 5)),
       'ship-1',
       1,
     );
 
     expect(new Set(result.destinations.map(({ position }) => key(position)))).toEqual(
-      new Set(['4,5,5', '6,5,5', '5,4,5', '5,6,5', '5,5,4', '5,5,6']),
+      new Set(['2,3,3', '4,3,3', '3,2,3', '3,4,3', '3,3,2', '3,3,4']),
     );
-    expect(result.routeTo(new CubePosition(5, 5, 5))).toBeNull();
-    expect(result.routeTo(new CubePosition(6, 6, 5))).toBeNull();
+    expect(result.routeTo(new CubePosition(3, 3, 3))).toBeNull();
+    expect(result.routeTo(new CubePosition(5, 5, 3))).toBeNull();
     expectLegalShortestRoutes(result);
   });
 
@@ -143,53 +143,53 @@ describe('Reachability', () => {
   });
 
   it('keeps opposing occupancy out of routes and selects a shortest affordable detour', () => {
-    const snapshot = cube(new CubePosition(5, 5, 5), new CubePosition(6, 5, 5));
+    const snapshot = cube(new CubePosition(3, 3, 3), new CubePosition(4, 3, 3));
     const short = reachability.find(snapshot, 'ship-1', 2);
     const affordable = reachability.find(snapshot, 'ship-1', 4);
-    const route = affordable.routeTo(new CubePosition(7, 5, 5));
+    const route = affordable.routeTo(new CubePosition(5, 3, 3));
 
-    expect(short.routeTo(new CubePosition(7, 5, 5))).toBeNull();
+    expect(short.routeTo(new CubePosition(5, 3, 3))).toBeNull();
     expect(route?.stepCount).toBe(4);
-    expect(route?.positions.map(key)).toEqual(['5,5,5', '5,4,5', '6,4,5', '7,4,5', '7,5,5']);
-    expect(affordable.routeTo(new CubePosition(6, 5, 5))).toBeNull();
+    expect(route?.positions.map(key)).toEqual(['3,3,3', '3,2,3', '4,2,3', '5,2,3', '5,3,3']);
+    expect(affordable.routeTo(new CubePosition(4, 3, 3))).toBeNull();
     expectLegalShortestRoutes(affordable);
   });
 
   it.each([0, -1])('returns no destinations for a nonpositive allowance: %s', (allowance) => {
     const result = reachability.find(
-      cube(new CubePosition(5, 5, 5), new CubePosition(10, 10, 10)),
+      cube(new CubePosition(3, 3, 3), new CubePosition(5, 5, 5)),
       'ship-1',
       allowance,
     );
     expect(result.destinations).toEqual([]);
   });
 
-  it('caps allowance at five and reaches no more than the 231 cells in the radius-five ball', () => {
+  it('caps allowance at five and stays within the 125 cells in the cube', () => {
     const result = reachability.find(
-      cube(new CubePosition(5, 5, 5), new CubePosition(10, 10, 10)),
+      cube(new CubePosition(3, 3, 3), new CubePosition(1, 1, 1)),
       'ship-1',
       99,
     );
     expect(result.allowance).toBe(5);
-    expect(result.destinations.length + 1).toBeLessThanOrEqual(231);
-    expect(result.destinations).toHaveLength(227);
-    expect(result.routeTo(new CubePosition(10, 5, 5))?.stepCount).toBe(5);
-    expect(result.routeTo(new CubePosition(10, 6, 5))).toBeNull();
+    expect(result.destinations.length + 1).toBeLessThanOrEqual(125);
+    expect(result.destinations).toHaveLength(116);
+    expect(result.routeTo(new CubePosition(5, 5, 4))?.stepCount).toBe(5);
+    expect(result.routeTo(new CubePosition(5, 5, 5))).toBeNull();
     expectLegalShortestRoutes(result);
   });
 
   it('does not return any destination when fixture blockers surround the origin on all axes', () => {
-    const origin = new CubePosition(5, 5, 5);
+    const origin = new CubePosition(3, 3, 3);
     const fixtureBlockers = [
-      new CubePosition(4, 5, 5),
-      new CubePosition(6, 5, 5),
-      new CubePosition(5, 4, 5),
-      new CubePosition(5, 6, 5),
-      new CubePosition(5, 5, 4),
-      new CubePosition(5, 5, 6),
+      new CubePosition(2, 3, 3),
+      new CubePosition(4, 3, 3),
+      new CubePosition(3, 2, 3),
+      new CubePosition(3, 4, 3),
+      new CubePosition(3, 3, 2),
+      new CubePosition(3, 3, 4),
     ];
     const result = reachability.find(
-      cube(origin, new CubePosition(10, 10, 10)),
+      cube(origin, new CubePosition(5, 5, 5)),
       'ship-1',
       5,
       fixtureBlockers,
@@ -200,7 +200,7 @@ describe('Reachability', () => {
   });
 
   it('rejects nonfinite movement allowances', () => {
-    const snapshot = cube(new CubePosition(5, 5, 5), new CubePosition(10, 10, 10));
+    const snapshot = cube(new CubePosition(3, 3, 3), new CubePosition(5, 5, 5));
     expect(() => reachability.find(snapshot, 'ship-1', Number.NaN)).toThrow(RangeError);
     expect(() => reachability.find(snapshot, 'ship-1', Infinity)).toThrow(RangeError);
   });

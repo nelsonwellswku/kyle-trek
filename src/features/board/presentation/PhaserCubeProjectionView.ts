@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 import type { CubeSnapshot, CubeShipPlacement, ShipIdentity } from '../domain/CubeSnapshot.js';
 import type { CubeScreenGeometry, ScreenPoint } from './CubeScreenGeometry.js';
-import { CubePosition } from '../domain/CubePosition.js';
+import { CUBE_SIZE, CubePosition } from '../domain/CubePosition.js';
 
 export type RenderedRevisionHandler = (revision: number) => void;
 
@@ -41,8 +41,8 @@ export class PhaserCubeProjectionView {
       .fillRect(0, 0, this.geometry.logicalSize, this.geometry.logicalSize);
     graphics.lineStyle(2, 0x54718e, 1);
 
-    const cellSize = this.geometry.logicalSize / 10;
-    for (let line = 0; line <= 10; line += 1) {
+    const cellSize = this.geometry.logicalSize / CUBE_SIZE;
+    for (let line = 0; line <= CUBE_SIZE; line += 1) {
       const offset = line * cellSize;
       graphics.lineBetween(0, offset, this.geometry.logicalSize, offset);
       graphics.lineBetween(offset, 0, offset, this.geometry.logicalSize);

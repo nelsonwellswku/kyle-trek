@@ -6,13 +6,13 @@
 
 | Field | Type / validation                       |
 | ----- | --------------------------------------- |
-| x     | Integer 1–10 inclusive; left/right axis |
-| y     | Integer 1–10 inclusive; top/bottom axis |
-| z     | Integer 1–10 inclusive; near/far axis   |
+| x     | Integer 1–5 inclusive; left/right axis |
+| y     | Integer 1–5 inclusive; top/bottom axis |
+| z     | Integer 1–5 inclusive; near/far axis   |
 
-Coordinates outside the cube, non-integers, NaN and infinite values are rejected before they enter game state. A stable presentation index maps positions bijectively to renderer instances using `index = ((x - 1) × 10 + (y - 1)) × 10 + (z - 1)`; the index is never used as a substitute for the typed domain value.
+Coordinates outside the cube, non-integers, NaN and infinite values are rejected before they enter game state. A stable presentation index maps positions bijectively to renderer instances using `index = ((x - 1) × 5 + (y - 1)) × 5 + (z - 1)`; the index is never used as a substitute for the typed domain value. Valid presentation indexes are 0–124.
 
-`CubeSnapshot` has fixed dimensions 10 × 10 × 10 and two distinct ship positions. Cell occupancy is derived from the two positions; the model does not retain 1,000 independently mutable empty/occupied flags. Setup, movement and combat all use this same position contract.
+`CubeSnapshot` has fixed dimensions 5 × 5 × 5 and two distinct ship positions. Cell occupancy is derived from the two positions; the model does not retain 125 independently mutable empty/occupied flags. Setup, movement and combat all use this same position contract.
 
 ## Cube orientation
 
@@ -30,12 +30,12 @@ The basis is orthonormal and right-handed; these constraints admit exactly the 2
 
 ### Setup ship
 
-Setup retains the existing identities `ship-1` and `ship-2` and the two-player ownership mapping. Each new battle draws one uniform integer index in 0–199 for each ship and maps it bijectively to X, Z and one of the ship's two allowed Y layers:
+Setup retains the existing identities `ship-1` and `ship-2` and the two-player ownership mapping. Each new battle draws one uniform integer index in 0–49 for each ship and maps it bijectively to X, Z and one of the ship's two allowed Y layers:
 
 | Ship   | Allowed Y | X    | Z    | Eligible positions |
 | ------ | --------- | ---- | ---- | -----------------: |
-| Ship 1 | 1 or 2    | 1–10 | 1–10 |                200 |
-| Ship 2 | 9 or 10   | 1–10 | 1–10 |                200 |
+| Ship 1 | 1 or 2    | 1–5  | 1–5  |                 50 |
+| Ship 2 | 4 or 5    | 1–5  | 1–5  |                 50 |
 
 The Y bands are disjoint, so the ships cannot be initialized into the same cell. Positions may match a prior game's positions. The factory builds and validates a complete replacement before it is published.
 
@@ -60,7 +60,7 @@ The Y bands are disjoint, so the ships cannot be initialized into the same cell.
 
 `Reachability` searches the graph of cube cells using exactly six face-adjacent transitions: ±X, ±Y and ±Z. A route cannot leave the cube or pass through/land on the opposing ship. Diagonal neighbors are not one move. The active ship's nonnegative agility modifier remains the step allowance and is capped by the existing maximum of five. Search results contain the legal destination set and a shortest `LegalRoute` for each destination; the same result drives highlights and selection.
 
-At allowance five, the largest obstacle-free 3D Manhattan ball contains 231 positions. Bound the search by the current allowance rather than scanning the full cube. Routes carry typed positions and step count; visual flight geometry is presentation-only and cannot make an illegal destination legal.
+At allowance five, at most the cube's 125 positions are reachable. Bound the search by the current allowance rather than scanning the full cube. Routes carry typed positions and step count; visual flight geometry is presentation-only and cannot make an illegal destination legal.
 
 ## Battle state and turn transitions
 
@@ -115,4 +115,4 @@ The Three.js scene contains a decorative open wireframe lattice and a stable map
 
 ## Persistence and volume
 
-Exactly two ships, one 1,000-position cube, one active action and the current result are held in memory. No save format, network synchronization, backend, external data or unbounded movement history is introduced.
+Exactly two ships, one 125-position cube, one active action and the current result are held in memory. No save format, network synchronization, backend, external data or unbounded movement history is introduced.

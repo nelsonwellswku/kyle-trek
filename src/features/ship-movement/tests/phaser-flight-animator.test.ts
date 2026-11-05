@@ -39,20 +39,20 @@ function pendingMove(): PendingMove {
     {
       identity: 'ship-1',
       owner: 'player-1',
-      position: new CubePosition(5, 5, 5),
+      position: new CubePosition(3, 3, 3),
       agility: new AgilityStat(14),
     },
     {
       identity: 'ship-2',
       owner: 'player-2',
-      position: new CubePosition(10, 10, 10),
+      position: new CubePosition(5, 5, 5),
       agility: new AgilityStat(18),
     },
   );
   const session = new TurnSession(game);
   const snapshot = session.snapshot;
   if (snapshot.phase !== 'ready') throw new Error('Expected an initial ready turn.');
-  const move = session.selectDestination(snapshot.turnToken, new CubePosition(6, 5, 5));
+  const move = session.selectDestination(snapshot.turnToken, new CubePosition(4, 3, 3));
   if (!move) throw new Error('Expected a legal one-step move.');
   return move;
 }
@@ -62,28 +62,28 @@ function multiTurnMove(): PendingMove {
     {
       identity: 'ship-1',
       owner: 'player-1',
-      position: new CubePosition(5, 5, 5),
+      position: new CubePosition(1, 3, 3),
       agility: new AgilityStat(20),
     },
     {
       identity: 'ship-2',
       owner: 'player-2',
-      position: new CubePosition(10, 10, 10),
+      position: new CubePosition(5, 5, 5),
       agility: new AgilityStat(18),
     },
   );
   const session = new TurnSession(game);
   const snapshot = session.snapshot;
   if (snapshot.phase !== 'ready') throw new Error('Expected an initial ready turn.');
-  const move = session.selectDestination(snapshot.turnToken, new CubePosition(7, 7, 5));
+  const move = session.selectDestination(snapshot.turnToken, new CubePosition(3, 3, 5));
   if (!move) throw new Error('Expected a legal four-step multi-turn move.');
   const route: LegalRoute = Object.freeze({
     positions: Object.freeze([
-      new CubePosition(5, 5, 5),
-      new CubePosition(6, 5, 5),
-      new CubePosition(6, 6, 5),
-      new CubePosition(7, 6, 5),
-      new CubePosition(7, 7, 5),
+      new CubePosition(1, 3, 3),
+      new CubePosition(2, 3, 3),
+      new CubePosition(2, 3, 4),
+      new CubePosition(3, 3, 4),
+      new CubePosition(3, 3, 5),
     ]),
     stepCount: 4,
   });
@@ -95,20 +95,20 @@ function fiveStepMove(): PendingMove {
     {
       identity: 'ship-1',
       owner: 'player-1',
-      position: new CubePosition(5, 5, 5),
+      position: new CubePosition(1, 1, 1),
       agility: new AgilityStat(20),
     },
     {
       identity: 'ship-2',
       owner: 'player-2',
-      position: new CubePosition(10, 10, 10),
+      position: new CubePosition(5, 5, 5),
       agility: new AgilityStat(18),
     },
   );
   const session = new TurnSession(game);
   const snapshot = session.snapshot;
   if (snapshot.phase !== 'ready') throw new Error('Expected an initial ready turn.');
-  const move = session.selectDestination(snapshot.turnToken, new CubePosition(10, 5, 5));
+  const move = session.selectDestination(snapshot.turnToken, new CubePosition(5, 2, 1));
   if (!move || move.route.stepCount !== 5) throw new Error('Expected a legal five-step move.');
   return move;
 }
@@ -118,20 +118,20 @@ function enemyDetourMove(): PendingMove {
     {
       identity: 'ship-1',
       owner: 'player-1',
-      position: new CubePosition(4, 5, 5),
+      position: new CubePosition(3, 3, 3),
       agility: new AgilityStat(18),
     },
     {
       identity: 'ship-2',
       owner: 'player-2',
-      position: new CubePosition(5, 5, 5),
+      position: new CubePosition(4, 3, 3),
       agility: new AgilityStat(18),
     },
   );
   const session = new TurnSession(game);
   const snapshot = session.snapshot;
   if (snapshot.phase !== 'ready') throw new Error('Expected an initial ready turn.');
-  const move = session.selectDestination(snapshot.turnToken, new CubePosition(6, 5, 5));
+  const move = session.selectDestination(snapshot.turnToken, new CubePosition(5, 3, 3));
   if (!move || move.route.stepCount !== 4) {
     throw new Error('Expected a legal four-step route around the enemy.');
   }
@@ -188,14 +188,14 @@ describe('PhaserFlightAnimator compatibility adapter', () => {
     expect(harness.addCounter).toHaveBeenCalledTimes(1);
     expect(harness.config.duration).toBe(250);
     expect(pathHarness.created).toHaveLength(1);
-    expect(pathHarness.created[0]?.lineTo).toHaveBeenCalledWith(330, 270);
+    expect(pathHarness.created[0]?.lineTo).toHaveBeenCalledWith(420, 300);
     harness.config.onUpdate?.(harness.tween);
-    expect(onProgress).toHaveBeenCalledWith({ x: -0.5, y: -1, z: -0.5 });
+    expect(onProgress).toHaveBeenCalledWith({ x: -0.5, y: -0.75, z: 0 });
     harness.config.onComplete?.(harness.tween);
     harness.config.onComplete?.(harness.tween);
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(onComplete).toHaveBeenCalledWith(handle.identity);
-    expect(onProgress).toHaveBeenLastCalledWith({ x: 0, y: -1, z: -0.5 });
+    expect(onProgress).toHaveBeenLastCalledWith({ x: 0.5, y: -0.5, z: 0 });
     expect(onFailure).not.toHaveBeenCalled();
   });
 
@@ -245,7 +245,7 @@ describe('PhaserFlightAnimator compatibility adapter', () => {
     expect(harness.config.duration).toBe(1_000);
     expect(harness.config).toMatchObject({ ease: 'Sine.easeInOut', from: 0, to: 1 });
     expect(pathHarness.created).toHaveLength(1);
-    expect(pathHarness.created[0]?.lineTo.mock.calls).toEqual([[390, 390]]);
+    expect(pathHarness.created[0]?.lineTo.mock.calls).toEqual([[300, 300]]);
     expect(pathHarness.created[0]?.quadraticBezierTo).not.toHaveBeenCalled();
     expect(pathHarness.created[0]?.ellipseTo).not.toHaveBeenCalled();
     expect(pathHarness.created[0]?.getPoint).toHaveBeenCalledTimes(0);
@@ -270,8 +270,8 @@ describe('PhaserFlightAnimator compatibility adapter', () => {
     expect(path?.ellipseTo).toHaveBeenCalledTimes(1);
     const [radiusX, radiusY, startDegrees, endDegrees, clockwise, rotation] =
       path?.ellipseTo.mock.calls[0] ?? [];
-    expect(radiusX).toBe(48);
-    expect(radiusY).toBe(48);
+    expect(radiusX).toBe(96);
+    expect(radiusY).toBe(96);
     expect(typeof startDegrees).toBe('number');
     expect(typeof endDegrees).toBe('number');
     expect(typeof clockwise).toBe('boolean');

@@ -23,7 +23,7 @@ function combatGame(agilityScore: number): CombatGame {
     startingHitPoints: 10,
     hitPoints: 10,
   });
-  return new CombatGame(ship('ship-1', 1), ship('ship-2', 10));
+  return new CombatGame(ship('ship-1', 1), ship('ship-2', 5));
 }
 
 function immobileSnapshot(): { session: BattleSession; snapshot: BattleSnapshot } {

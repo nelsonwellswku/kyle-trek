@@ -162,7 +162,7 @@ describe('GameApplication combat composition', () => {
     expect(root.element('[role="status"]').textContent).toBe('Game 1 ready');
     expect(runtime.combatBoardReadiness).toEqual([false, true]);
     expect(runtime.games[0]?.canvas.getAttribute('aria-label')).toBe(
-      'Orbitable 10 by 10 by 10 spaceship combat cube',
+      'Orbitable 5 by 5 by 5 spaceship combat cube',
     );
     expect(root.element('button.new-game-button').disabled).toBe(false);
 
