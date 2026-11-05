@@ -20,11 +20,27 @@ Build a local two-player 5 × 5 × 5 ship battle as a Python desktop application
 
 **Project Type**: Local desktop game
 
-**Performance Goals**: Legal destinations within 300 ms; movement and attack resolution each within 1.5 s under normal supported display conditions
+**Performance Goals**: Rendered/selectable legal destinations within 300 ms; movement arrival and attack-choice availability within 1.5 s of accepted selection; attack result and next-turn availability or victory within 1.5 s of launch, on the documented Linux reference environment
 
 **Constraints**: Offline local play; 125 directly inspectable/selectable cells; collision-safe in-cube movement; nonblocking animation; failure and restart safety; TDD evidence required
 
 **Scale/Scope**: One battle, two ships, 125 cells, two local players; no networking, persistence or AI
+
+## Presentation Recovery and Performance Acceptance
+
+Movement commits one legal destination before starting presentation. On launch failure, playback failure or timeout, the movement controller removes transient flight effects, visibly places the ship at that destination without an unsafe intermediate flight, shows a readable error and enters attack-or-end-turn once within the original 1.5-second deadline (FR-024). This recovery consumes the movement action. Completion, failure and timeout share the same generation/action guard; restart or disposal invalidates the action before cleanup and discards the pending move instead.
+
+Camera orbit remains available during combat effects. The combat presenter validates hit contact and miss geometry against the current projection and may reproject or reframe the presentation while preserving the sampled miss angle/side, deviation limit and clearance requirements. It must not resample visual randomness or gameplay rolls. If the constraints cannot be maintained, use the existing presentation-failure path and resolve the stored outcome once within the original deadline.
+
+In T004, record the proposed Linux reference environment in `development.md`: CPU, GPU, graphics driver, OS, display resolution, scaling and application window dimensions. Obtain maintainer approval before performance acceptance; missing environment details or approval block that acceptance. Do not invent hardware values or claim unmeasured support. Keep the application visible and unpaused and record the measurement method and each observed duration, not only averages.
+
+Measure monotonic elapsed wall-clock intervals as follows:
+
+- **Highlights**: initial setup or prior-action resolution with gameplay input available through the rendered, selectable complete legal-destination set (≤300 ms).
+- **Movement**: accepted legal selection through rendered arrival at the committed coordinate and attack-choice availability, including failure recovery (≤1.5 s).
+- **Attack**: launch through displayed outcome and next-turn availability or winner, including presentation failure and camera-driven reprojection (≤1.5 s).
+
+Nonblocking deadline monitors must reserve enough time for cleanup, fallback rendering and state transition within the original deadline; retries, reprojection and failure recovery never restart the clock. Fake-clock tests verify orchestration, while real-display checks establish end-to-end timing.
 
 ## Constitution Check
 
