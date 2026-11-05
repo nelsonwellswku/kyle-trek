@@ -1,6 +1,6 @@
 # Quickstart and Validation
 
-These are implementation targets, not commands verified against the current planning-only checkout. Run them after the Python application and `pyproject.toml` have been implemented.
+The setup and inspection prototype is implemented. Later movement, combat, rotation and restart scenarios below remain implementation targets; see `tasks.md` for progress.
 
 ## Prerequisites and setup
 

@@ -12,20 +12,20 @@ description: "Implementation tasks for the three-dimensional ship battle"
 
 ## Phase 1: Setup
 
-- [ ] T001 Create `pyproject.toml` for a Python 3.12 src-layout package with Ursina runtime dependency, pytest development dependency, and pytest importlib mode with colocated feature-test discovery.
-- [ ] T002 Generate `uv.lock` with uv and verify `uv sync --locked` installs the project and pytest without depending on a graphical display.
-- [ ] T003 Create package markers in `src/kyle_trek/__init__.py`, `src/kyle_trek/battle/__init__.py`, `src/kyle_trek/movement/__init__.py`, `src/kyle_trek/combat/__init__.py`, and `src/kyle_trek/inspection/__init__.py`.
-- [ ] T004 Create `specs/001-cube-ship-battle/development.md` with sections for per-increment red/green/refactor evidence, graphical acceptance, timing, statistical sampling, and architecture review. Record the proposed Linux performance reference environment (CPU, GPU, graphics driver, OS, display resolution, scaling and window dimensions), timing protocol and maintainer approval status; missing details or approval block performance acceptance, and actual values must not be invented.
+- [X] T001 Create `pyproject.toml` for a Python 3.12 src-layout package with Ursina runtime dependency, pytest development dependency, and pytest importlib mode with colocated feature-test discovery.
+- [X] T002 Generate `uv.lock` with uv and verify `uv sync --locked` installs the project and pytest without depending on a graphical display.
+- [X] T003 Create package markers in `src/kyle_trek/__init__.py`, `src/kyle_trek/battle/__init__.py`, `src/kyle_trek/movement/__init__.py`, `src/kyle_trek/combat/__init__.py`, and `src/kyle_trek/inspection/__init__.py`.
+- [X] T004 Create `specs/001-cube-ship-battle/development.md` with sections for per-increment red/green/refactor evidence, graphical acceptance, timing, statistical sampling, and architecture review. Record the proposed Linux performance reference environment (CPU, GPU, graphics driver, OS, display resolution, scaling and window dimensions), timing protocol and maintainer approval status; missing details or approval block performance acceptance, and actual values must not be invented.
 
 ## Phase 2: Foundational prerequisites
 
 **Purpose**: Typed shared battle contracts and deterministic test seams used by all stories.
 
-- [ ] T005 [P] Write and run failing domain-value tests in `src/kyle_trek/battle/tests/test_types.py` for integer coordinates in 1..5, valid player IDs, discrete orientations and phase enums implemented by T007. Occupancy/state assertions belong to T010/T013 and derived movement eligibility to T019/T022, not this foundation checkpoint.
-- [ ] T006 [P] Write and run failing lifecycle and RNG-interface tests in `src/kyle_trek/battle/tests/test_contracts.py`: typed generation/action IDs, distinct gameplay and visual random sources, callback identity, and rejected invalid values.
-- [ ] T007 Implement validated class-based domain values and enums in `src/kyle_trek/battle/types.py`: “`x`, `y`, `z`; each 1..5”, “player ID (1 or 2)”, discrete orientation, and movement/animation/attack/finished phases; keep engine vectors out of domain types.
-- [ ] T008 Implement typed RNG, clock, action-token, and presentation interfaces in `src/kyle_trek/battle/contracts.py`; represent presentation “originating generation and action ID, kind, lifecycle (running, completed, failed, cancelled), timing and visual handles”.
-- [ ] T009 Run foundation tests and document behavioral red, green, and refactor results in `specs/001-cube-ship-battle/development.md`.
+- [X] T005 [P] Write and run failing domain-value tests in `src/kyle_trek/battle/tests/test_types.py` for integer coordinates in 1..5, valid player IDs, discrete orientations and phase enums implemented by T007. Occupancy/state assertions belong to T010/T013 and derived movement eligibility to T019/T022, not this foundation checkpoint.
+- [X] T006 [P] Write and run failing lifecycle and RNG-interface tests in `src/kyle_trek/battle/tests/test_contracts.py`: typed generation/action IDs, distinct gameplay and visual random sources, callback identity, and rejected invalid values.
+- [X] T007 Implement validated class-based domain values and enums in `src/kyle_trek/battle/types.py`: “`x`, `y`, `z`; each 1..5”, “player ID (1 or 2)”, discrete orientation, and movement/animation/attack/finished phases; keep engine vectors out of domain types.
+- [X] T008 Implement typed RNG, clock, action-token, and presentation interfaces in `src/kyle_trek/battle/contracts.py`; represent presentation “originating generation and action ID, kind, lifecycle (running, completed, failed, cancelled), timing and visual handles”.
+- [X] T009 Run foundation tests and document behavioral red, green, and refactor results in `specs/001-cube-ship-battle/development.md`.
 
 **Checkpoint**: Foundation available; story test suites can use deterministic collaborators and no engine window.
 
@@ -37,17 +37,17 @@ description: "Implementation tasks for the three-dimensional ship battle"
 
 ### Tests first
 
-- [ ] T010 [P] [US1] Write and run failing setup/state tests in `src/kyle_trek/battle/tests/test_setup.py` covering all score modifier boundaries, HP floor without reroll, starting zones, distinct ships, orientations, independent uniform draws, and Player 1's initial movement phase. Verify occupancy is derived from current ship positions, cannot be independently mutated, and never assigns both ships to one cell, including after position changes.
-- [ ] T011 [P] [US1] Write and run failing inspection contract tests in `src/kyle_trek/inspection/tests/test_inspection.py` for 125 unique cells, five selectable Z layers, hover coordinates/occupancy before selection, both ships at every depth, and state-preserving camera orbit.
-- [ ] T012 [P] [US1] Write and run failing app composition and display tests with a fake scene in `tests/integration/test_initial_view.py` for labeled axes, three-quarter view, player/phase, both ship coordinates, scores, modifiers, HP and AC.
+- [X] T010 [P] [US1] Write and run failing setup/state tests in `src/kyle_trek/battle/tests/test_setup.py` covering all score modifier boundaries, HP floor without reroll, starting zones, distinct ships, orientations, independent uniform draws, and Player 1's initial movement phase. Verify occupancy is derived from current ship positions, cannot be independently mutated, and never assigns both ships to one cell, including after position changes.
+- [X] T011 [P] [US1] Write and run failing inspection contract tests in `src/kyle_trek/inspection/tests/test_inspection.py` for 125 unique cells, five selectable Z layers, hover coordinates/occupancy before selection, both ships at every depth, and state-preserving camera orbit.
+- [X] T012 [P] [US1] Write and run failing app composition and display tests with a fake scene in `tests/integration/test_initial_view.py` for labeled axes, three-quarter view, player/phase, both ship coordinates, scores, modifiers, HP and AC.
 
 ### Implementation
 
-- [ ] T013 [US1] Implement `src/kyle_trek/battle/state.py` with Stats (“agility, strength, constitution each integer 8..20; modifier `(score - 10) // 2`”; “Fixed per ship per game”), Ship (“HP is between zero and starting HP”; “Exactly one per player; cells differ”; AC 12), and Battle (“unique generation ID, two ships, active player, phase, optional winner, last displayed outcome”); derive occupancy from current ship positions without independently mutable occupancy state.
-- [ ] T014 [US1] Implement independent setup sampling in `src/kyle_trek/battle/setup.py`: ship X/Z 1..5, ship 1 Y 1..2, ship 2 Y 4..5, each score 8..20, HP `max(1, uniform(0,20) + 2 * constitution_modifier)`, and respective +Y/−Y facing.
-- [ ] T015 [P] [US1] Implement state-free camera and selectable Z-layer inspection in `src/kyle_trek/inspection/inspection.py`; inspection state is “view orientation, selected depth layer, hovered cell and displayed occupancy” and “UI-only; never changes battle state”.
-- [ ] T016 [US1] Implement Ursina cube, axis labels, distinguishable ship visuals, layer picking and hover adapter in `src/kyle_trek/inspection/scene.py`; validate engine inputs at the domain boundary and expose targets even when occluded in the default view.
-- [ ] T017 [US1] Compose the initial desktop scene and HUD in `src/kyle_trek/__main__.py`, including ship stats and coordinates, player and phase, orbit and layer controls, and a callable `python -m kyle_trek` entry point.
+- [X] T013 [US1] Implement `src/kyle_trek/battle/state.py` with Stats (“agility, strength, constitution each integer 8..20; modifier `(score - 10) // 2`”; “Fixed per ship per game”), Ship (“HP is between zero and starting HP”; “Exactly one per player; cells differ”; AC 12), and Battle (“unique generation ID, two ships, active player, phase, optional winner, last displayed outcome”); derive occupancy from current ship positions without independently mutable occupancy state.
+- [X] T014 [US1] Implement independent setup sampling in `src/kyle_trek/battle/setup.py`: ship X/Z 1..5, ship 1 Y 1..2, ship 2 Y 4..5, each score 8..20, HP `max(1, uniform(0,20) + 2 * constitution_modifier)`, and respective +Y/−Y facing.
+- [X] T015 [P] [US1] Implement state-free camera and selectable Z-layer inspection in `src/kyle_trek/inspection/inspection.py`; inspection state is “view orientation, selected depth layer, hovered cell and displayed occupancy” and “UI-only; never changes battle state”.
+- [X] T016 [US1] Implement Ursina cube, axis labels, distinguishable ship visuals, layer picking and hover adapter in `src/kyle_trek/inspection/scene.py`; validate engine inputs at the domain boundary and expose targets even when occluded in the default view.
+- [X] T017 [US1] Compose the initial desktop scene and HUD in `src/kyle_trek/__main__.py`, including ship stats and coordinates, player and phase, orbit and layer controls, and a callable `python -m kyle_trek` entry point.
 - [ ] T018 [US1] Run `uv run pytest` and the full-board graphical inspection in `specs/001-cube-ship-battle/quickstart.md`; record results and TDD evidence in `specs/001-cube-ship-battle/development.md`.
 
 ## Phase 4: User Story 2 — Move through the cube (P1)
