@@ -20,7 +20,7 @@ class FakeScene:
     def show_ships(self, ships): self.ships = ships
     def show_hud(self, text): self.hud = text
     def set_camera(self, yaw, pitch): self.camera = (yaw,pitch)
-    def show_layer(self, layer, cells): self.layer, self.layer_cells = layer, cells
+    def show_layer(self, layer, cells, legal_destinations=frozenset()): self.layer, self.layer_cells = layer, cells
     def show_inspection(self, text): self.inspection = text
 
 

@@ -1,6 +1,6 @@
 # Quickstart and Validation
 
-The setup and inspection prototype is implemented. Later movement, combat, rotation and restart scenarios below remain implementation targets; see `tasks.md` for progress.
+Setup, inspection and movement are implemented. Combat, ship rotation and restart remain implementation targets; manual full-board inspection and real-display movement/timing acceptance are still outstanding. See `tasks.md` for progress.
 
 ## Prerequisites and setup
 

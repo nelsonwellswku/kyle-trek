@@ -2,7 +2,9 @@ from types import SimpleNamespace
 import random
 import pytest
 from kyle_trek.battle.setup import BattleSetup
-from kyle_trek.battle.types import Cell
+from kyle_trek.battle.contracts import ActionToken, Lifecycle
+from kyle_trek.battle.types import Cell, Player
+from kyle_trek.movement.flight import FlightPlanner
 from kyle_trek.inspection.scene import UrsinaScene
 
 
@@ -10,8 +12,8 @@ class Widget:
     def __init__(self, **kwargs):
         self.parent = None
         self.__dict__.update(kwargs)
-        self.on_click = None
-        self.on_mouse_enter = None
+        self.on_click = kwargs.get("on_click")
+        self.on_mouse_enter = kwargs.get("on_mouse_enter")
 
 
 class Engine:
@@ -21,7 +23,7 @@ class Engine:
         self.texts = []
         self.scene = object()
         self.camera = SimpleNamespace(ui=object(), aspect_ratio=.8, look_at=lambda target: None)
-        self.color = SimpleNamespace(white="white", azure="blue", orange="orange", dark_gray="dark gray", light_gray="light gray", gray="gray")
+        self.color = SimpleNamespace(white="white", azure="blue", orange="orange", dark_gray="dark gray", light_gray="light gray", gray="gray", green="green", red="red")
 
     def Button(self, **kwargs):
         button = Widget(**kwargs)
@@ -107,3 +109,55 @@ def test_ui_fits_narrow_window():
     for button in engine.buttons:
         assert abs(button.position[0]) + button.scale[0] / 2 <= engine.camera.aspect_ratio / 2
     assert any(button.color == engine.color.light_gray for button in engine.buttons)
+
+
+def test_legal_movement_cells_are_highlighted_separately_from_inspection_cells():
+    engine = Engine()
+    scene = UrsinaScene(engine)
+    scene.bind(View())
+    cells = tuple(Cell(x, y, 1) for y in range(1, 6) for x in range(1, 6))
+    target = Cell(2, 3, 1)
+
+    scene.show_layer(1, cells, frozenset({target}))
+
+    button_colors = {cell: button.color for cell, button in zip(cells, engine.buttons)}
+    assert button_colors[target] == engine.color.green
+    empty = next(cell for cell in cells if cell not in scene.view.battle.occupancy and cell != target)
+    assert button_colors[empty] == engine.color.light_gray
+
+
+def test_scene_animates_and_resolves_flight_without_blocking():
+    engine = Engine()
+    scene = UrsinaScene(engine)
+    battle = BattleSetup(random.Random(31)).create()
+    scene.show_ships(battle.ships)
+    start, destination, opponent = Cell(1, 3, 3), Cell(2, 3, 3), Cell(5, 5, 5)
+    plan = FlightPlanner().plan(start, destination, opponent)
+    token = ActionToken(1, 2)
+    result = []
+
+    scene.place_ship(Player.ONE, start)
+    scene.start_flight(Player.ONE, plan, token, lambda action, lifecycle: result.append((action, lifecycle)))
+    entity = scene.ship_entities[Player.ONE]
+    scene.update(plan.duration / 2)
+    assert entity.position not in (FlightPlanner.to_position(start), FlightPlanner.to_position(destination))
+    scene.update(plan.duration / 2)
+
+    assert entity.position == FlightPlanner.to_position(destination)
+    assert result == [(token, Lifecycle.COMPLETED)]
+
+
+def test_scene_can_clear_flight_and_show_readable_recovery_error():
+    engine = Engine()
+    scene = UrsinaScene(engine)
+    scene.bind(View())
+    triggered = []
+    scene.show_action_prompt("No legal destination", lambda: triggered.append(True))
+    assert scene.skip_button.text == "Skip movement"
+    scene.skip_button.on_click()
+    assert triggered == [True]
+    scene.show_action_prompt("Movement complete")
+    assert scene.skip_button is None
+
+    scene.show_error("Movement presentation failed")
+    assert scene.error_text.text == "Movement presentation failed"
