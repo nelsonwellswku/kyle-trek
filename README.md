@@ -28,6 +28,10 @@ uv run pytest
 - Select **New game** at any time, including during movement or combat effects and after victory.
 - Use the **arrow keys** to orbit the camera without changing the battle.
 
+On Linux, the game sets `XMODIFIERS=@im=none` for its own process before opening
+the window. This avoids Fcitx/XIM filtering arrow-key events in Panda3D under
+X11/XWayland; desktop input-method settings are unaffected.
+
 ## Game rules
 
 - Ships start in opposite Y zones. Each has Agility, Strength, and Constitution scores from 8–20, constitution-adjusted starting HP (minimum 1), and AC 12.

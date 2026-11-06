@@ -256,7 +256,16 @@ def update() -> None:
 
 
 def main() -> None:
+    import os
     import random
+    import sys
+
+    if sys.platform.startswith("linux"):
+        # This game uses keyboard controls, not IME text entry. Fcitx's XIM
+        # filtering can swallow Panda3D's non-raw events (including arrows).
+        # Set this before Ursina opens its X11/XWayland display connection.
+        os.environ["XMODIFIERS"] = "@im=none"
+
     import ursina
     from kyle_trek.battle.setup import BattleSetup
     from kyle_trek.inspection.scene import UrsinaScene
