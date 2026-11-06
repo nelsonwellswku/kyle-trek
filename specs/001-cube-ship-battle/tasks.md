@@ -161,3 +161,17 @@ US2 needs US1's initial battle and interaction; US3 needs US2's attack-choice ph
 1. **MVP**: Complete setup, foundation and US1, then demonstrate fair setup and inspection of all 125 cells; this is an inspectable prototype, not a complete playable battle.
 2. Add US2 and US3 for the core playable turn, then US5 for safe interruption; validate each increment independently and repeat earlier regression tests.
 3. Add US4 and finish cross-cutting statistical, timing, usability, documentation and constitution acceptance. Record incomplete manual checks honestly rather than treating automated success as graphical acceptance.
+
+## Phase 9: Convergence
+
+- [X] T052 CRITICAL Add specific types to project-facing UrsinaScene inputs, state and callbacks, keeping dynamic values localized to validated engine boundaries per Constitution II (contradicts)
+- [X] T053 Present the complete set of legal destinations across all five Z layers when movement begins per FR-010 (partial)
+- [ ] T054 Complete and record full-board graphical verification of coordinates, occupancy, selection and both ships at every depth per SC-001 (partial)
+- [ ] T055 Measure and record rendered/selectable highlights, visible movement arrival, attack-choice availability and failure recovery on the approved reference environment per T026 (partial)
+- [ ] T056 Verify and record real-display hit, miss, camera-orbit, presentation-failure and deadline behavior on the approved reference environment per T035 (partial)
+- [ ] T057 Complete and record graphical restart/disposal interruption checks during movement and combat presentations per T040 (partial)
+- [ ] T058 Run and record the complete final Quickstart acceptance sequence, including command results and each scenario outcome, per T049 (partial)
+- [ ] T059 Record the reference display resolution, scaling and application window dimensions, and obtain maintainer approval without inventing environment values per T004 (partial)
+- [ ] T060 Complete and record graphical ship-rotation and cancellation checks per T045 (partial)
+- [ ] T061 Conduct and document the first-time-player usability study, including participant count and whether at least 90% complete the specified actions unaided, per T050 (missing)
+- [X] T062 Correct the inaccurate constitution-absence statement in development.md and record the architecture review against the actual MUST principles per T051 (contradicts)

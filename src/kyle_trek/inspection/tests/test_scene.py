@@ -1,7 +1,9 @@
 from types import SimpleNamespace
+from inspect import getmembers, isfunction, signature
 import random
 import pytest
 from dataclasses import replace
+from typing import get_type_hints
 from kyle_trek.battle.setup import BattleSetup
 from kyle_trek.battle.contracts import ActionToken, Lifecycle
 from kyle_trek.battle.state import Stats
@@ -91,6 +93,46 @@ def test_engine_coordinates_are_validated(values):
         UrsinaScene.cell_from_layer(*values)
 
 
+def test_scene_project_boundary_contracts_are_explicitly_typed():
+    from kyle_trek.battle.contracts import PresentationCallback
+    from kyle_trek.movement.flight import FlightPlan
+
+    layer_types = get_type_hints(UrsinaScene.show_layer)
+    flight_types = get_type_hints(UrsinaScene.start_flight)
+    rotation_types = get_type_hints(UrsinaScene.start_rotation)
+    attack_types = get_type_hints(UrsinaScene.start_attack)
+
+    assert layer_types["layer"] is int
+    assert layer_types["cells"] == tuple[Cell, ...] or "Iterable" in str(layer_types["cells"])
+    assert flight_types["player"] is Player
+    assert flight_types["plan"] is FlightPlan
+    assert flight_types["token"] is ActionToken
+    assert flight_types["callback"] is PresentationCallback
+    assert rotation_types["orientation"] is Orientation
+    assert rotation_types["callback"] is PresentationCallback
+    assert attack_types["attacker"].__name__ == "Ship"
+    assert attack_types["outcome"] is AttackOutcome
+    assert attack_types["callback"] is PresentationCallback
+
+    for _, method in getmembers(UrsinaScene, isfunction):
+        method_signature = signature(method)
+        assert all(
+            parameter.annotation is not parameter.empty
+            for name, parameter in method_signature.parameters.items()
+            if name != "self"
+        )
+        assert method_signature.return_annotation is not method_signature.empty
+
+
+def test_scene_integration_state_annotations_keep_engine_dynamics_at_adapter_edge():
+    annotations = UrsinaScene.__annotations__
+
+    assert "Any" in str(annotations["engine"])
+    assert "Any" in str(annotations["cell_entities"])
+    assert "ActionToken" in str(annotations["flights"])
+    assert "Player" in str(annotations["ship_entities"])
+
+
 def test_layer_buttons_expose_each_cell_and_callbacks():
     engine = Engine()
     scene = UrsinaScene(engine)
@@ -127,6 +169,36 @@ def test_board_and_ship_visuals_are_composed():
     assert {text.text for text in engine.texts} >= {"Player 1", "empty"}
     scene.set_camera(45, 30)
     assert engine.camera.position != (0, 0, 0)
+
+
+def test_board_highlights_legal_destinations_at_every_depth():
+    engine = Engine()
+    scene = UrsinaScene(engine)
+    cells = tuple(Cell(x, y, z) for z in range(1, 6) for y in range(1, 6) for x in range(1, 6))
+    near = Cell(2, 2, 1)
+    far = Cell(4, 4, 5)
+
+    scene.show_cells(cells, frozenset({near, far}))
+
+    assert scene.cell_entities[near].color == engine.color.green
+    assert scene.cell_entities[far].color == engine.color.green
+    assert scene.cell_entities[Cell(3, 3, 3)].color == engine.color.gray
+
+
+def test_board_highlights_refresh_without_recreating_cell_entities():
+    engine = Engine()
+    scene = UrsinaScene(engine)
+    cells = tuple(Cell(x, y, z) for z in range(1, 6) for y in range(1, 6) for x in range(1, 6))
+    first = Cell(1, 1, 1)
+    second = Cell(5, 5, 5)
+    scene.show_cells(cells)
+    original_entities = dict(scene.cell_entities)
+
+    scene.show_cells(cells, frozenset({second}))
+
+    assert scene.cell_entities == original_entities
+    assert scene.cell_entities[first].color == engine.color.gray
+    assert scene.cell_entities[second].color == engine.color.green
 
 
 def test_repeated_game_render_reuses_axis_labels_instead_of_accumulating_them():

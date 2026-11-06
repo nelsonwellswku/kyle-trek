@@ -69,9 +69,11 @@ class GameplayScene:
         self.skip_callback = None
         self.errors = []
         self.layer = 1
+        self.world_highlighted = frozenset()
 
     def show_axes(self, axes): pass
-    def show_cells(self, cells): pass
+    def show_cells(self, cells, legal_destinations=frozenset()):
+        self.world_highlighted = frozenset(legal_destinations)
     def show_ships(self, ships): pass
     def set_camera(self, yaw, pitch): pass
     def show_inspection(self, text): pass
@@ -272,6 +274,8 @@ def test_initial_view_highlights_legal_destinations_and_refreshes_after_arrival(
     target = Cell(4, 3, 3)
 
     assert scene.highlighted == controller.legal_destinations
+    assert scene.world_highlighted == controller.legal_destinations
+    assert {cell.z for cell in scene.world_highlighted} == {2, 3, 4}
     assert target in scene.highlighted
     view.select(target)
     assert battle.phase is Phase.MOVING

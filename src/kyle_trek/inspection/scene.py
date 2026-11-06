@@ -1,11 +1,22 @@
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable, Set
 from dataclasses import dataclass
 from math import cos, hypot, isfinite, radians, sin
 import random
+from typing import Any, Protocol
 
-from kyle_trek.battle.contracts import ActionToken, Lifecycle, PresentationCallback
-from kyle_trek.battle.state import Ship
+from kyle_trek.battle.contracts import ActionToken, Lifecycle, PresentationCallback, RandomSource
+from kyle_trek.battle.state import Battle, Ship
 from kyle_trek.battle.types import Cell, Orientation, Player
-from kyle_trek.combat.effects import CombatEffectPlanner, HitEffect, MissEffect, ScreenBounds, ScreenPoint
+from kyle_trek.combat.effects import (
+    CombatEffectPlanner,
+    HitEffect,
+    MissEffect,
+    ScreenBounds,
+    ScreenPoint,
+    ScreenProjection,
+)
 from kyle_trek.combat.outcome import AttackOutcome
 from kyle_trek.movement.flight import FlightPlan, FlightPlanner
 
@@ -46,15 +57,48 @@ class _Attack:
     explosion_visible: bool = False
 
 
-class UrsinaScene:
-    """Adapter for engine UI and scene objects."""
+class SceneView(Protocol):
+    battle: Battle
 
-    def __init__(self, engine, visual_rng=None):
+    def hover(self, cell: Cell) -> None: ...
+
+    def select(self, cell: Cell) -> None: ...
+
+
+class UrsinaScene:
+    """Adapter for Ursina's dynamic engine namespace and project-owned scene contracts.
+
+    ``engine`` is intentionally dynamic because Ursina exposes its UI, camera, vectors,
+    entities, and colors through a runtime namespace. Project values and callbacks at
+    this adapter's public boundary remain specifically typed and validated.
+    """
+
+    engine: Any
+    visual_rng: RandomSource
+    layer_buttons: list[Any]
+    layer_cells: list[Cell]
+    cell_entities: dict[Cell, Any]
+    axis_labels: dict[str, Any]
+    ship_entities: dict[Player, Any]
+    flights: dict[ActionToken, _Flight]
+    rotations: dict[ActionToken, _Rotation]
+    attacks: dict[ActionToken, _Attack]
+    hud: Any | None
+    inspection_text: Any | None
+    action_text: Any | None
+    error_text: Any | None
+    skip_button: Any | None
+    end_turn_button: Any | None
+    new_game_button: Any | None
+    view: SceneView | None
+    aspect: float
+
+    def __init__(self, engine: Any, visual_rng: RandomSource | None = None) -> None:
         self.engine = engine
         self.visual_rng = visual_rng or random.Random()
         self.layer_buttons = []
         self.layer_cells = []
-        self.cell_entities = []
+        self.cell_entities = {}
         self.axis_labels = {}
         self.ship_entities = {}
         self.flights = {}
@@ -69,7 +113,7 @@ class UrsinaScene:
         self.new_game_button = None
         self.aspect = engine.camera.aspect_ratio
 
-    def refresh_layout(self):
+    def refresh_layout(self) -> None:
         self.aspect = self.engine.camera.aspect_ratio
         left = -self.aspect / 2 + .02
         if self.hud is not None:
@@ -90,14 +134,19 @@ class UrsinaScene:
             x, y = index % 5, index // 5
             button.position = (self.aspect / 2 - .04 - (4 - x) * .055, -.18 - y * .055)
 
-    def bind(self, view):
+    def bind(self, view: SceneView) -> None:
         self.view = view
 
     @staticmethod
-    def cell_from_layer(x, y, z):
+    def cell_from_layer(x: int, y: int, z: int) -> Cell:
         return Cell(x, y, z)
 
-    def show_layer(self, layer, cells, legal_destinations=frozenset()):
+    def show_layer(
+        self,
+        layer: int,
+        cells: Iterable[Cell],
+        legal_destinations: Set[Cell] = frozenset(),
+    ) -> None:
         for button in self.layer_buttons:
             self.engine.destroy(button)
         self.layer_buttons.clear()
@@ -119,15 +168,26 @@ class UrsinaScene:
             self.layer_cells.append(cell)
         self.refresh_layout()
 
-    def show_cells(self, cells):
-        if self.cell_entities:
-            return
+    def show_cells(
+        self,
+        cells: Iterable[Cell],
+        legal_destinations: Set[Cell] = frozenset(),
+    ) -> None:
         for cell in cells:
-            cell = self.cell_from_layer(cell.x, cell.y, cell.z)
-            entity = self.engine.Entity(model="wireframe_cube", position=FlightPlanner.to_position(cell), scale=.98, color=self.engine.color.gray)
-            self.cell_entities.append(entity)
+            if cell not in self.cell_entities:
+                entity = self.engine.Entity(
+                    model="wireframe_cube",
+                    position=FlightPlanner.to_position(cell),
+                    scale=.98,
+                    color=self.engine.color.gray,
+                )
+                self.cell_entities[cell] = entity
+        for cell, entity in self.cell_entities.items():
+            entity.color = (
+                self.engine.color.green if cell in legal_destinations else self.engine.color.gray
+            )
 
-    def show_ships(self, ships):
+    def show_ships(self, ships: Iterable[Ship]) -> None:
         for ship in ships:
             entity = self.ship_entities.get(ship.player)
             color = self.engine.color.azure if ship.player is Player.ONE else self.engine.color.orange
@@ -146,7 +206,7 @@ class UrsinaScene:
                 if not any(rotation.player is ship.player for rotation in self.rotations.values()):
                     entity.rotation = ship.orientation.euler_degrees
 
-    def show_axes(self, axes):
+    def show_axes(self, axes: Iterable[str]) -> None:
         positions = ((3.2, 2.7, -2.7), (-2.7, -3.2, -2.7), (-2.7, 2.7, 3.2))
         for label, position in zip(axes, positions):
             if label not in self.axis_labels:
@@ -159,21 +219,26 @@ class UrsinaScene:
                     color=self.engine.color.white,
                 )
 
-    def show_hud(self, text):
+    def show_hud(self, text: str) -> None:
         if self.hud is None:
             self.hud = self.engine.Text(parent=self.engine.camera.ui, text=text, scale=.8, color=self.engine.color.white)
         else:
             self.hud.text = text
         self.refresh_layout()
 
-    def show_inspection(self, text):
+    def show_inspection(self, text: str) -> None:
         if self.inspection_text is None:
             self.inspection_text = self.engine.Text(parent=self.engine.camera.ui, text=text, scale=.8, color=self.engine.color.white)
         else:
             self.inspection_text.text = text
         self.refresh_layout()
 
-    def show_action_prompt(self, text, skip_callback=None, end_turn_callback=None):
+    def show_action_prompt(
+        self,
+        text: str,
+        skip_callback: Callable[[], bool] | None = None,
+        end_turn_callback: Callable[[], bool] | None = None,
+    ) -> None:
         if self.action_text is None:
             self.action_text = self.engine.Text(parent=self.engine.camera.ui, text=text, scale=.8, color=self.engine.color.white)
         else:
@@ -202,7 +267,7 @@ class UrsinaScene:
             self.end_turn_button.on_click = end_turn_callback
         self.refresh_layout()
 
-    def show_error(self, message):
+    def show_error(self, message: str) -> None:
         if self.error_text is None:
             self.error_text = self.engine.Text(parent=self.engine.camera.ui, text=message, scale=.8, color=self.engine.color.red)
         else:
@@ -210,7 +275,7 @@ class UrsinaScene:
         self.error_text.enabled = bool(message)
         self.refresh_layout()
 
-    def show_new_game(self, callback):
+    def show_new_game(self, callback: Callable[[], bool]) -> None:
         if self.new_game_button is None:
             self.new_game_button = self.engine.Button(
                 parent=self.engine.camera.ui,
@@ -221,7 +286,7 @@ class UrsinaScene:
         self.new_game_button.on_click = callback
         self.refresh_layout()
 
-    def reset_game_state(self):
+    def reset_game_state(self) -> None:
         if self.error_text is not None:
             self.error_text.text = ""
             self.error_text.enabled = False
@@ -234,7 +299,13 @@ class UrsinaScene:
             self.engine.destroy(self.end_turn_button)
             self.end_turn_button = None
 
-    def start_flight(self, player, plan, token, callback):
+    def start_flight(
+        self,
+        player: Player,
+        plan: FlightPlan,
+        token: ActionToken,
+        callback: PresentationCallback,
+    ) -> None:
         if not isinstance(player, Player) or not isinstance(plan, FlightPlan) or not isinstance(token, ActionToken):
             raise ValueError("invalid flight presentation values")
         if token in self.flights or player not in self.ship_entities or not callable(callback):
@@ -242,7 +313,7 @@ class UrsinaScene:
         self.ship_entities[player].position = FlightPlanner.to_position(plan.waypoints[0])
         self.flights[token] = _Flight(player, plan, token, callback)
 
-    def update(self, delta_time):
+    def update(self, delta_time: float) -> None:
         if not isfinite(delta_time) or delta_time < 0:
             raise ValueError("frame time must be finite and nonnegative")
         for token, flight in tuple(self.flights.items()):
@@ -293,10 +364,16 @@ class UrsinaScene:
                 except Exception:
                     pass
 
-    def cleanup_flight(self, token):
+    def cleanup_flight(self, token: ActionToken) -> None:
         self.flights.pop(token, None)
 
-    def start_rotation(self, player, orientation, token, callback):
+    def start_rotation(
+        self,
+        player: Player,
+        orientation: Orientation,
+        token: ActionToken,
+        callback: PresentationCallback,
+    ) -> None:
         if (
             not isinstance(player, Player)
             or not isinstance(orientation, Orientation)
@@ -310,12 +387,12 @@ class UrsinaScene:
         start_euler = self.ship_entities[player].rotation
         self.rotations[token] = _Rotation(player, current.orientation, orientation, token, callback, start_euler)
 
-    def cleanup_rotation(self, token):
+    def cleanup_rotation(self, token: ActionToken) -> None:
         rotation = self.rotations.pop(token, None)
         if rotation is not None and rotation.player in self.ship_entities:
             self.ship_entities[rotation.player].rotation = rotation.before.euler_degrees
 
-    def set_orientation(self, player, orientation):
+    def set_orientation(self, player: Player, orientation: Orientation) -> None:
         if not isinstance(player, Player) or not isinstance(orientation, Orientation):
             raise ValueError("ship orientation requires a player and discrete orientation")
         if any(rotation.player is player for rotation in self.rotations.values()):
@@ -371,7 +448,7 @@ class UrsinaScene:
                     pass
             raise
 
-    def validate_projection(self, token):
+    def validate_projection(self, token: ActionToken) -> bool:
         attack = self.attacks.get(token)
         if attack is None:
             return False
@@ -393,16 +470,16 @@ class UrsinaScene:
         except Exception:
             return False
 
-    def cleanup_attack(self, token):
+    def cleanup_attack(self, token: ActionToken) -> None:
         attack = self.attacks.pop(token, None)
         if attack is not None:
             self._destroy_attack_visuals(attack)
 
-    def _camera_projection(self):
+    def _camera_projection(self) -> ScreenProjection:
         scene = self
 
         class Projection:
-            def project(self, cell):
+            def project(self, cell: Cell) -> ScreenPoint:
                 camera = scene.engine.camera
                 world = scene.engine.Vec3(*FlightPlanner.to_position(cell))
                 relative = camera.getRelativePoint(scene.engine.scene, world)
@@ -417,7 +494,11 @@ class UrsinaScene:
 
         return Projection()
 
-    def _effect_planner(self, projection, reference_cell):
+    def _effect_planner(
+        self,
+        projection: ScreenProjection,
+        reference_cell: Cell,
+    ) -> CombatEffectPlanner:
         aspect = self.engine.camera.aspect_ratio
         bounds = ScreenBounds(-aspect / 2, aspect / 2, -.5, .5)
         neighbors = []
@@ -433,10 +514,10 @@ class UrsinaScene:
             raise ValueError("current view does not expose a measurable board cell")
         return CombatEffectPlanner(self.visual_rng, projection, bounds=bounds, cell_diameter=max(neighbors))
 
-    def _ship_cell(self, player):
+    def _ship_cell(self, player: Player) -> Cell:
         return next(ship.cell for ship in self.view.battle.ships if ship.player is player)
 
-    def _create_torpedo(self, radius):
+    def _create_torpedo(self, radius: float) -> tuple[Any, Any]:
         engine = self.engine
         vertices = CombatEffectPlanner.star_vertices()
 
@@ -470,12 +551,12 @@ class UrsinaScene:
         return fill, outline
 
     @staticmethod
-    def _set_attack_position(attack, point):
+    def _set_attack_position(attack: _Attack, point: ScreenPoint) -> None:
         position = (point.x, point.y, 0)
         attack.torpedo_fill.position = position
         attack.torpedo_outline.position = position
 
-    def _update_hit_attack(self, attack, delta_time):
+    def _update_hit_attack(self, attack: _Attack, delta_time: float) -> bool:
         effect = attack.effect
         if attack.elapsed < .65:
             progress = attack.elapsed / .65
@@ -501,7 +582,7 @@ class UrsinaScene:
             attack.explosion_elapsed += delta_time
             return attack.explosion_elapsed >= .18
 
-    def _update_miss_attack(self, attack):
+    def _update_miss_attack(self, attack: _Attack) -> None:
         route = attack.effect.route
         lengths = [hypot(b.x - a.x, b.y - a.y) for a, b in zip(route, route[1:])]
         distance = sum(lengths) * min(1.0, attack.elapsed / .9)
@@ -520,14 +601,14 @@ class UrsinaScene:
         attack.torpedo_outline.enabled = visible
         attack.explosion.enabled = False
 
-    def _destroy_attack_visuals(self, attack):
+    def _destroy_attack_visuals(self, attack: _Attack) -> None:
         for entity in (attack.torpedo_fill, attack.torpedo_outline, attack.explosion):
             try:
                 self.engine.destroy(entity)
             except Exception:
                 pass
 
-    def place_ship(self, player, cell):
+    def place_ship(self, player: Player, cell: Cell) -> None:
         if not isinstance(player, Player) or not isinstance(cell, Cell):
             raise ValueError("ship placement requires a player and cell")
         entity = self.ship_entities.get(player)
@@ -535,7 +616,7 @@ class UrsinaScene:
             raise RuntimeError("ship visual is unavailable")
         entity.position = FlightPlanner.to_position(cell)
 
-    def set_camera(self, yaw, pitch):
+    def set_camera(self, yaw: float, pitch: float) -> None:
         yaw, pitch = radians(yaw), radians(pitch)
         radius = 13
         self.engine.camera.position = (radius * sin(yaw) * cos(pitch), radius * sin(pitch), -radius * cos(yaw) * cos(pitch))

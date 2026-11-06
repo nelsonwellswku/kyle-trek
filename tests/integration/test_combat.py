@@ -84,7 +84,7 @@ class GameplayScene:
         self.camera = None
 
     def show_axes(self, axes): pass
-    def show_cells(self, cells): pass
+    def show_cells(self, cells, legal_destinations=frozenset()): pass
     def show_ships(self, ships): pass
     def show_layer(self, layer, cells, legal_destinations=frozenset()): pass
     def show_inspection(self, text): pass

@@ -65,7 +65,7 @@ class Scene:
         self.resets = 0
 
     def show_axes(self, axes): pass
-    def show_cells(self, cells): pass
+    def show_cells(self, cells, legal_destinations=frozenset()): pass
     def show_layer(self, layer, cells, legal_destinations=frozenset()): pass
     def show_inspection(self, text): pass
     def show_hud(self, text): self.hud = text

@@ -14,9 +14,12 @@ class FakeScene:
         self.camera = None
         self.layer = None
         self.layer_cells = ()
+        self.world_highlighted = frozenset()
 
     def show_axes(self, axes): self.axes = axes
-    def show_cells(self, cells): self.cells = cells
+    def show_cells(self, cells, legal_destinations=frozenset()):
+        self.cells = cells
+        self.world_highlighted = frozenset(legal_destinations)
     def show_ships(self, ships): self.ships = ships
     def show_hud(self, text): self.hud = text
     def set_camera(self, yaw, pitch): self.camera = (yaw,pitch)

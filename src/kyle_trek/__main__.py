@@ -10,7 +10,11 @@ from kyle_trek.movement.controller import MovementController
 
 class Scene(Protocol):
     def show_axes(self, axes: tuple[str, ...]) -> None: ...
-    def show_cells(self, cells: tuple[Cell, ...]) -> None: ...
+    def show_cells(
+        self,
+        cells: tuple[Cell, ...],
+        legal_destinations: frozenset[Cell] = frozenset(),
+    ) -> None: ...
     def show_ships(self, ships: tuple[Ship, Ship]) -> None: ...
     def show_hud(self, text: str) -> None: ...
     def set_camera(self, yaw: float, pitch: float) -> None: ...
@@ -44,7 +48,12 @@ class InitialView:
 
     def render(self) -> None:
         self.scene.show_axes(("X", "Y", "Z"))
-        self.scene.show_cells(self.inspection.cells)
+        legal = (
+            self.movement_controller.legal_destinations
+            if self.movement_controller is not None
+            else frozenset()
+        )
+        self.scene.show_cells(self.inspection.cells, legal)
         self.scene.show_ships(self.battle.ships)
         self.scene.show_hud(self._hud_text())
         self.scene.set_camera(self.inspection.yaw, self.inspection.pitch)
@@ -159,6 +168,7 @@ class InitialView:
         if self.battle.phase is not Phase.MOVING:
             self.scene.show_ships(self.battle.ships)
         legal = self.movement_controller.legal_destinations if self.movement_controller is not None else frozenset()
+        self.scene.show_cells(self.inspection.cells, legal)
         self.scene.show_layer(
             self.inspection.layer,
             tuple(cell for cell in self.inspection.cells if cell.z == self.inspection.layer),
