@@ -1,6 +1,7 @@
 from typing import Protocol
 from kyle_trek.battle.state import Battle, Ship, Stats
 from kyle_trek.battle.types import Cell, Phase
+from kyle_trek.combat.controller import CombatController
 from kyle_trek.inspection.inspection import Inspection
 from kyle_trek.movement.controller import MovementController
 
@@ -13,7 +14,7 @@ class Scene(Protocol):
     def set_camera(self, yaw: float, pitch: float) -> None: ...
     def show_layer(self, layer: int, cells: tuple[Cell, ...], legal_destinations=frozenset()) -> None: ...
     def show_inspection(self, text: str) -> None: ...
-    def show_action_prompt(self, text: str, skip_callback=None) -> None: ...
+    def show_action_prompt(self, text: str, skip_callback=None, end_turn_callback=None) -> None: ...
     def show_error(self, message: str) -> None: ...
 
 
@@ -24,6 +25,7 @@ class InitialView:
         self.scene = scene
         self.selected: Cell | None = None
         self.movement_controller: MovementController | None = None
+        self.combat_controller: CombatController | None = None
 
     def render(self) -> None:
         self.scene.show_axes(("X", "Y", "Z"))
@@ -37,6 +39,11 @@ class InitialView:
 
     def bind_movement(self, controller: MovementController) -> None:
         self.movement_controller = controller
+        controller.on_change = self.refresh_gameplay
+        controller.on_error = self.show_move_error
+
+    def bind_combat(self, controller: CombatController) -> None:
+        self.combat_controller = controller
         controller.on_change = self.refresh_gameplay
         controller.on_error = self.show_move_error
 
@@ -55,6 +62,10 @@ class InitialView:
                 f"Player {ship.player.value}: ({ship.cell.x}, {ship.cell.y}, {ship.cell.z}) "
                 f"HP {ship.hp}/{ship.starting_hp} AC {ship.ac}\n{scores}"
             )
+        if self.battle.last_outcome is not None:
+            lines.append(self.battle.last_outcome)
+        if self.battle.winner is not None:
+            lines.append(f"Player {self.battle.winner.value} wins!")
         lines.append("1–5: select Z layer | Arrow keys: orbit\nHover a square to inspect; left click to select")
         return "\n".join(lines)
 
@@ -67,7 +78,7 @@ class InitialView:
             legal,
         )
         self.scene.show_inspection(f"Layer Z={layer}; hover a cell to inspect")
-        if self.movement_controller is not None:
+        if self.movement_controller is not None or self.combat_controller is not None:
             self._refresh_action_prompt()
 
     def hover(self, cell: Cell) -> None:
@@ -78,6 +89,9 @@ class InitialView:
             raise ValueError("selection must be in the current layer")
         if self.movement_controller is not None and self.battle.phase is Phase.MOVEMENT:
             if self.movement_controller.select_cell(cell, "left"):
+                return
+        if self.combat_controller is not None and self.battle.phase is Phase.ATTACK_CHOICE:
+            if self.combat_controller.attack(cell):
                 return
         self.selected = cell
         self.scene.show_inspection(f"Selected {self.inspection.hover(cell)}")
@@ -95,28 +109,44 @@ class InitialView:
         self._refresh_action_prompt()
 
     def _refresh_action_prompt(self) -> None:
-        if self.movement_controller is None:
+        if self.movement_controller is None and self.combat_controller is None:
             return
         phase = self.battle.phase
         skip_callback = None
+        end_turn_callback = None
         if phase is Phase.MOVEMENT:
-            if self.movement_controller.legal_destinations:
+            legal_destinations = self.movement_controller.legal_destinations if self.movement_controller is not None else frozenset()
+            if legal_destinations:
                 text = "Select a highlighted destination to move."
+            elif self.movement_controller is None:
+                text = "Movement controls are unavailable."
             else:
                 text = self.movement_controller.explanation
                 skip_callback = self.skip_movement
         elif phase is Phase.MOVING:
             text = f"Player {self.battle.active_player.value} ship is moving…"
         elif phase is Phase.ATTACK_CHOICE:
-            text = f"Movement complete — Player {self.battle.active_player.value}: attack or End turn."
+            text = f"Player {self.battle.active_player.value}: select the opposing ship to attack or End turn."
+            if self.combat_controller is not None:
+                end_turn_callback = self.end_turn
         elif phase is Phase.FINISHED:
-            text = "Battle finished. Start a new game to play again."
+            text = (
+                f"Player {self.battle.winner.value} wins! Battle finished."
+                if self.battle.winner is not None
+                else "Battle finished."
+            )
         else:
             text = f"Player {self.battle.active_player.value}: action resolving…"
-        self.scene.show_action_prompt(text, skip_callback)
+        if self.combat_controller is None:
+            self.scene.show_action_prompt(text, skip_callback)
+        else:
+            self.scene.show_action_prompt(text, skip_callback, end_turn_callback)
 
     def skip_movement(self) -> bool:
         return self.movement_controller is not None and self.movement_controller.skip_movement()
+
+    def end_turn(self) -> bool:
+        return self.combat_controller is not None and self.combat_controller.end_turn()
 
     def show_move_error(self, message: str) -> None:
         self.scene.show_error(message)
@@ -124,6 +154,8 @@ class InitialView:
     def orbit(self, yaw: float, pitch: float) -> None:
         self.inspection.orbit(yaw, pitch)
         self.scene.set_camera(self.inspection.yaw, self.inspection.pitch)
+        if self.combat_controller is not None:
+            self.combat_controller.camera_changed()
 
     def handle_key(self, key: str) -> None:
         if key in ("1", "2", "3", "4", "5"):
@@ -153,6 +185,7 @@ def main() -> None:
     import random
     import ursina
     from kyle_trek.battle.setup import BattleSetup
+    from kyle_trek.combat.controller import CombatController
     from kyle_trek.inspection.scene import UrsinaScene
     from kyle_trek.movement.controller import MovementController
 
@@ -180,18 +213,24 @@ def main() -> None:
     ursina.window.fps_counter.enabled = False
     ursina.window.entity_counter.enabled = False
     ursina.window.collider_counter.enabled = False
-    scene = UrsinaScene(ursina)
+    visual_rng = random.Random()
+    scene = UrsinaScene(ursina, visual_rng=visual_rng)
     _scene = scene
     battle = BattleSetup(random.Random()).create()
     _view = InitialView(battle, scene)
     scene.bind(_view)
-    movement = MovementController(battle, scene, MonotonicClock(), UrsinaScheduler(ursina))
+    clock = MonotonicClock()
+    scheduler = UrsinaScheduler(ursina)
+    movement = MovementController(battle, scene, clock, scheduler)
+    combat = CombatController(battle, scene, random.Random(), clock, scheduler)
     _view.bind_movement(movement)
+    _view.bind_combat(combat)
     _view.render()
     try:
         app.run()
     finally:
         movement.dispose()
+        combat.dispose()
 
 
 if __name__ == "__main__":

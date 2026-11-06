@@ -1,9 +1,13 @@
 from types import SimpleNamespace
 import random
 import pytest
+from dataclasses import replace
 from kyle_trek.battle.setup import BattleSetup
 from kyle_trek.battle.contracts import ActionToken, Lifecycle
-from kyle_trek.battle.types import Cell, Player
+from kyle_trek.battle.state import Stats
+from kyle_trek.battle.types import Cell, Phase, Player
+from kyle_trek.combat.controller import CombatController
+from kyle_trek.combat.outcome import AttackOutcome
 from kyle_trek.movement.flight import FlightPlanner
 from kyle_trek.inspection.scene import UrsinaScene
 
@@ -42,6 +46,34 @@ class Engine:
         widget = Widget(**kwargs)
         self.texts.append(widget)
         return widget
+
+
+class ProjectionLens:
+    def getProjectionMat(self):
+        return self
+
+    def xform(self, point):
+        return point
+
+
+class CombatEngine(Engine):
+    def __init__(self):
+        super().__init__()
+        self.camera.projection_scale = .12
+        self.camera.getRelativePoint = lambda scene, point: SimpleNamespace(
+            x=point.x * self.camera.projection_scale,
+            y=point.y * self.camera.projection_scale,
+            z=point.z,
+        )
+        self.camera.lens = ProjectionLens()
+        self.Vec3 = lambda x, y, z: SimpleNamespace(x=x, y=y, z=z)
+        self.Vec4 = lambda x, y, z, w: (x, y, z, w)
+        self.Mesh = lambda **kwargs: SimpleNamespace(**kwargs)
+
+    def destroy(self, widget):
+        for items in (self.buttons, self.entities, self.texts):
+            if widget in items:
+                items.remove(widget)
 
 
 class View:
@@ -161,3 +193,122 @@ def test_scene_can_clear_flight_and_show_readable_recovery_error():
 
     scene.show_error("Movement presentation failed")
     assert scene.error_text.text == "Movement presentation failed"
+
+
+def test_hit_explosion_is_presented_before_completion_callback_applies_damage():
+    engine = CombatEngine()
+    scene = UrsinaScene(engine, visual_rng=random.Random(7))
+    battle = BattleSetup(random.Random(8)).create()
+    first, second = battle.ships
+    battle._ships = (
+        replace(first, cell=Cell(1, 3, 3), stats=Stats(10, 10, 10)),
+        replace(second, cell=Cell(5, 3, 3)),
+    )
+    scene.bind(SimpleNamespace(battle=battle))
+    scene.show_ships(battle.ships)
+    defender = next(ship for ship in battle.ships if ship.player is Player.TWO)
+    outcome = AttackOutcome(Player.ONE, Player.TWO, 12, 12, True, 4, 4, defender.hp - 4)
+    token = ActionToken(battle.generation, 1)
+    completed = []
+
+    def apply_after_presentation(action, lifecycle):
+        completed.append((action, lifecycle))
+        battle.set_ship_hp(Player.TWO, outcome.remaining_hp)
+
+    scene.start_attack(first, second, outcome, token, apply_after_presentation)
+    assert scene.validate_projection(token)
+    attack = scene.attacks[token]
+    scene.update(.7)
+
+    assert not attack.torpedo_fill.enabled
+    assert attack.explosion.enabled
+    assert defender.hp == outcome.remaining_hp + outcome.damage
+    assert not completed
+
+    scene.update(.21)
+    assert completed == [(token, Lifecycle.COMPLETED)]
+    assert next(ship for ship in battle.ships if ship.player is Player.TWO).hp == outcome.remaining_hp
+
+
+def test_combat_controller_can_start_an_attack_on_the_ursina_scene_presenter():
+    class Clock:
+        def monotonic(self):
+            return 10.0
+
+    class Scheduler:
+        def call_later(self, delay, callback):
+            return (delay, callback)
+
+        def cancel(self, handle):
+            pass
+
+    class Dice:
+        def __init__(self):
+            self.rolls = iter((20, 4))
+
+        def randint(self, lower, upper):
+            return next(self.rolls)
+
+    engine = CombatEngine()
+    scene = UrsinaScene(engine, visual_rng=random.Random(12))
+    battle = BattleSetup(random.Random(13)).create()
+    first, second = battle.ships
+    battle._ships = (replace(first, cell=Cell(2, 3, 3)), replace(second, cell=Cell(4, 3, 3)))
+    battle.phase = Phase.ATTACK_CHOICE
+    scene.bind(SimpleNamespace(battle=battle))
+    scene.set_camera(45, 30)
+    scene.show_ships(battle.ships)
+    errors = []
+    controller = CombatController(battle, scene, Dice(), Clock(), Scheduler(), on_error=errors.append)
+    defender = next(ship for ship in battle.ships if ship.player is Player.TWO)
+
+    assert controller.attack(defender.cell)
+
+    assert battle.phase is Phase.ATTACKING
+    assert len(scene.attacks) == 1
+    assert not errors
+
+
+def test_miss_scene_reprojects_during_flight_without_resampling_angle_or_side():
+    class VisualRandom:
+        def __init__(self):
+            self.calls = []
+
+        def randint(self, lower, upper):
+            self.calls.append((lower, upper))
+            return 20 if lower == 10 else 1
+
+    engine = CombatEngine()
+    visual_rng = VisualRandom()
+    scene = UrsinaScene(engine, visual_rng=visual_rng)
+    battle = BattleSetup(random.Random(10)).create()
+    first, second = battle.ships
+    battle._ships = (replace(first, cell=Cell(1, 3, 3)), replace(second, cell=Cell(5, 3, 3)))
+    scene.bind(SimpleNamespace(battle=battle))
+    scene.set_camera(45, 30)
+    scene.show_ships(battle.ships)
+    outcome = AttackOutcome(Player.ONE, Player.TWO, 5, 5, False)
+    token = ActionToken(battle.generation, 2)
+    scene.start_attack(first, second, outcome, token, lambda *_: None)
+    original = scene.attacks[token].effect
+    scene.update(.05)
+    engine.camera.projection_scale = .118
+
+    assert scene.validate_projection(token)
+    reprojected = scene.attacks[token].effect
+
+    assert reprojected.route != original.route
+    assert reprojected.launch_angle_degrees == original.launch_angle_degrees == 20
+    assert reprojected.side == original.side == 1
+    assert visual_rng.calls == [(10, 35), (0, 1)]
+
+
+def test_end_turn_control_is_displayed_and_calls_its_action():
+    engine = Engine()
+    scene = UrsinaScene(engine)
+    called = []
+    scene.show_action_prompt("Attack or End turn", end_turn_callback=lambda: called.append(True))
+
+    assert scene.end_turn_button.text == "End turn"
+    scene.end_turn_button.on_click()
+    assert called == [True]

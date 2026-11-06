@@ -75,3 +75,11 @@ class Battle:
         if cell in self.occupancy and self.occupancy[cell] != player:
             raise ValueError("cell is occupied")
         self._ships = tuple(replace(ship, cell=cell) if ship.player == player else ship for ship in self.ships)
+
+    def set_ship_hp(self, player: Player, hp: int) -> None:
+        if not isinstance(player, Player) or type(hp) is not int:
+            raise ValueError("hit point updates require a player and integer value")
+        ship = next(ship for ship in self.ships if ship.player is player)
+        if not 0 <= hp <= ship.starting_hp:
+            raise ValueError("hit points must remain between zero and starting hit points")
+        self._ships = tuple(replace(current, hp=hp) if current.player is player else current for current in self.ships)

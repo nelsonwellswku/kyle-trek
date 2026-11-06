@@ -1,6 +1,6 @@
 # Quickstart and Validation
 
-Setup, inspection and movement are implemented. Combat, ship rotation and restart remain implementation targets; manual full-board inspection and real-display movement/timing acceptance are still outstanding. See `tasks.md` for progress.
+Setup, inspection, movement, combat and End turn are implemented. Ship rotation and restart remain implementation targets; manual full-board inspection and real-display movement/combat timing acceptance are still outstanding. See `tasks.md` for progress.
 
 ## Prerequisites and setup
 

@@ -1,8 +1,12 @@
 from dataclasses import dataclass
-from math import cos, isfinite, radians, sin
+from math import cos, hypot, isfinite, radians, sin
+import random
 
 from kyle_trek.battle.contracts import ActionToken, Lifecycle, PresentationCallback
+from kyle_trek.battle.state import Ship
 from kyle_trek.battle.types import Cell, Player
+from kyle_trek.combat.effects import CombatEffectPlanner, HitEffect, MissEffect, ScreenBounds, ScreenPoint
+from kyle_trek.combat.outcome import AttackOutcome
 from kyle_trek.movement.flight import FlightPlan, FlightPlanner
 
 
@@ -15,21 +19,40 @@ class _Flight:
     elapsed: float = 0.0
 
 
+@dataclass
+class _Attack:
+    attacker: Player
+    defender: Player
+    outcome: AttackOutcome
+    token: ActionToken
+    callback: PresentationCallback
+    effect: HitEffect | MissEffect
+    torpedo_fill: object
+    torpedo_outline: object
+    explosion: object
+    elapsed: float = 0.0
+    explosion_elapsed: float = 0.0
+    explosion_visible: bool = False
+
+
 class UrsinaScene:
     """Adapter for engine UI and scene objects."""
 
-    def __init__(self, engine):
+    def __init__(self, engine, visual_rng=None):
         self.engine = engine
+        self.visual_rng = visual_rng or random.Random()
         self.layer_buttons = []
         self.layer_cells = []
         self.cell_entities = []
         self.ship_entities = {}
         self.flights = {}
+        self.attacks = {}
         self.hud = None
         self.inspection_text = None
         self.action_text = None
         self.error_text = None
         self.skip_button = None
+        self.end_turn_button = None
         self.aspect = engine.camera.aspect_ratio
 
     def refresh_layout(self):
@@ -45,6 +68,8 @@ class UrsinaScene:
             self.error_text.position = (left, -.40)
         if self.skip_button is not None:
             self.skip_button.position = (left + .11, -.43)
+        if self.end_turn_button is not None:
+            self.end_turn_button.position = (left + .11, -.43)
         for index, button in enumerate(self.layer_buttons):
             x, y = index % 5, index // 5
             button.position = (self.aspect / 2 - .04 - (4 - x) * .055, -.18 - y * .055)
@@ -116,7 +141,7 @@ class UrsinaScene:
             self.inspection_text.text = text
         self.refresh_layout()
 
-    def show_action_prompt(self, text, skip_callback=None):
+    def show_action_prompt(self, text, skip_callback=None, end_turn_callback=None):
         if self.action_text is None:
             self.action_text = self.engine.Text(parent=self.engine.camera.ui, text=text, scale=.8, color=self.engine.color.white)
         else:
@@ -124,6 +149,9 @@ class UrsinaScene:
         if self.skip_button is not None:
             self.engine.destroy(self.skip_button)
             self.skip_button = None
+        if self.end_turn_button is not None:
+            self.engine.destroy(self.end_turn_button)
+            self.end_turn_button = None
         if skip_callback is not None:
             self.skip_button = self.engine.Button(
                 parent=self.engine.camera.ui,
@@ -132,6 +160,14 @@ class UrsinaScene:
                 scale=(.17, .05),
             )
             self.skip_button.on_click = skip_callback
+        if end_turn_callback is not None:
+            self.end_turn_button = self.engine.Button(
+                parent=self.engine.camera.ui,
+                text="End turn",
+                color=self.engine.color.azure,
+                scale=(.15, .05),
+            )
+            self.end_turn_button.on_click = end_turn_callback
         self.refresh_layout()
 
     def show_error(self, message):
@@ -169,9 +205,225 @@ class UrsinaScene:
                     flight.callback(token, Lifecycle.COMPLETED)
                 except Exception:
                     pass
+        for token, attack in tuple(self.attacks.items()):
+            attack.elapsed += delta_time
+            if isinstance(attack.effect, HitEffect):
+                completed = self._update_hit_attack(attack, delta_time)
+            else:
+                self._update_miss_attack(attack)
+                completed = attack.elapsed >= .9
+            if completed:
+                del self.attacks[token]
+                self._destroy_attack_visuals(attack)
+                try:
+                    attack.callback(token, Lifecycle.COMPLETED)
+                except Exception:
+                    pass
 
     def cleanup_flight(self, token):
         self.flights.pop(token, None)
+
+    def start_attack(self, attacker: Ship, defender: Ship, outcome: AttackOutcome, token: ActionToken, callback: PresentationCallback) -> None:
+        if (
+            not isinstance(attacker, Ship)
+            or not isinstance(defender, Ship)
+            or attacker.player is defender.player
+            or outcome.attacker is not attacker.player
+            or outcome.defender is not defender.player
+            or not callable(callback)
+        ):
+            raise ValueError("invalid attack presentation values")
+        if token in self.attacks or attacker.player not in self.ship_entities or defender.player not in self.ship_entities:
+            raise RuntimeError("ships or attack action are unavailable")
+        attacker_cell = attacker.cell
+        defender_cell = defender.cell
+        projection = self._camera_projection()
+        effect_planner = self._effect_planner(projection, defender_cell)
+        effect = (
+            effect_planner.plan_hit(attacker_cell, defender_cell)
+            if outcome.hit
+            else effect_planner.plan_miss(attacker_cell, defender_cell)
+        )
+        visuals = []
+        try:
+            fill, outline = self._create_torpedo(effect.star_radius)
+            visuals.extend((fill, outline))
+            explosion = self.engine.Entity(
+                parent=self.engine.camera.ui,
+                model="sphere",
+                color=getattr(self.engine.color, "yellow", self.engine.color.white),
+                scale=effect.star_radius * 2,
+                enabled=False,
+            )
+            visuals.append(explosion)
+            attack = _Attack(attacker.player, defender.player, outcome, token, callback, effect, fill, outline, explosion)
+            self.attacks[token] = attack
+            initial_point = effect.start if isinstance(effect, HitEffect) else effect.route[0]
+            self._set_attack_position(attack, initial_point)
+        except Exception:
+            self.attacks.pop(token, None)
+            for entity in visuals:
+                try:
+                    self.engine.destroy(entity)
+                except Exception:
+                    pass
+            raise
+
+    def validate_projection(self, token):
+        attack = self.attacks.get(token)
+        if attack is None:
+            return False
+        try:
+            projection = self._camera_projection()
+            attacker = self._ship_cell(attack.attacker)
+            defender = self._ship_cell(attack.defender)
+            effect_planner = self._effect_planner(projection, defender)
+            if isinstance(attack.effect, HitEffect):
+                attack.effect = effect_planner.plan_hit(attacker, defender)
+            else:
+                attack.effect = effect_planner.reproject_miss(
+                    attack.effect,
+                    attacker,
+                    defender,
+                    projection,
+                )
+            return True
+        except Exception:
+            return False
+
+    def cleanup_attack(self, token):
+        attack = self.attacks.pop(token, None)
+        if attack is not None:
+            self._destroy_attack_visuals(attack)
+
+    def _camera_projection(self):
+        scene = self
+
+        class Projection:
+            def project(self, cell):
+                camera = scene.engine.camera
+                world = scene.engine.Vec3(*FlightPlanner.to_position(cell))
+                relative = camera.getRelativePoint(scene.engine.scene, world)
+                projected = camera.lens.getProjectionMat().xform(
+                    scene.engine.Vec4(relative.x, relative.y, relative.z, 1)
+                )
+                reciprocal_w = 1 / projected[3] if projected[3] > 0 else 1
+                return ScreenPoint(
+                    projected[0] * reciprocal_w * camera.aspect_ratio / 2,
+                    projected[1] * reciprocal_w / 2,
+                )
+
+        return Projection()
+
+    def _effect_planner(self, projection, reference_cell):
+        aspect = self.engine.camera.aspect_ratio
+        bounds = ScreenBounds(-aspect / 2, aspect / 2, -.5, .5)
+        neighbors = []
+        center = projection.project(reference_cell)
+        for dx, dy, dz in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)):
+            coordinates = (reference_cell.x + dx, reference_cell.y + dy, reference_cell.z + dz)
+            if all(1 <= coordinate <= 5 for coordinate in coordinates):
+                neighbor = projection.project(Cell(*coordinates))
+                distance = hypot(neighbor.x - center.x, neighbor.y - center.y)
+                if distance > 0:
+                    neighbors.append(distance)
+        if not neighbors:
+            raise ValueError("current view does not expose a measurable board cell")
+        return CombatEffectPlanner(self.visual_rng, projection, bounds=bounds, cell_diameter=max(neighbors))
+
+    def _ship_cell(self, player):
+        return next(ship.cell for ship in self.view.battle.ships if ship.player is player)
+
+    def _create_torpedo(self, radius):
+        engine = self.engine
+        vertices = CombatEffectPlanner.star_vertices()
+
+        def star_mesh(scale):
+            mesh_vertices = [engine.Vec3(0, 0, 0)] + [
+                engine.Vec3(point.x * radius * scale, point.y * radius * scale, 0)
+                for point in vertices
+            ]
+            triangles = [(0, index + 1, (index + 1) % len(vertices) + 1) for index in range(len(vertices))]
+            return engine.Mesh(vertices=mesh_vertices, triangles=triangles, mode="triangle", static=True)
+
+        outline = engine.Entity(
+            parent=engine.camera.ui,
+            model=star_mesh(1.16),
+            color=getattr(engine.color, "black", engine.color.dark_gray),
+            enabled=True,
+        )
+        try:
+            fill = engine.Entity(
+                parent=engine.camera.ui,
+                model=star_mesh(1.0),
+                color=getattr(engine.color, "yellow", engine.color.white),
+                enabled=True,
+            )
+        except Exception:
+            try:
+                engine.destroy(outline)
+            except Exception:
+                pass
+            raise
+        return fill, outline
+
+    @staticmethod
+    def _set_attack_position(attack, point):
+        position = (point.x, point.y, 0)
+        attack.torpedo_fill.position = position
+        attack.torpedo_outline.position = position
+
+    def _update_hit_attack(self, attack, delta_time):
+        effect = attack.effect
+        if attack.elapsed < .65:
+            progress = attack.elapsed / .65
+            point = ScreenPoint(
+                effect.start.x + (effect.contact.x - effect.start.x) * progress,
+                effect.start.y + (effect.contact.y - effect.start.y) * progress,
+            )
+            self._set_attack_position(attack, point)
+            visible = int(attack.elapsed * effect.blink_hz * 2) % 2 == 0
+            attack.torpedo_fill.enabled = visible
+            attack.torpedo_outline.enabled = visible
+            attack.explosion.enabled = False
+            return False
+        else:
+            attack.torpedo_fill.enabled = False
+            attack.torpedo_outline.enabled = False
+            attack.explosion.enabled = True
+            attack.explosion.position = (effect.contact.x, effect.contact.y, 0)
+            attack.explosion.scale = effect.star_radius * 2 * (1 + attack.elapsed - .65)
+            if not attack.explosion_visible:
+                attack.explosion_visible = True
+                return False
+            attack.explosion_elapsed += delta_time
+            return attack.explosion_elapsed >= .18
+
+    def _update_miss_attack(self, attack):
+        route = attack.effect.route
+        lengths = [hypot(b.x - a.x, b.y - a.y) for a, b in zip(route, route[1:])]
+        distance = sum(lengths) * min(1.0, attack.elapsed / .9)
+        for start, end, length in zip(route, route[1:], lengths):
+            if distance <= length:
+                fraction = distance / length if length else 1.0
+                point = ScreenPoint(
+                    start.x + (end.x - start.x) * fraction,
+                    start.y + (end.y - start.y) * fraction,
+                )
+                self._set_attack_position(attack, point)
+                break
+            distance -= length
+        visible = int(attack.elapsed * 12) % 2 == 0
+        attack.torpedo_fill.enabled = visible
+        attack.torpedo_outline.enabled = visible
+        attack.explosion.enabled = False
+
+    def _destroy_attack_visuals(self, attack):
+        for entity in (attack.torpedo_fill, attack.torpedo_outline, attack.explosion):
+            try:
+                self.engine.destroy(entity)
+            except Exception:
+                pass
 
     def place_ship(self, player, cell):
         if not isinstance(player, Player) or not isinstance(cell, Cell):
