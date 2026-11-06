@@ -127,12 +127,12 @@ description: "Implementation tasks for the three-dimensional ship battle"
 
 ## Phase 8: Polish and cross-cutting acceptance
 
-- [ ] T046 [P] Define a reproducible seeded sampling plan in `specs/001-cube-ship-battle/sampling-plan.md` with sample sizes, independence/uniformity tests, 5% significance threshold and multiple-comparison treatment before sampling.
-- [ ] T047 Implement statistical acceptance tests in `tests/integration/test_randomness.py` against the predefined plan for eligible setup cells, scores, HP draws, miss angles/sides and independence from gameplay dice; record the seed and results in `specs/001-cube-ship-battle/development.md`.
-- [ ] T048 Update `README.md` with verified Python/uv installation, actual run/test commands, graphics prerequisites, controls, game rules, and links to the validation guide; remove planning-only claims only after implementation works.
+- [X] T046 [P] Define a reproducible seeded sampling plan in `specs/001-cube-ship-battle/sampling-plan.md` with sample sizes, independence/uniformity tests, 5% significance threshold and multiple-comparison treatment before sampling.
+- [X] T047 Implement statistical acceptance tests in `tests/integration/test_randomness.py` against the predefined plan for eligible setup cells, scores, HP draws, miss angles/sides and independence from gameplay dice; record the seed and results in `specs/001-cube-ship-battle/development.md`.
+- [X] T048 Update `README.md` with verified Python/uv installation, actual run/test commands, graphics prerequisites, controls, game rules, and links to the validation guide; remove planning-only claims only after implementation works.
 - [ ] T049 Execute `uv sync --locked`, `uv run pytest`, and all scenarios in `specs/001-cube-ship-battle/quickstart.md`; record platform, commands, results, full-board coverage and any unverified graphical checks in `specs/001-cube-ship-battle/development.md`. Require the documented, maintainer-approved reference environment and the plan's timing protocol; record individual monotonic wall-clock durations through rendered/selectable highlights, visible movement arrival plus attack-choice availability, and displayed attack outcome plus next-turn availability or victory. Include movement recovery and camera-driven presentation failure; averages or fake-clock tests alone cannot establish performance acceptance.
 - [ ] T050 Conduct and document the first-time-player usability test in `specs/001-cube-ship-battle/development.md`: participant count and ≥90% unaided completion of the spec's active-player, hidden-cell, movement/skip and attack/end tasks.
-- [ ] T051 Review feature ownership, typed contracts and localized engine exceptions, composition/inheritance justifications, and complete per-change red-green-refactor evidence in `specs/001-cube-ship-battle/development.md`; block acceptance on any constitution violation.
+- [X] T051 Review feature ownership, typed contracts and localized engine exceptions, composition/inheritance justifications, and complete per-change red-green-refactor evidence in `specs/001-cube-ship-battle/development.md`; block acceptance on any constitution violation.
 
 ## Dependencies & Execution Order
 

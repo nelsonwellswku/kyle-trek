@@ -8,7 +8,7 @@ The game supports setup, cell inspection, movement and skip, attack or end-turn,
 
 ## Python setup
 
-Use Python 3.12 or newer, [uv](https://docs.astral.sh/uv/), and a Linux graphical desktop with working 3D acceleration. Ursina and pytest are installed by uv. The current setup has been verified with Python 3.14; Python 3.12 has not yet been verified.
+Use Python 3.12 or newer, [uv](https://docs.astral.sh/uv/), and a Linux graphical desktop with a working display and compatible 3D acceleration. Ursina and pytest are installed by uv. The current setup has been verified with Python 3.13.2; Python 3.12 has not yet been verified.
 
 From the repository root:
 
@@ -28,4 +28,11 @@ uv run pytest
 - Select **New game** at any time, including during movement or combat effects and after victory.
 - Use the **arrow keys** to orbit the camera without changing the battle.
 
-Cell clicks inspect cells outside the movement phase. Automated tests do not replace the outstanding full-board graphical and real-display timing acceptance checks.
+## Game rules
+
+- Ships start in opposite Y zones. Each has Agility, Strength, and Constitution scores from 8–20, constitution-adjusted starting HP (minimum 1), and AC 12.
+- Each turn begins with movement. The active ship can move to any unoccupied cell reachable by face-adjacent steps up to `max(0, Agility modifier)`. If no destination is available, **Skip movement** continues to the attack choice.
+- After moving or skipping, attack the opposing ship or choose **End turn**. An attack hits when `d20 + Strength modifier` is at least 12. Hits deal `max(0, d8 + Strength modifier)` damage; a ship at 0 HP loses the battle.
+- Ship rotations are visual, persistent choices that do not consume the turn. Camera orbit and cell inspection do not change battle state.
+
+See the [feature specification](specs/001-cube-ship-battle/spec.md) for complete rules and the [validation guide](specs/001-cube-ship-battle/quickstart.md) for automated, graphical, timing, and usability checks. Automated tests do not replace the outstanding full-board graphical and real-display timing acceptance checks.
