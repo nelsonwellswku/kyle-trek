@@ -1,5 +1,36 @@
+from itertools import product
+from math import cos, isfinite, radians, sin, tan
+from typing import ClassVar
+
 from kyle_trek.battle.state import Battle
 from kyle_trek.battle.types import Cell
+
+
+class CameraFraming:
+    """Fit the cube and axis anchors within a perspective view, with label margin."""
+
+    AXIS_POSITIONS: ClassVar[tuple[tuple[float, float, float], ...]] = (
+        (3.2, 2.7, -2.7), (-2.7, -3.2, -2.7), (-2.7, 2.7, 3.2),
+    )
+
+    @staticmethod
+    def distance(yaw: float, pitch: float, aspect: float, horizontal_fov: float) -> float:
+        if not all(isfinite(value) for value in (yaw, pitch, aspect, horizontal_fov)) or aspect <= 0 or not 0 < horizontal_fov < 180:
+            raise ValueError("camera framing requires finite angles and a positive perspective viewport")
+        yaw, pitch = radians(yaw), radians(pitch)
+        outward = (sin(yaw) * cos(pitch), sin(pitch), -cos(yaw) * cos(pitch))
+        right = (cos(yaw), 0.0, sin(yaw))
+        up = (-sin(yaw) * sin(pitch), cos(pitch), cos(yaw) * sin(pitch))
+        horizontal = tan(radians(horizontal_fov / 2)) * .9
+        vertical = horizontal / aspect
+        points = tuple(product((-2.5, 2.5), repeat=3)) + CameraFraming.AXIS_POSITIONS
+        return max(13.0, max(
+            sum(a * b for a, b in zip(point, outward)) + max(
+                abs(sum(a * b for a, b in zip(point, right))) / horizontal,
+                abs(sum(a * b for a, b in zip(point, up))) / vertical,
+            )
+            for point in points
+        ))
 
 
 class Inspection:

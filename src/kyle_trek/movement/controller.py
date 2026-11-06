@@ -37,6 +37,7 @@ class _PendingMove:
     destination: Cell
     deadline: float
     timeout_handle: object | None = None
+    resolving: bool = False
 
 
 class MovementController:
@@ -108,15 +109,22 @@ class MovementController:
         self._notify_change()
 
         try:
+            if not self._is_current(pending):
+                return True
             reserve = min(0.1, self.timeout_seconds / 4)
             remaining = deadline - self.clock.monotonic()
             pending.timeout_handle = self.scheduler.call_later(
                 max(0.0, remaining - reserve),
                 lambda token=token: self._timed_out(token),
             )
+            if not self._is_current(pending):
+                self._cancel_timeout(pending)
+                return True
             if remaining <= reserve:
                 raise TimeoutError("movement presentation deadline reserve reached")
             plan = self.planner.plan(start, cell, opponent.cell)
+            if not self._is_current(pending):
+                return True
             remaining = deadline - self.clock.monotonic()
             flight_budget = remaining - reserve
             if flight_budget <= 0:
@@ -150,6 +158,7 @@ class MovementController:
         pending = self._pending
         if (
             pending is None
+            or pending.resolving
             or self._disposed
             or token != pending.token
             or token.generation != self.battle.generation
@@ -181,28 +190,42 @@ class MovementController:
             self._recover(pending, "Movement presentation timed out.")
 
     def _recover(self, pending: _PendingMove, message: str) -> None:
+        if not self._is_current(pending) or pending.resolving:
+            return
+        # Keep identity until every reentrant boundary returns, but reject duplicate
+        # resolutions. Session cancellation can still invalidate/discard this action.
+        pending.resolving = True
+        self._cancel_timeout(pending)
         if not self._is_current(pending):
             return
-        self._pending = None
-        self._cancel_timeout(pending)
         self._safe_cleanup(pending.token)
+        if not self._is_current(pending):
+            return
         try:
             self.presenter.place_ship(pending.player, pending.destination)
         except Exception:
             # The committed domain position remains authoritative if visual placement fails.
             pass
-        self.battle.phase = Phase.ATTACK_CHOICE
+        if not self._is_current(pending):
+            return
         try:
             self.on_error(message)
         except Exception:
             pass
+        if not self._is_current(pending):
+            return
+        self._pending = None
+        self.battle.phase = Phase.ATTACK_CHOICE
         self._notify_change()
 
     def _complete(self, pending: _PendingMove) -> None:
         if not self._is_current(pending):
             return
-        self._pending = None
+        pending.resolving = True
         self._cancel_timeout(pending)
+        if not self._is_current(pending):
+            return
+        self._pending = None
         self.battle.phase = Phase.ATTACK_CHOICE
         self._notify_change()
 
@@ -223,8 +246,10 @@ class MovementController:
 
     def _cancel_timeout(self, pending: _PendingMove) -> None:
         if pending.timeout_handle is not None:
+            handle = pending.timeout_handle
+            pending.timeout_handle = None
             try:
-                self.scheduler.cancel(pending.timeout_handle)
+                self.scheduler.cancel(handle)
             except Exception:
                 pass
 

@@ -1,5 +1,6 @@
 import random
 from dataclasses import replace
+import pytest
 
 from kyle_trek.battle.contracts import Lifecycle
 from kyle_trek.battle.session import BattleSession
@@ -316,3 +317,71 @@ def test_new_game_control_cancels_pending_flight_and_attack_presentations():
     assert tuple(ship.hp for ship in old_attack.ships) == old_hp
     assert presenter.cleaned_attacks and callable(scene.new_game_callback)
     assert not errors
+
+
+@pytest.mark.parametrize("cancellation", ["restart", "dispose"])
+@pytest.mark.parametrize("boundary", ["cleanup", "timer", "placement", "error", "notification", "planning", "scheduling"])
+def test_movement_cancellation_wins_at_reentrant_presentation_boundaries(monkeypatch, boundary, cancellation):
+    session, presenter, _, scheduler, errors, changes = make_session()
+    target = prepare_movable(session)
+    old_battle = session.battle
+    controller = session.movement_controller
+    cancelled = []
+    placements_at_interrupt = []
+
+    def interrupt():
+        if not cancelled:
+            cancelled.append(True)
+            placements_at_interrupt.extend(presenter.placements)
+            if cancellation == "restart":
+                session.new_game()
+            else:
+                session.dispose()
+
+    if boundary == "cleanup":
+        presenter.on_cleanup = interrupt
+    elif boundary == "timer":
+        original = scheduler.cancel
+        def cancel_timer(handle):
+            original(handle)
+            interrupt()
+        monkeypatch.setattr(scheduler, "cancel", cancel_timer)
+    elif boundary == "placement":
+        monkeypatch.setattr(presenter, "place_ship", lambda player, cell: interrupt())
+    elif boundary == "error":
+        monkeypatch.setattr(controller, "on_error", lambda message: interrupt())
+    elif boundary == "notification":
+        original_change = controller.on_change
+        def notify():
+            original_change()
+            interrupt()
+        monkeypatch.setattr(controller, "on_change", notify)
+    elif boundary == "planning":
+        original_plan = controller.planner.plan
+        def plan(*args):
+            interrupt()
+            return original_plan(*args)
+        monkeypatch.setattr(controller.planner, "plan", plan)
+    else:
+        original_schedule = scheduler.call_later
+        def schedule(delay, callback):
+            interrupt()
+            return original_schedule(delay, callback)
+        monkeypatch.setattr(scheduler, "call_later", schedule)
+
+    assert controller.select_cell(target)
+    if boundary not in ("notification", "planning", "scheduling"):
+        presenter.flight_callback(presenter.flight_token, Lifecycle.FAILED)
+    assert cancelled
+    assert old_battle.phase is Phase.MOVING
+    assert presenter.placements == placements_at_interrupt
+    assert not errors
+    assert changes == [Phase.MOVING]
+    assert controller._pending is None
+    if cancellation == "restart":
+        assert session.battle is not old_battle
+        assert session.battle.phase is Phase.MOVEMENT
+    else:
+        assert session.battle is None
+    if boundary in ("notification", "planning", "scheduling"):
+        assert presenter.flight_token is None

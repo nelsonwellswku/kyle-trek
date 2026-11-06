@@ -1,10 +1,11 @@
-from typing import Callable, Protocol
+from typing import Any, Callable, Protocol
 from kyle_trek.battle.session import BattleSession
 from kyle_trek.battle.state import Battle, Ship, Stats
 from kyle_trek.battle.types import Cell, Phase, RotationAxis
 from kyle_trek.battle.orientation import OrientationController
 from kyle_trek.combat.controller import CombatController
 from kyle_trek.inspection.inspection import Inspection
+from kyle_trek.inspection.scene import UrsinaScene
 from kyle_trek.movement.controller import MovementController
 
 
@@ -249,8 +250,27 @@ class InitialView:
             self.rotate_ship(axis, -1 if key.startswith("shift+") else 1)
 
 
+class UrsinaScheduler:
+    """Adapt Ursina's dynamic invoke namespace; callers only retain opaque handles.
+
+    Ursina returns runtime Sequence objects with kill/pause methods. Their dynamic
+    compatibility handling stays here; project callbacks and delays are typed.
+    """
+
+    def __init__(self, engine: Any) -> None:
+        self.engine = engine
+
+    def call_later(self, delay: float, callback: Callable[[], None]) -> object:
+        return self.engine.invoke(callback, delay=delay)
+
+    def cancel(self, handle: object) -> None:
+        cancel = getattr(handle, "kill", None) or getattr(handle, "pause", None)
+        if cancel is not None:
+            cancel()
+
+
 _view: InitialView | None = None
-_scene = None
+_scene: UrsinaScene | None = None
 
 
 def input(key: str) -> None:
@@ -261,6 +281,12 @@ def input(key: str) -> None:
 def update() -> None:
     if _scene is not None and _scene.aspect != _scene.engine.camera.aspect_ratio:
         _scene.refresh_layout()
+    if _scene is not None and _scene.projection_aspect != _scene.engine.camera.aspect_ratio:
+        _scene.projection_aspect = _scene.engine.camera.aspect_ratio
+        if _view is not None:
+            _scene.set_camera(_view.inspection.yaw, _view.inspection.pitch)
+            if _view.combat_controller is not None:
+                _view.combat_controller.camera_changed()
     if _scene is not None:
         _scene.update(_scene.engine.time.dt)
 
@@ -278,25 +304,12 @@ def main() -> None:
 
     import ursina
     from kyle_trek.battle.setup import BattleSetup
-    from kyle_trek.inspection.scene import UrsinaScene
 
     class MonotonicClock:
         @staticmethod
         def monotonic() -> float:
             import time
             return time.monotonic()
-
-    class UrsinaScheduler:
-        def __init__(self, engine):
-            self.engine = engine
-
-        def call_later(self, delay, callback):
-            return self.engine.invoke(callback, delay=delay)
-
-        def cancel(self, handle):
-            cancel = getattr(handle, "kill", None) or getattr(handle, "pause", None)
-            if cancel is not None:
-                cancel()
 
     global _view, _scene
     app = ursina.Ursina()

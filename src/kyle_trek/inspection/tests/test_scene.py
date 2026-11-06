@@ -11,6 +11,7 @@ from kyle_trek.battle.types import Cell, Orientation, Phase, Player, RotationAxi
 from kyle_trek.combat.controller import CombatController
 from kyle_trek.combat.outcome import AttackOutcome
 from kyle_trek.movement.flight import FlightPlanner
+from kyle_trek.movement.controller import MovementController
 from kyle_trek.inspection.scene import UrsinaScene
 
 
@@ -441,3 +442,252 @@ def test_scene_presents_persistent_discrete_ship_rotation_and_cancels_cleanly():
     scene.cleanup_rotation(ActionToken(battle.generation, 8))
     assert entity.rotation == original_visual
     assert isinstance(battle.ships[0].orientation, Orientation)
+
+
+class PlaybackFault:
+    """Compose a one-shot engine setter failure around an existing visual."""
+
+    def __init__(self, visual):
+        object.__setattr__(self, "visual", visual)
+        object.__setattr__(self, "pending_fault", True)
+
+    def __getattr__(self, name):
+        return getattr(self.visual, name)
+
+    def __setattr__(self, name, value):
+        if name == "position" and self.pending_fault:
+            object.__setattr__(self, "pending_fault", False)
+            raise RuntimeError("injected engine playback failure")
+        setattr(self.visual, name, value)
+
+
+class SceneClock:
+    def monotonic(self):
+        return 10.1
+
+
+class SceneScheduler:
+    def call_later(self, delay, callback):
+        return [delay, callback, False]
+
+    def cancel(self, handle):
+        handle[2] = True
+
+
+def test_scene_flight_playback_failure_recovers_visible_destination_and_keeps_updating_other_actions():
+    engine = Engine()
+    scene = UrsinaScene(engine)
+    battle = BattleSetup(random.Random(8)).create()
+    battle._ships = (
+        replace(battle.ships[0], cell=Cell(2, 3, 3), stats=Stats(14, 10, 10)),
+        replace(battle.ships[1], cell=Cell(5, 5, 5)),
+    )
+    scene.show_ships(battle.ships)
+    errors, changes = [], []
+    controller = MovementController(
+        battle, scene, SceneClock(), SceneScheduler(), on_error=errors.append,
+        on_change=lambda: changes.append(battle.phase),
+    )
+    target = Cell(3, 3, 3)
+    assert controller.select_cell(target)
+    scene.ship_entities[Player.ONE] = PlaybackFault(scene.ship_entities[Player.ONE])
+    other_plan = FlightPlanner().plan(Cell(5, 5, 5), Cell(4, 5, 5), Cell(1, 1, 1))
+    other_token = ActionToken(battle.generation, 99)
+    scene.start_flight(Player.TWO, other_plan, other_token, lambda *_: None)
+
+    scene.update(.1)
+
+    assert battle.phase is Phase.ATTACK_CHOICE
+    assert scene.ship_entities[Player.ONE].position == FlightPlanner.to_position(target)
+    assert len(errors) == 1 and "playback" in errors[0]
+    assert changes == [Phase.MOVING, Phase.ATTACK_CHOICE]
+    assert set(scene.flights) == {other_token}
+    assert scene.ship_entities[Player.TWO].position != FlightPlanner.to_position(Cell(5, 5, 5))
+    scene.update(.8)
+    assert not scene.flights and len(errors) == 1
+
+
+def test_scene_renders_the_continuous_detour_instead_of_the_obstructed_endpoint_chord():
+    from math import dist, sqrt
+
+    scene = UrsinaScene(Engine())
+    battle = BattleSetup(random.Random(8)).create()
+    scene.show_ships(battle.ships)
+    start, end, obstacle = Cell(1, 3, 3), Cell(3, 3, 3), Cell(2, 3, 3)
+    plan = FlightPlanner().plan(start, end, obstacle)
+    completed = []
+    scene.start_flight(Player.ONE, plan, ActionToken(1, 9), lambda *args: completed.append(args))
+    for _ in range(101):
+        scene.update(plan.duration / 100)
+        position = scene.ship_entities[Player.ONE].position
+        assert dist(position, FlightPlanner.to_position(obstacle)) >= plan.ship_size * sqrt(3) - 1e-9
+    assert len(completed) == 1
+    assert scene.ship_entities[Player.ONE].position == FlightPlanner.to_position(end)
+
+
+@pytest.mark.parametrize("rolls,hp,expected_hp", [((20, 4), 8, 4), ((20, 8), 2, 0), ((1,), 8, 8)])
+def test_scene_combat_playback_failure_resolves_stored_outcome_once(rolls, hp, expected_hp):
+    class Dice:
+        def __init__(self):
+            self.rolls = iter(rolls)
+            self.calls = []
+
+        def randint(self, lower, upper):
+            self.calls.append((lower, upper))
+            return next(self.rolls)
+
+    engine = CombatEngine()
+    scene = UrsinaScene(engine, visual_rng=random.Random(12))
+    battle = BattleSetup(random.Random(8)).create()
+    battle._ships = (
+        replace(battle.ships[0], cell=Cell(1, 3, 3), stats=Stats(10, 10, 10)),
+        replace(battle.ships[1], cell=Cell(5, 3, 3), hp=hp, starting_hp=max(hp, battle.ships[1].starting_hp)),
+    )
+    battle.phase = Phase.ATTACK_CHOICE
+    scene.bind(SimpleNamespace(battle=battle))
+    scene.show_ships(battle.ships)
+    dice, errors, changes = Dice(), [], []
+    controller = CombatController(
+        battle, scene, dice, SceneClock(), SceneScheduler(), on_error=errors.append,
+        on_change=lambda: changes.append(battle.phase),
+    )
+    assert controller.attack(battle.ships[1].cell)
+    token, attack = next(iter(scene.attacks.items()))
+    old_fill = attack.torpedo_fill
+    attack.torpedo_fill = PlaybackFault(old_fill)
+    engine.entities[engine.entities.index(old_fill)] = attack.torpedo_fill
+
+    scene.update(.1)
+    scene.update(1.0)
+    controller._timed_out(token)
+
+    assert battle.ships[1].hp == expected_hp
+    assert battle.phase is (Phase.FINISHED if expected_hp == 0 else Phase.MOVEMENT)
+    assert battle.winner is (Player.ONE if expected_hp == 0 else None)
+    assert battle.last_outcome is not None
+    assert len(dice.calls) == len(rolls)
+    assert len(errors) == 1 and "playback" in errors[0]
+    assert len(changes) == 2
+    assert not scene.attacks
+    assert all(visual not in engine.entities for visual in (attack.torpedo_fill, attack.torpedo_outline, attack.explosion))
+
+
+def make_projected_attack(hit):
+    from kyle_trek.__main__ import InitialView
+
+    class Dice:
+        def __init__(self, values):
+            self.values = iter(values)
+            self.calls = []
+
+        def randint(self, low, high):
+            self.calls.append((low, high))
+            return next(self.values)
+
+    engine = CombatEngine()
+    engine.time = SimpleNamespace(dt=.01)
+    visuals = Dice((20, 1))
+    scene = UrsinaScene(engine, visual_rng=visuals)
+    battle = BattleSetup(random.Random(8)).create()
+    battle._ships = (
+        replace(battle.ships[0], cell=Cell(1, 3, 3), stats=Stats(10, 10, 10)),
+        replace(battle.ships[1], cell=Cell(5, 3, 3), hp=8, starting_hp=8),
+    )
+    battle.phase = Phase.ATTACK_CHOICE
+    view = InitialView(battle, scene)
+    scene.bind(view)
+    dice = Dice((20, 4) if hit else (1,))
+    controller = CombatController(battle, scene, dice, SceneClock(), SceneScheduler())
+    view.bind_combat(controller)
+    view.render()
+    assert controller.attack(battle.ships[1].cell)
+    return engine, scene, controller, view, dice, visuals
+
+
+def rendered_star_radius(visual):
+    from math import hypot
+
+    return max(hypot(vertex.x, vertex.y) for vertex in visual.model.vertices) * getattr(visual, "scale", 1.0)
+
+
+@pytest.mark.parametrize("hit", [True, False])
+@pytest.mark.parametrize("projection_scale", [.06, .18])
+def test_reprojection_resizes_the_actual_whole_star_and_repositions_without_advancing_time(hit, projection_scale):
+    engine, scene, controller, _, dice, visuals = make_projected_attack(hit)
+    token, attack = next(iter(scene.attacks.items()))
+    scene.update(.08)
+    before_position = attack.torpedo_fill.position
+    elapsed, deadline, timer = attack.elapsed, controller._pending.deadline, controller._pending.timeout_handle
+    original_draws = (list(dice.calls), list(visuals.calls))
+    engine.camera.projection_scale = projection_scale
+
+    assert scene.validate_projection(token)
+
+    assert rendered_star_radius(attack.torpedo_outline) == pytest.approx(attack.effect.star_radius)
+    assert 0 < rendered_star_radius(attack.torpedo_fill) < rendered_star_radius(attack.torpedo_outline)
+    assert rendered_star_radius(attack.torpedo_outline) >= .2 * attack.effect.cell_diameter - 1e-9
+    assert attack.torpedo_fill.position != before_position
+    assert attack.elapsed == elapsed
+    assert controller._pending.deadline == deadline and controller._pending.timeout_handle is timer
+    assert (dice.calls, visuals.calls) == original_draws
+    if not hit:
+        target = scene._camera_projection().project(controller.battle.ships[1].cell)
+        for first, second in zip(attack.effect.route, attack.effect.route[1:]):
+            assert scene._effect_planner(scene._camera_projection(), controller.battle.ships[1].cell)._distance_to_segment(target, first, second) >= rendered_star_radius(attack.torpedo_outline) + attack.effect.defender_radius - 1e-9
+
+
+def test_hit_reprojection_repositions_and_rescales_visible_explosion_without_restarting_it():
+    engine, scene, controller, _, _, _ = make_projected_attack(True)
+    token, attack = next(iter(scene.attacks.items()))
+    scene.update(.7)
+    assert attack.explosion.enabled
+    elapsed = attack.explosion_elapsed
+    old_position = attack.explosion.position
+    engine.camera.projection_scale = .18
+
+    assert scene.validate_projection(token)
+
+    assert attack.explosion.position != old_position
+    assert attack.explosion.position[:2] == (attack.effect.contact.x, attack.effect.contact.y)
+    assert attack.explosion.scale == pytest.approx(attack.effect.star_radius * 2 * (1 + attack.elapsed - .65))
+    assert attack.explosion_elapsed == elapsed
+    assert controller.battle.ships[1].hp == 8
+
+
+@pytest.mark.parametrize("hit", [True, False])
+@pytest.mark.parametrize("aspect", [.9, .01])
+@pytest.mark.parametrize("layout_already_refreshed", [False, True])
+def test_application_resize_revalidates_effects_and_recovers_infeasible_projection_once(monkeypatch, hit, aspect, layout_already_refreshed):
+    import kyle_trek.__main__ as application
+
+    engine, scene, controller, view, dice, visuals = make_projected_attack(hit)
+    token, attack = next(iter(scene.attacks.items()))
+    old_start = attack.effect.start if hit else attack.effect.route[0]
+    old_deadline, timer = controller._pending.deadline, controller._pending.timeout_handle
+    draws = (list(dice.calls), list(visuals.calls))
+    monkeypatch.setattr(application, "_scene", scene)
+    monkeypatch.setattr(application, "_view", view)
+    engine.camera.aspect_ratio = aspect
+    if layout_already_refreshed:
+        # Changing a depth layer can refresh layout before the next engine tick.
+        view.select_layer(2)
+
+    application.update()
+
+    if aspect == .9:
+        assert token in scene.attacks
+        new_start = attack.effect.start if hit else attack.effect.route[0]
+        assert new_start != old_start
+        assert controller._pending.deadline == old_deadline
+        assert controller._pending.timeout_handle is timer
+    else:
+        assert not scene.attacks
+        assert controller.battle.phase is Phase.MOVEMENT
+        assert controller.battle.ships[1].hp == (4 if hit else 8)
+        assert controller.battle.last_outcome is not None
+        assert "camera" in scene.error_text.text
+        outcome = controller.battle.last_outcome
+        controller._timed_out(token)
+        application.update()
+        assert controller.battle.last_outcome == outcome
+    assert (dice.calls, visuals.calls) == draws

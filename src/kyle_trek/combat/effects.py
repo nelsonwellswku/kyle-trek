@@ -202,7 +202,7 @@ class CombatEffectPlanner:
         )
 
     @staticmethod
-    def _distance_to_segment(point, start, end):
+    def _distance_to_segment(point: ScreenPoint, start: ScreenPoint, end: ScreenPoint) -> float:
         dx, dy = end.x - start.x, end.y - start.y
         length_squared = dx * dx + dy * dy
         if length_squared == 0:
@@ -211,7 +211,12 @@ class CombatEffectPlanner:
         return hypot(point.x - start.x - t * dx, point.y - start.y - t * dy)
 
     @staticmethod
-    def _ray_exit(start, direction, bounds, radius):
+    def _ray_exit(
+        start: ScreenPoint,
+        direction: tuple[float, float],
+        bounds: ScreenBounds,
+        radius: float,
+    ) -> ScreenPoint:
         distances = []
         if direction[0] > 1e-9:
             distances.append((bounds.right + radius - start.x) / direction[0])

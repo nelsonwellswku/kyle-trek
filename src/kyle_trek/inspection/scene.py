@@ -19,6 +19,7 @@ from kyle_trek.combat.effects import (
 )
 from kyle_trek.combat.outcome import AttackOutcome
 from kyle_trek.movement.flight import FlightPlan, FlightPlanner
+from kyle_trek.inspection.inspection import CameraFraming
 
 
 @dataclass
@@ -49,9 +50,11 @@ class _Attack:
     token: ActionToken
     callback: PresentationCallback
     effect: HitEffect | MissEffect
-    torpedo_fill: object
-    torpedo_outline: object
-    explosion: object
+    # Ursina runtime entities stay within this adapter's documented dynamic boundary.
+    torpedo_fill: Any
+    torpedo_outline: Any
+    explosion: Any
+    mesh_radius: float
     elapsed: float = 0.0
     explosion_elapsed: float = 0.0
     explosion_visible: bool = False
@@ -92,6 +95,7 @@ class UrsinaScene:
     new_game_button: Any | None
     view: SceneView | None
     aspect: float
+    projection_aspect: float
 
     def __init__(self, engine: Any, visual_rng: RandomSource | None = None) -> None:
         self.engine = engine
@@ -112,6 +116,7 @@ class UrsinaScene:
         self.end_turn_button = None
         self.new_game_button = None
         self.aspect = engine.camera.aspect_ratio
+        self.projection_aspect = self.aspect
 
     def refresh_layout(self) -> None:
         self.aspect = self.engine.camera.aspect_ratio
@@ -207,8 +212,7 @@ class UrsinaScene:
                     entity.rotation = ship.orientation.euler_degrees
 
     def show_axes(self, axes: Iterable[str]) -> None:
-        positions = ((3.2, 2.7, -2.7), (-2.7, -3.2, -2.7), (-2.7, 2.7, 3.2))
-        for label, position in zip(axes, positions):
+        for label, position in zip(axes, CameraFraming.AXIS_POSITIONS):
             if label not in self.axis_labels:
                 self.axis_labels[label] = self.engine.Text(
                     parent=self.engine.scene,
@@ -317,52 +321,74 @@ class UrsinaScene:
         if not isfinite(delta_time) or delta_time < 0:
             raise ValueError("frame time must be finite and nonnegative")
         for token, flight in tuple(self.flights.items()):
-            flight.elapsed = min(flight.plan.duration, flight.elapsed + delta_time)
-            segment_count = len(flight.plan.waypoints) - 1
-            progress = flight.elapsed / flight.plan.duration * segment_count
-            segment = min(int(progress), segment_count - 1)
-            fraction = min(1.0, max(0.0, progress - segment))
-            eased = fraction * fraction * (3 - 2 * fraction)
-            start = FlightPlanner.to_position(flight.plan.waypoints[segment])
-            end = FlightPlanner.to_position(flight.plan.waypoints[segment + 1])
-            self.ship_entities[flight.player].position = tuple(a + (b - a) * eased for a, b in zip(start, end))
-            if flight.elapsed >= flight.plan.duration:
-                self.ship_entities[flight.player].position = FlightPlanner.to_position(flight.plan.waypoints[-1])
-                del self.flights[token]
-                try:
-                    flight.callback(token, Lifecycle.COMPLETED)
-                except Exception:
-                    pass
+            if self.flights.get(token) is not flight:
+                continue
+            try:
+                completed = self._update_flight(flight, delta_time)
+                lifecycle = Lifecycle.COMPLETED
+            except Exception:
+                completed, lifecycle = True, Lifecycle.FAILED
+            if completed and self.flights.pop(token, None) is flight:
+                self._notify_presentation(token, flight.callback, lifecycle)
         for token, rotation in tuple(self.rotations.items()):
-            rotation.elapsed = min(.3, rotation.elapsed + delta_time)
-            progress = rotation.elapsed / .3
-            eased = progress * progress * (3 - 2 * progress)
-            target = rotation.target.euler_degrees
-            delta = tuple((end - start + 180) % 360 - 180 for start, end in zip(rotation.start_euler, target))
-            self.ship_entities[rotation.player].rotation = tuple(
-                start + change * eased for start, change in zip(rotation.start_euler, delta)
-            )
-            if rotation.elapsed >= .3:
-                self.ship_entities[rotation.player].rotation = target
-                del self.rotations[token]
-                try:
-                    rotation.callback(token, Lifecycle.COMPLETED)
-                except Exception:
-                    pass
+            if self.rotations.get(token) is not rotation:
+                continue
+            try:
+                completed = self._update_rotation(rotation, delta_time)
+                lifecycle = Lifecycle.COMPLETED
+            except Exception:
+                completed, lifecycle = True, Lifecycle.FAILED
+            if completed and self.rotations.pop(token, None) is rotation:
+                self._notify_presentation(token, rotation.callback, lifecycle)
         for token, attack in tuple(self.attacks.items()):
-            attack.elapsed += delta_time
-            if isinstance(attack.effect, HitEffect):
-                completed = self._update_hit_attack(attack, delta_time)
-            else:
-                self._update_miss_attack(attack)
-                completed = attack.elapsed >= .9
-            if completed:
-                del self.attacks[token]
+            if self.attacks.get(token) is not attack:
+                continue
+            try:
+                attack.elapsed += delta_time
+                if isinstance(attack.effect, HitEffect):
+                    completed = self._update_hit_attack(attack, delta_time)
+                else:
+                    self._update_miss_attack(attack)
+                    completed = attack.elapsed >= .9
+                lifecycle = Lifecycle.COMPLETED
+            except Exception:
+                completed, lifecycle = True, Lifecycle.FAILED
+            if completed and self.attacks.pop(token, None) is attack:
                 self._destroy_attack_visuals(attack)
-                try:
-                    attack.callback(token, Lifecycle.COMPLETED)
-                except Exception:
-                    pass
+                self._notify_presentation(token, attack.callback, lifecycle)
+
+    @staticmethod
+    def _notify_presentation(token: ActionToken, callback: PresentationCallback, lifecycle: Lifecycle) -> None:
+        try:
+            callback(token, lifecycle)
+        except Exception:
+            # Isolate third-party callback dispatch; the action is already removed
+            # and controller deadline guards remain responsible for recovery.
+            pass
+
+    def _update_flight(self, flight: _Flight, delta_time: float) -> bool:
+        flight.elapsed = min(flight.plan.duration, flight.elapsed + delta_time)
+        progress = flight.elapsed / flight.plan.duration
+        eased = progress * progress * (3 - 2 * progress)
+        self.ship_entities[flight.player].position = flight.plan.position_at(eased)
+        if flight.elapsed >= flight.plan.duration:
+            self.ship_entities[flight.player].position = FlightPlanner.to_position(flight.plan.waypoints[-1])
+            return True
+        return False
+
+    def _update_rotation(self, rotation: _Rotation, delta_time: float) -> bool:
+        rotation.elapsed = min(.3, rotation.elapsed + delta_time)
+        progress = rotation.elapsed / .3
+        eased = progress * progress * (3 - 2 * progress)
+        target = rotation.target.euler_degrees
+        delta = tuple((end - start + 180) % 360 - 180 for start, end in zip(rotation.start_euler, target))
+        self.ship_entities[rotation.player].rotation = tuple(
+            start + change * eased for start, change in zip(rotation.start_euler, delta)
+        )
+        if rotation.elapsed >= .3:
+            self.ship_entities[rotation.player].rotation = target
+            return True
+        return False
 
     def cleanup_flight(self, token: ActionToken) -> None:
         self.flights.pop(token, None)
@@ -435,7 +461,7 @@ class UrsinaScene:
                 enabled=False,
             )
             visuals.append(explosion)
-            attack = _Attack(attacker.player, defender.player, outcome, token, callback, effect, fill, outline, explosion)
+            attack = _Attack(attacker.player, defender.player, outcome, token, callback, effect, fill, outline, explosion, effect.star_radius)
             self.attacks[token] = attack
             initial_point = effect.start if isinstance(effect, HitEffect) else effect.route[0]
             self._set_attack_position(attack, initial_point)
@@ -458,14 +484,25 @@ class UrsinaScene:
             defender = self._ship_cell(attack.defender)
             effect_planner = self._effect_planner(projection, defender)
             if isinstance(attack.effect, HitEffect):
-                attack.effect = effect_planner.plan_hit(attacker, defender)
+                effect = effect_planner.plan_hit(attacker, defender)
             else:
-                attack.effect = effect_planner.reproject_miss(
+                effect = effect_planner.reproject_miss(
                     attack.effect,
                     attacker,
                     defender,
                     projection,
                 )
+            # Mesh vertices retain their launch radius; scale both actual visuals to
+            # the newly validated *outer* radius, including the complete outline.
+            scale = effect.star_radius / attack.mesh_radius
+            attack.torpedo_fill.scale = scale
+            attack.torpedo_outline.scale = scale
+            attack.explosion.scale = effect.star_radius * 2
+            attack.effect = effect
+            if isinstance(effect, HitEffect):
+                self._update_hit_attack(attack, 0.0)
+            else:
+                self._update_miss_attack(attack)
             return True
         except Exception:
             return False
@@ -521,7 +558,7 @@ class UrsinaScene:
         engine = self.engine
         vertices = CombatEffectPlanner.star_vertices()
 
-        def star_mesh(scale):
+        def star_mesh(scale: float) -> Any:
             mesh_vertices = [engine.Vec3(0, 0, 0)] + [
                 engine.Vec3(point.x * radius * scale, point.y * radius * scale, 0)
                 for point in vertices
@@ -531,14 +568,16 @@ class UrsinaScene:
 
         outline = engine.Entity(
             parent=engine.camera.ui,
-            model=star_mesh(1.16),
+            model=star_mesh(1.0),
+            scale=1.0,
             color=getattr(engine.color, "black", engine.color.dark_gray),
             enabled=True,
         )
         try:
             fill = engine.Entity(
                 parent=engine.camera.ui,
-                model=star_mesh(1.0),
+                model=star_mesh(1 / 1.16),
+                scale=1.0,
                 color=getattr(engine.color, "yellow", engine.color.white),
                 enabled=True,
             )
@@ -617,7 +656,10 @@ class UrsinaScene:
         entity.position = FlightPlanner.to_position(cell)
 
     def set_camera(self, yaw: float, pitch: float) -> None:
+        radius = CameraFraming.distance(
+            yaw, pitch, float(self.engine.camera.aspect_ratio),
+            float(getattr(self.engine.camera, "fov", 40.0)),
+        )
         yaw, pitch = radians(yaw), radians(pitch)
-        radius = 13
         self.engine.camera.position = (radius * sin(yaw) * cos(pitch), radius * sin(pitch), -radius * cos(yaw) * cos(pitch))
         self.engine.camera.look_at((0, 0, 0))
