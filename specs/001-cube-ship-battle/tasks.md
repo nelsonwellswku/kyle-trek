@@ -99,13 +99,13 @@ description: "Implementation tasks for the three-dimensional ship battle"
 
 ### Tests first
 
-- [ ] T036 [P] [US5] Write and run failing restart tests in `src/kyle_trek/battle/tests/test_restart.py` for independent fresh setup, default orientations, Player 1, cleared results/highlights/actions, and no rerolls when revisiting a view.
-- [ ] T037 [P] [US5] Write and run failing cancellation tests in `tests/integration/test_cancellation.py` for restart/disposal during flight and attack, stale/duplicate completion, failure and timeout callbacks, and cancellation versus presentation-failure semantics. Restart or dispose before pending movement recovery runs and verify cancellation takes precedence: no old destination placement, error, phase transition or outcome reaches the new game.
+- [X] T036 [P] [US5] Write and run failing restart tests in `src/kyle_trek/battle/tests/test_restart.py` for independent fresh setup, default orientations, Player 1, cleared results/highlights/actions, and no rerolls when revisiting a view.
+- [X] T037 [P] [US5] Write and run failing cancellation tests in `tests/integration/test_cancellation.py` for restart/disposal during flight and attack, stale/duplicate completion, failure and timeout callbacks, and cancellation versus presentation-failure semantics. Restart or dispose before pending movement recovery runs and verify cancellation takes precedence: no old destination placement, error, phase transition or outcome reaches the new game.
 
 ### Implementation
 
-- [ ] T038 [US5] Implement generation invalidation before cancellation, new-game setup, and disposal in `src/kyle_trek/battle/session.py`; reject callbacks not matching the current generation and action ID.
-- [ ] T039 [US5] Connect cancellation and effect cleanup across `src/kyle_trek/movement/controller.py`, `src/kyle_trek/combat/controller.py`, and `src/kyle_trek/__main__.py`; expose New game in every phase, including animations and victory.
+- [X] T038 [US5] Implement generation invalidation before cancellation, new-game setup, and disposal in `src/kyle_trek/battle/session.py`; reject callbacks not matching the current generation and action ID.
+- [X] T039 [US5] Connect cancellation and effect cleanup across `src/kyle_trek/movement/controller.py`, `src/kyle_trek/combat/controller.py`, and `src/kyle_trek/__main__.py`; expose New game in every phase, including animations and victory.
 - [ ] T040 [US5] Run restart/disposal tests and graphical interruption checks in `specs/001-cube-ship-battle/quickstart.md`; record stale-callback and TDD results in `specs/001-cube-ship-battle/development.md`.
 
 ## Phase 7: User Story 4 — Orient the active ship (P2)
@@ -116,13 +116,13 @@ description: "Implementation tasks for the three-dimensional ship battle"
 
 ### Tests first
 
-- [ ] T041 [P] [US4] Write and run failing orientation tests in `src/kyle_trek/battle/tests/test_orientation.py` for all six rotations, persistence, active ownership, unchanged other state, and invalid phases.
-- [ ] T042 [P] [US4] Write and run failing integration tests in `tests/integration/test_rotation.py` for rendered orientation, separate camera orbit, repeated busy input, and restart/disposal during any rotation presentation.
+- [X] T041 [P] [US4] Write and run failing orientation tests in `src/kyle_trek/battle/tests/test_orientation.py` for all six rotations, persistence, active ownership, unchanged other state, and invalid phases.
+- [X] T042 [P] [US4] Write and run failing integration tests in `tests/integration/test_rotation.py` for rendered orientation, separate camera orbit, repeated busy input, and restart/disposal during any rotation presentation.
 
 ### Implementation
 
-- [ ] T043 [US4] Implement discrete composed 90° rotations and phase/ownership guards in `src/kyle_trek/battle/orientation.py`; preserve position, allowance, phase, combat values and turn order.
-- [ ] T044 [US4] Connect rotation controls and visual transforms to `src/kyle_trek/inspection/scene.py` and `src/kyle_trek/__main__.py`; route any asynchronous completion through the generation/action cancellation contract.
+- [X] T043 [US4] Implement discrete composed 90° rotations and phase/ownership guards in `src/kyle_trek/battle/orientation.py`; preserve position, allowance, phase, combat values and turn order.
+- [X] T044 [US4] Connect rotation controls and visual transforms to `src/kyle_trek/inspection/scene.py` and `src/kyle_trek/__main__.py`; route any asynchronous completion through the generation/action cancellation contract.
 - [ ] T045 [US4] Run orientation tests and visual/cancellation checks from `specs/001-cube-ship-battle/quickstart.md`; record results and TDD evidence in `specs/001-cube-ship-battle/development.md`.
 
 ## Phase 8: Polish and cross-cutting acceptance

@@ -4,7 +4,7 @@ import random
 
 from kyle_trek.battle.contracts import ActionToken, Lifecycle, PresentationCallback
 from kyle_trek.battle.state import Ship
-from kyle_trek.battle.types import Cell, Player
+from kyle_trek.battle.types import Cell, Orientation, Player
 from kyle_trek.combat.effects import CombatEffectPlanner, HitEffect, MissEffect, ScreenBounds, ScreenPoint
 from kyle_trek.combat.outcome import AttackOutcome
 from kyle_trek.movement.flight import FlightPlan, FlightPlanner
@@ -16,6 +16,17 @@ class _Flight:
     plan: FlightPlan
     token: ActionToken
     callback: PresentationCallback
+    elapsed: float = 0.0
+
+
+@dataclass
+class _Rotation:
+    player: Player
+    before: Orientation
+    target: Orientation
+    token: ActionToken
+    callback: PresentationCallback
+    start_euler: tuple[float, float, float]
     elapsed: float = 0.0
 
 
@@ -44,8 +55,10 @@ class UrsinaScene:
         self.layer_buttons = []
         self.layer_cells = []
         self.cell_entities = []
+        self.axis_labels = {}
         self.ship_entities = {}
         self.flights = {}
+        self.rotations = {}
         self.attacks = {}
         self.hud = None
         self.inspection_text = None
@@ -53,6 +66,7 @@ class UrsinaScene:
         self.error_text = None
         self.skip_button = None
         self.end_turn_button = None
+        self.new_game_button = None
         self.aspect = engine.camera.aspect_ratio
 
     def refresh_layout(self):
@@ -70,6 +84,8 @@ class UrsinaScene:
             self.skip_button.position = (left + .11, -.43)
         if self.end_turn_button is not None:
             self.end_turn_button.position = (left + .11, -.43)
+        if self.new_game_button is not None:
+            self.new_game_button.position = (self.aspect / 2 - .09, .47)
         for index, button in enumerate(self.layer_buttons):
             x, y = index % 5, index // 5
             button.position = (self.aspect / 2 - .04 - (4 - x) * .055, -.18 - y * .055)
@@ -116,16 +132,32 @@ class UrsinaScene:
             entity = self.ship_entities.get(ship.player)
             color = self.engine.color.azure if ship.player is Player.ONE else self.engine.color.orange
             if entity is None:
-                entity = self.engine.Entity(model="cube", position=FlightPlanner.to_position(ship.cell), scale=.46, color=color)
+                entity = self.engine.Entity(
+                    model="cube",
+                    position=FlightPlanner.to_position(ship.cell),
+                    scale=(.25, .58, .36),
+                    rotation=ship.orientation.euler_degrees,
+                    color=color,
+                )
                 self.ship_entities[ship.player] = entity
             elif not any(flight.player is ship.player for flight in self.flights.values()):
                 entity.position = FlightPlanner.to_position(ship.cell)
                 entity.color = color
+                if not any(rotation.player is ship.player for rotation in self.rotations.values()):
+                    entity.rotation = ship.orientation.euler_degrees
 
     def show_axes(self, axes):
         positions = ((3.2, 2.7, -2.7), (-2.7, -3.2, -2.7), (-2.7, 2.7, 3.2))
         for label, position in zip(axes, positions):
-            self.engine.Text(parent=self.engine.scene, text=label, position=position, scale=10, billboard=True, color=self.engine.color.white)
+            if label not in self.axis_labels:
+                self.axis_labels[label] = self.engine.Text(
+                    parent=self.engine.scene,
+                    text=label,
+                    position=position,
+                    scale=10,
+                    billboard=True,
+                    color=self.engine.color.white,
+                )
 
     def show_hud(self, text):
         if self.hud is None:
@@ -175,7 +207,32 @@ class UrsinaScene:
             self.error_text = self.engine.Text(parent=self.engine.camera.ui, text=message, scale=.8, color=self.engine.color.red)
         else:
             self.error_text.text = message
+        self.error_text.enabled = bool(message)
         self.refresh_layout()
+
+    def show_new_game(self, callback):
+        if self.new_game_button is None:
+            self.new_game_button = self.engine.Button(
+                parent=self.engine.camera.ui,
+                text="New game",
+                color=self.engine.color.azure,
+                scale=(.16, .05),
+            )
+        self.new_game_button.on_click = callback
+        self.refresh_layout()
+
+    def reset_game_state(self):
+        if self.error_text is not None:
+            self.error_text.text = ""
+            self.error_text.enabled = False
+        if self.action_text is not None:
+            self.action_text.text = ""
+        if self.skip_button is not None:
+            self.engine.destroy(self.skip_button)
+            self.skip_button = None
+        if self.end_turn_button is not None:
+            self.engine.destroy(self.end_turn_button)
+            self.end_turn_button = None
 
     def start_flight(self, player, plan, token, callback):
         if not isinstance(player, Player) or not isinstance(plan, FlightPlan) or not isinstance(token, ActionToken):
@@ -205,6 +262,22 @@ class UrsinaScene:
                     flight.callback(token, Lifecycle.COMPLETED)
                 except Exception:
                     pass
+        for token, rotation in tuple(self.rotations.items()):
+            rotation.elapsed = min(.3, rotation.elapsed + delta_time)
+            progress = rotation.elapsed / .3
+            eased = progress * progress * (3 - 2 * progress)
+            target = rotation.target.euler_degrees
+            delta = tuple((end - start + 180) % 360 - 180 for start, end in zip(rotation.start_euler, target))
+            self.ship_entities[rotation.player].rotation = tuple(
+                start + change * eased for start, change in zip(rotation.start_euler, delta)
+            )
+            if rotation.elapsed >= .3:
+                self.ship_entities[rotation.player].rotation = target
+                del self.rotations[token]
+                try:
+                    rotation.callback(token, Lifecycle.COMPLETED)
+                except Exception:
+                    pass
         for token, attack in tuple(self.attacks.items()):
             attack.elapsed += delta_time
             if isinstance(attack.effect, HitEffect):
@@ -222,6 +295,35 @@ class UrsinaScene:
 
     def cleanup_flight(self, token):
         self.flights.pop(token, None)
+
+    def start_rotation(self, player, orientation, token, callback):
+        if (
+            not isinstance(player, Player)
+            or not isinstance(orientation, Orientation)
+            or not isinstance(token, ActionToken)
+            or not callable(callback)
+        ):
+            raise ValueError("invalid ship rotation presentation values")
+        if token in self.rotations or player not in self.ship_entities:
+            raise RuntimeError("ship or rotation action is unavailable")
+        current = next(ship for ship in self.view.battle.ships if ship.player is player)
+        start_euler = self.ship_entities[player].rotation
+        self.rotations[token] = _Rotation(player, current.orientation, orientation, token, callback, start_euler)
+
+    def cleanup_rotation(self, token):
+        rotation = self.rotations.pop(token, None)
+        if rotation is not None and rotation.player in self.ship_entities:
+            self.ship_entities[rotation.player].rotation = rotation.before.euler_degrees
+
+    def set_orientation(self, player, orientation):
+        if not isinstance(player, Player) or not isinstance(orientation, Orientation):
+            raise ValueError("ship orientation requires a player and discrete orientation")
+        if any(rotation.player is player for rotation in self.rotations.values()):
+            raise RuntimeError("ship orientation cannot change during its rotation presentation")
+        entity = self.ship_entities.get(player)
+        if entity is None:
+            raise RuntimeError("ship visual is unavailable")
+        entity.rotation = orientation.euler_degrees
 
     def start_attack(self, attacker: Ship, defender: Ship, outcome: AttackOutcome, token: ActionToken, callback: PresentationCallback) -> None:
         if (

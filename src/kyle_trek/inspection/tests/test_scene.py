@@ -5,7 +5,7 @@ from dataclasses import replace
 from kyle_trek.battle.setup import BattleSetup
 from kyle_trek.battle.contracts import ActionToken, Lifecycle
 from kyle_trek.battle.state import Stats
-from kyle_trek.battle.types import Cell, Phase, Player
+from kyle_trek.battle.types import Cell, Orientation, Phase, Player, RotationAxis
 from kyle_trek.combat.controller import CombatController
 from kyle_trek.combat.outcome import AttackOutcome
 from kyle_trek.movement.flight import FlightPlanner
@@ -127,6 +127,15 @@ def test_board_and_ship_visuals_are_composed():
     assert {text.text for text in engine.texts} >= {"Player 1", "empty"}
     scene.set_camera(45, 30)
     assert engine.camera.position != (0, 0, 0)
+
+
+def test_repeated_game_render_reuses_axis_labels_instead_of_accumulating_them():
+    engine = Engine()
+    scene = UrsinaScene(engine)
+    scene.show_axes(("X", "Y", "Z"))
+    scene.show_axes(("X", "Y", "Z"))
+
+    assert [text.text for text in engine.texts] == ["X", "Y", "Z"]
 
 
 def test_ui_fits_narrow_window():
@@ -312,3 +321,51 @@ def test_end_turn_control_is_displayed_and_calls_its_action():
     assert scene.end_turn_button.text == "End turn"
     scene.end_turn_button.on_click()
     assert called == [True]
+
+
+def test_new_game_control_remains_available_and_clears_old_feedback():
+    engine = Engine()
+    scene = UrsinaScene(engine)
+    called = []
+    scene.show_new_game(lambda: called.append(True))
+    button = scene.new_game_button
+    scene.show_action_prompt("Battle finished")
+    scene.show_error("old presentation error")
+
+    assert button.text == "New game"
+    button.on_click()
+    assert called == [True]
+    scene.reset_game_state()
+    assert scene.new_game_button is button
+    assert scene.error_text.text == "" and not scene.error_text.enabled
+
+
+def test_scene_presents_persistent_discrete_ship_rotation_and_cancels_cleanly():
+    engine = Engine()
+    scene = UrsinaScene(engine)
+    battle = BattleSetup(random.Random(22)).create()
+    scene.bind(SimpleNamespace(battle=battle))
+    scene.show_ships(battle.ships)
+    token = ActionToken(battle.generation, 7)
+    target = battle.ships[0].orientation.rotated(RotationAxis.Z, 1)
+    callbacks = []
+    entity = scene.ship_entities[Player.ONE]
+    original_visual = entity.rotation
+
+    scene.start_rotation(
+        Player.ONE,
+        target,
+        token,
+        lambda action, lifecycle: callbacks.append((action, lifecycle)),
+    )
+    scene.update(.15)
+    assert entity.rotation != original_visual
+    scene.update(.15)
+    assert entity.rotation == target.euler_degrees
+    assert callbacks == [(token, Lifecycle.COMPLETED)]
+
+    alternate = target.rotated(RotationAxis.X, 1)
+    scene.start_rotation(Player.ONE, alternate, ActionToken(battle.generation, 8), lambda *_: None)
+    scene.cleanup_rotation(ActionToken(battle.generation, 8))
+    assert entity.rotation == original_visual
+    assert isinstance(battle.ships[0].orientation, Orientation)

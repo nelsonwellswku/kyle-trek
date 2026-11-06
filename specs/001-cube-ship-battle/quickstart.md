@@ -1,12 +1,19 @@
 # Quickstart and Validation
 
-Setup, inspection, movement, combat and End turn are implemented. Ship rotation and restart remain implementation targets; manual full-board inspection and real-display movement/combat timing acceptance are still outstanding. See `tasks.md` for progress.
+Setup, inspection, movement, combat, ship rotation and restart are implemented. Automated cancellation and rotation coverage is available; manual full-board inspection, real-display interruption checks, and movement/combat timing acceptance remain outstanding. See `tasks.md` for progress.
 
 ## Prerequisites and setup
 
 - Python 3.12, [uv](https://docs.astral.sh/uv/), and a Linux graphical desktop with working 3D acceleration.
-- From the repository root, run `uv sync`, then `uv run python -m kyle_trek`.
-- Run automated tests with `uv run pytest`. Commit `uv.lock` and use `uv sync --locked` to reproduce the resolved environment once the lockfile exists.
+- From the repository root, run `uv sync --locked`, then `uv run python -m kyle_trek`.
+- Run automated tests with `uv run pytest`.
+
+## Controls
+
+- Press **1–5** to select a Z layer; use the **arrow keys** to orbit the camera.
+- Press **x/y/z** to rotate the active ship +90° around an axis, or **Shift+x/y/z** for −90°.
+- Use the persistent **New game** button to restart during any phase, animation, or after victory.
+- Hover cells to inspect them, left-click legal destinations to move, click the opposing ship to attack, and use **Skip movement** or **End turn** when shown.
 
 ## Performance acceptance protocol
 

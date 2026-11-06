@@ -50,6 +50,7 @@ class CombatController:
         on_change: Callable[[], None] = lambda: None,
         on_error: Callable[[str], None] = lambda message: None,
         timeout_seconds: float = 1.5,
+        input_locked: Callable[[], bool] = lambda: False,
     ):
         if not isinstance(battle, Battle):
             raise ValueError("combat controller requires a battle")
@@ -62,6 +63,7 @@ class CombatController:
         self.scheduler = scheduler
         self.on_change = on_change
         self.on_error = on_error
+        self.input_locked = input_locked
         self.timeout_seconds = timeout_seconds
         self._next_action = 0
         self._pending: _PendingAttack | None = None
@@ -70,6 +72,7 @@ class CombatController:
     def attack(self, target: Cell) -> bool:
         if (
             self._disposed
+            or self.input_locked()
             or not isinstance(target, Cell)
             or self.battle.phase is not Phase.ATTACK_CHOICE
             or self.battle.winner is not None
@@ -105,7 +108,7 @@ class CombatController:
         return True
 
     def end_turn(self) -> bool:
-        if self._disposed or self.battle.phase is not Phase.ATTACK_CHOICE or self.battle.winner is not None:
+        if self._disposed or self.input_locked() or self.battle.phase is not Phase.ATTACK_CHOICE or self.battle.winner is not None:
             return False
         self.battle.active_player = Player.TWO if self.battle.active_player is Player.ONE else Player.ONE
         self.battle.phase = Phase.MOVEMENT

@@ -83,3 +83,13 @@ class Battle:
         if not 0 <= hp <= ship.starting_hp:
             raise ValueError("hit points must remain between zero and starting hit points")
         self._ships = tuple(replace(current, hp=hp) if current.player is player else current for current in self.ships)
+
+    def set_ship_orientation(self, player: Player, orientation: Orientation) -> None:
+        if not isinstance(player, Player) or not isinstance(orientation, Orientation):
+            raise ValueError("orientation updates require a player and discrete orientation")
+        if not any(ship.player is player for ship in self.ships):
+            raise ValueError("ship owner is not part of this battle")
+        self._ships = tuple(
+            replace(ship, orientation=orientation) if ship.player is player else ship
+            for ship in self.ships
+        )

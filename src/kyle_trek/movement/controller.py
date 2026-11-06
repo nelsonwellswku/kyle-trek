@@ -50,6 +50,7 @@ class MovementController:
         on_error: Callable[[str], None] = lambda message: None,
         timeout_seconds: float = 1.5,
         planner: FlightPlanner | None = None,
+        input_locked: Callable[[], bool] = lambda: False,
     ) -> None:
         if not isinstance(battle, Battle):
             raise ValueError("movement controller requires a battle")
@@ -61,6 +62,7 @@ class MovementController:
         self.scheduler = scheduler
         self.on_change = on_change
         self.on_error = on_error
+        self.input_locked = input_locked
         self.timeout_seconds = timeout_seconds
         self.planner = planner or FlightPlanner(duration=min(0.8, timeout_seconds * 0.7))
         self.reachability = MovementReachability()
@@ -83,6 +85,7 @@ class MovementController:
     def select_cell(self, cell: Cell, button: str = "left") -> bool:
         if (
             self._disposed
+            or self.input_locked()
             or button != "left"
             or not isinstance(cell, Cell)
             or self.battle.phase is not Phase.MOVEMENT
@@ -126,7 +129,7 @@ class MovementController:
         return True
 
     def skip_movement(self) -> bool:
-        if self._disposed or self.battle.phase is not Phase.MOVEMENT or self.legal_destinations:
+        if self._disposed or self.input_locked() or self.battle.phase is not Phase.MOVEMENT or self.legal_destinations:
             return False
         self.battle.phase = Phase.ATTACK_CHOICE
         self._notify_change()
